@@ -112,6 +112,16 @@ npm run remind:dry -- --now 2026-10-19T09:00    # local time in your Settings ti
 npm run remind:dry -- --now 2026-11-17T09:00 --db ./scratch.db
 ```
 
+## Deadlines
+
+The Deadlines page lists every dated deadline: opportunities that state one, the programs'
+expected windows (marked "Expected, unconfirmed") and deadlines you add by hand with **Add
+deadline**. Switch between a list and a month calendar. **Due soon** shows what needs attention in
+the next 14 days, including follow-ups; **Snooze** brings an item back tomorrow and **Done** stops
+its reminders (Undo right after). **Export .ics** saves the upcoming dates as a calendar file you
+can import into Google Calendar or a phone calendar; each date has a reminder the day before, and
+importing again updates the events instead of duplicating them.
+
 ## Pipeline
 
 The Pipeline page tracks outreach from Not started to Offer. **Add entry** creates a row for any

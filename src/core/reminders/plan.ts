@@ -14,7 +14,7 @@ export const FOLLOWUP_DAYS = [7, 14] as const;
 /** Local hour at which day-based reminders are due. */
 export const REMINDER_HOUR = 9;
 
-export type TargetType = 'opportunity' | 'program' | 'pipeline';
+export type TargetType = 'opportunity' | 'program' | 'pipeline' | 'manual';
 export type ReminderKind =
   | 'deadline_t30'
   | 'deadline_t14'
@@ -62,6 +62,8 @@ export interface PlanningState {
   opportunities: readonly TrackedOpportunity[];
   programs: readonly TrackedProgram[];
   pipeline: readonly TrackedPipelineRow[];
+  /** Deadlines added by hand: always reminded. Optional so older callers keep working. */
+  manual?: readonly { id: number; deadline_at: string }[];
 }
 
 /** 09:00 local on the day `days` away from `from` (negative = before). */
@@ -124,6 +126,9 @@ export function canonicalReminders(state: PlanningState, timeZone: string): Plan
       out.push(...deadlineReminders('program', p.id, p.expected_deadline_at, timeZone));
     }
   }
+  for (const m of state.manual ?? []) {
+    out.push(...deadlineReminders('manual', m.id, m.deadline_at, timeZone));
+  }
   for (const r of state.pipeline) {
     if (!r.sent_at) continue;
     const [f1, f2] = followupDates(r.sent_at, timeZone);
@@ -151,9 +156,15 @@ export const reminderKey = (
   r: Pick<PlannedReminder, 'target_type' | 'target_id' | 'kind' | 'due_at'>,
 ) => `${r.target_type}:${r.target_id}:${r.kind}:${r.due_at}`;
 
-/** Reminder families for the catch-up rule: deadline offsets, and "window opens soon". */
+/** Reminder families for the catch-up rule: deadline offsets, "window opens soon", follow-ups. */
 export const reminderFamily = (kind: string) =>
-  isDeadlineKind(kind) ? 'deadline' : kind === 'opens_soon' ? 'opens' : null;
+  isDeadlineKind(kind)
+    ? 'deadline'
+    : kind === 'opens_soon'
+      ? 'opens'
+      : kind.startsWith('followup_')
+        ? 'followup'
+        : null;
 
 /**
  * Which canonical reminders to insert now: the future ones, plus a catch-up for a target that
@@ -184,6 +195,11 @@ export function remindersToInsert(
       // Only while the window has not opened yet.
       const opensMs = new Date(latest.due_at).getTime() + OPENS_SOON_DAYS * 86_400_000;
       if (nowMs < opensMs) out.push(latest);
+      continue;
+    }
+    if (latest.kind.startsWith('followup_')) {
+      // Planned only while the row still waits for an answer, so a late one is still due.
+      out.push(latest);
       continue;
     }
     // T-0 is due at 09:00 on the deadline day; the deadline itself is the end of that day.

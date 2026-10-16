@@ -16,6 +16,16 @@ import {
   updatePipelineRow,
 } from '../core/db/pipeline';
 import { importPipelineCsv } from '../core/pipeline/import';
+import { toIcs } from '../core/deadlines/ics';
+import {
+  addManualDeadline,
+  listDeadlines,
+  markTargetDone,
+  removeManualDeadline,
+  snoozeTarget,
+  undoDone,
+} from '../core/deadlines/list';
+import { markReminderDone, snoozeReminder } from '../core/reminders/store';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
@@ -34,6 +44,13 @@ import {
   pipelineCreatePayloadSchema,
   pipelineUpdatePayloadSchema,
   pipelineImportCsvPayloadSchema,
+  deadlinesListPayloadSchema,
+  deadlinesAddPayloadSchema,
+  deadlinesRemovePayloadSchema,
+  deadlinesSnoozePayloadSchema,
+  deadlinesDonePayloadSchema,
+  deadlinesUndoDonePayloadSchema,
+  deadlinesExportIcsPayloadSchema,
   scanRunPayloadSchema,
   scanStatusPayloadSchema,
   settingsGetAllPayloadSchema,
@@ -62,6 +79,8 @@ export interface IpcDeps {
   readTextFile?: (path: string) => string;
   /** Called after the pipeline changed (e.g. to plan follow-up reminders right away). */
   onPipelineChanged?: () => void;
+  /** Native "save file" dialog; writes the text and resolves to the path, or null when cancelled. */
+  saveTextFile?: (suggestedName: string, contents: string) => Promise<string | null>;
   now?: () => Date;
 }
 
@@ -176,6 +195,44 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     );
     deps.onPipelineChanged?.();
     return { ...result, file };
+  });
+
+  handle(ipcMain, C.deadlinesList, deadlinesListPayloadSchema, () => listDeadlines(db, now()));
+
+  handle(ipcMain, C.deadlinesAdd, deadlinesAddPayloadSchema, ({ deadline }) => {
+    const id = addManualDeadline(db, deadline, getSetting(db, 'timezone'), now());
+    deps.onPipelineChanged?.(); // plans its reminders right away
+    return id;
+  });
+
+  handle(ipcMain, C.deadlinesRemove, deadlinesRemovePayloadSchema, ({ id }) =>
+    removeManualDeadline(db, id),
+  );
+
+  handle(ipcMain, C.deadlinesSnooze, deadlinesSnoozePayloadSchema, ({ target, until }) => {
+    if (target.kind === 'reminder') snoozeReminder(db, target.id, new Date(until));
+    else snoozeTarget(db, target.type, target.id, new Date(until), now());
+  });
+
+  handle(ipcMain, C.deadlinesDone, deadlinesDonePayloadSchema, ({ target }) => {
+    if (target.kind === 'target') return markTargetDone(db, target.type, target.id, now());
+    markReminderDone(db, target.id, now());
+    return [target.id];
+  });
+
+  handle(ipcMain, C.deadlinesUndoDone, deadlinesUndoDonePayloadSchema, ({ ids }) =>
+    undoDone(db, ids),
+  );
+
+  handle(ipcMain, C.deadlinesExportIcs, deadlinesExportIcsPayloadSchema, async () => {
+    if (!deps.saveTextFile) throw new Error('Export is not available');
+    const at = now();
+    const timeZone = getSetting(db, 'timezone');
+    // Upcoming only, from a day back so a deadline that ends tonight is included.
+    const from = at.getTime() - 86_400_000;
+    const events = listDeadlines(db, at).events.filter((e) => new Date(e.at).getTime() >= from);
+    const file = await deps.saveTextFile('radar-deadlines.ics', toIcs(events, timeZone, at));
+    return file ? { file, count: events.length } : null;
   });
 
   handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));

@@ -23,7 +23,7 @@ import { isQuietTime } from './quiet';
 
 export const reminderRowSchema = z.object({
   id: z.int(),
-  target_type: z.enum(['opportunity', 'program', 'pipeline']),
+  target_type: z.enum(['opportunity', 'program', 'pipeline', 'manual']),
   target_id: z.int(),
   due_at: utcTimestampSchema,
   kind: z.string(),
@@ -87,7 +87,11 @@ export function loadPlanningState(db: Database.Database): PlanningState {
         })
         .parse(r),
     );
-  return { opportunities, programs, pipeline };
+  const manual = db
+    .prepare('SELECT id, deadline_at FROM manual_deadlines')
+    .all()
+    .map((r) => z.object({ id: z.int(), deadline_at: utcTimestampSchema }).parse(r));
+  return { opportunities, programs, pipeline, manual };
 }
 
 export interface SyncResult {
@@ -199,6 +203,17 @@ export function describeReminder(
     return {
       title: `${daysPhrase(days)}: ${o.title}`,
       body: `${o.org} · closes ${fmtDay(o.deadline_at, timeZone)}`,
+    };
+  }
+  if (r.target_type === 'manual') {
+    const m = db
+      .prepare('SELECT title, org, deadline_at FROM manual_deadlines WHERE id = ?')
+      .get(r.target_id) as { title: string; org: string | null; deadline_at: string } | undefined;
+    if (!m) return null;
+    const days = localDaysBetween(now, new Date(m.deadline_at), timeZone);
+    return {
+      title: `${daysPhrase(days)}: ${m.title}`,
+      body: `${m.org ? `${m.org} · ` : ''}${fmtDay(m.deadline_at, timeZone)}`,
     };
   }
   if (r.target_type === 'program') {

@@ -35,6 +35,15 @@ const api: RadarApi = {
     update: (id, patch) => ipcRenderer.invoke(C.pipelineUpdate, { id, patch }),
     importCsv: () => ipcRenderer.invoke(C.pipelineImportCsv),
   },
+  deadlines: {
+    list: () => ipcRenderer.invoke(C.deadlinesList),
+    add: (deadline) => ipcRenderer.invoke(C.deadlinesAdd, { deadline }),
+    remove: (id) => ipcRenderer.invoke(C.deadlinesRemove, { id }),
+    snooze: (target, until) => ipcRenderer.invoke(C.deadlinesSnooze, { target, until }),
+    done: (target) => ipcRenderer.invoke(C.deadlinesDone, { target }),
+    undoDone: (ids) => ipcRenderer.invoke(C.deadlinesUndoDone, { ids }),
+    exportIcs: () => ipcRenderer.invoke(C.deadlinesExportIcs),
+  },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),
     status: () => ipcRenderer.invoke(C.scanStatus),

@@ -12,7 +12,7 @@ import {
   Tray,
   type BrowserWindowConstructorOptions,
 } from 'electron';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { syncReminders } from '../core/reminders/store';
 import { release, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -340,6 +340,20 @@ function start(): void {
         return r.canceled ? null : (r.filePaths[0] ?? null);
       },
       readTextFile: (path) => readFileSync(path, 'utf8'),
+      saveTextFile: async (suggestedName, contents) => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = {
+          title: 'Export deadlines',
+          defaultPath: join(app.getPath('downloads'), suggestedName),
+          filters: [{ name: 'Calendar', extensions: ['ics'] }],
+        };
+        const r = win
+          ? await dialog.showSaveDialog(win, options)
+          : await dialog.showSaveDialog(options);
+        if (r.canceled || !r.filePath) return null;
+        writeFileSync(r.filePath, contents, 'utf8');
+        return r.filePath;
+      },
       onPipelineChanged: () => {
         try {
           syncReminders(database, new Date(), getSetting(database, 'timezone'));

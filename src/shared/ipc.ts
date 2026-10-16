@@ -10,6 +10,14 @@ import {
   type PipelineStatus,
 } from '../core/db/pipeline';
 import type { ImportResult } from '../core/pipeline/import';
+import {
+  deadlineTargetSchema,
+  manualDeadlineInputSchema,
+  type DeadlineEvent,
+  type DeadlinesView,
+  type DueFollowup,
+  type ManualDeadlineInput,
+} from '../core/deadlines/list';
 import type { RunRow } from '../core/db/runs';
 import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas';
 import type { ScanSummary, SourceOutcome } from '../core/runner';
@@ -32,6 +40,13 @@ export const IPC_CHANNELS = {
   pipelineCreate: 'pipeline:create',
   pipelineUpdate: 'pipeline:update',
   pipelineImportCsv: 'pipeline:import-csv',
+  deadlinesList: 'deadlines:list',
+  deadlinesAdd: 'deadlines:add',
+  deadlinesRemove: 'deadlines:remove',
+  deadlinesSnooze: 'deadlines:snooze',
+  deadlinesDone: 'deadlines:done',
+  deadlinesUndoDone: 'deadlines:undo-done',
+  deadlinesExportIcs: 'deadlines:export-ics',
   devLoadSample: 'dev:load-sample',
   devClearSample: 'dev:clear-sample',
   scanRun: 'scan:run',
@@ -85,6 +100,22 @@ export const pipelineUpdatePayloadSchema = z.strictObject({
   patch: pipelinePatchSchema,
 });
 export const pipelineImportCsvPayloadSchema = noPayload;
+export const deadlinesListPayloadSchema = noPayload;
+export const deadlinesAddPayloadSchema = z.strictObject({ deadline: manualDeadlineInputSchema });
+export const deadlinesRemovePayloadSchema = z.strictObject({ id: z.int().positive() });
+/** A deadline item (all its reminders), or one follow-up reminder. */
+export const reminderTargetSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('target'), type: deadlineTargetSchema, id: z.int().positive() }),
+  z.strictObject({ kind: z.literal('reminder'), id: z.int().positive() }),
+]);
+export type ReminderTarget = z.output<typeof reminderTargetSchema>;
+export const deadlinesSnoozePayloadSchema = z.strictObject({
+  target: reminderTargetSchema,
+  until: z.iso.datetime(),
+});
+export const deadlinesDonePayloadSchema = z.strictObject({ target: reminderTargetSchema });
+export const deadlinesUndoDonePayloadSchema = z.strictObject({ ids: idsSchema });
+export const deadlinesExportIcsPayloadSchema = noPayload;
 export const devPayloadSchema = noPayload;
 export const scanRunPayloadSchema = z
   .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
@@ -102,8 +133,15 @@ export interface WindowInfo {
 /** Result of "Import CSV": null when the file dialog was cancelled. */
 export type PipelineImport = (ImportResult & { file: string }) | null;
 
+/** Result of "Export .ics": null when the save dialog was cancelled. */
+export type IcsExport = { file: string; count: number } | null;
+
 export type {
   AddToPipelineResult,
+  DeadlineEvent,
+  DeadlinesView,
+  DueFollowup,
+  ManualDeadlineInput,
   ImportResult,
   PipelineItem,
   PipelineNew,
@@ -164,6 +202,20 @@ export interface RadarApi {
     update(id: number, patch: PipelinePatch): Promise<PipelineItem>;
     /** Asks for a CSV file (native dialog) and imports it; null when cancelled. */
     importCsv(): Promise<PipelineImport>;
+  };
+  deadlines: {
+    /** Every dated deadline and expected window, plus follow-ups that are due. */
+    list(): Promise<DeadlinesView>;
+    /** Adds a manual deadline (reminded like a starred one); returns its id. */
+    add(deadline: ManualDeadlineInput): Promise<number>;
+    remove(id: number): Promise<number>;
+    /** Brings the item back later; it leaves "Due soon" until then. */
+    snooze(target: ReminderTarget, until: string): Promise<void>;
+    /** No more reminders for it; returns reminder ids for Undo. */
+    done(target: ReminderTarget): Promise<number[]>;
+    undoDone(ids: number[]): Promise<number>;
+    /** Saves upcoming deadlines as an .ics file (native save dialog); null when cancelled. */
+    exportIcs(): Promise<IcsExport>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

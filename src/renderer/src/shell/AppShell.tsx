@@ -18,6 +18,7 @@ import {
 } from '../lib/router';
 import { shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
+import { DeadlinesPage } from '../pages/deadlines/DeadlinesPage';
 import { PipelinePage } from '../pages/pipeline/PipelinePage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SettingsPage } from '../pages/SettingsPage';
@@ -37,6 +38,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
     return <OpportunitiesPage query={query} isPackaged={info?.isPackaged ?? true} />;
   }
   if (route === 'pipeline') return <PipelinePage />;
+  if (route === 'deadlines') return <DeadlinesPage />;
   if (route === 'settings') return <SettingsPage isPackaged={info?.isPackaged ?? true} />;
   if (route === 'components') {
     return (

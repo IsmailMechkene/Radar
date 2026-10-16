@@ -3,6 +3,7 @@ import { sql as opportunityState } from './002_opportunity_state';
 import { sql as sourceIdentity } from './003_source_identity';
 import { sql as deadlinesReminders } from './004_deadlines_reminders';
 import { sql as pipelineRole } from './005_pipeline_role';
+import { sql as manualDeadlines } from './006_manual_deadlines';
 
 export interface Migration {
   version: number;
@@ -17,4 +18,5 @@ export const migrations: readonly Migration[] = [
   { version: 3, name: 'source_identity', sql: sourceIdentity },
   { version: 4, name: 'deadlines_reminders', sql: deadlinesReminders },
   { version: 5, name: 'pipeline_role', sql: pipelineRole },
+  { version: 6, name: 'manual_deadlines', sql: manualDeadlines },
 ];
