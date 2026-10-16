@@ -1,0 +1,359 @@
+{
+  "version": 1,
+  "thresholds": {
+    "apply": 65,
+    "maybe": 40
+  },
+  "role": {
+    "max": 30,
+    "rolesOfInterestPoints": 30,
+    "groups": [
+      {
+        "label": "AI/ML title",
+        "points": 28,
+        "terms": [
+          "machine learning",
+          "ml",
+          "ai",
+          "ia",
+          "artificial intelligence",
+          "deep learning",
+          "llm",
+          "llms",
+          "nlp",
+          "computer vision",
+          "applied scientist",
+          "research engineer",
+          "research scientist",
+          "data scientist",
+          "mlops",
+          "genai",
+          "generative ai",
+          "reinforcement learning",
+          "intelligence artificielle",
+          "apprentissage automatique",
+          "research intern",
+          "research internship",
+          "research internships"
+        ]
+      },
+      {
+        "label": "Software title",
+        "points": 22,
+        "terms": [
+          "backend",
+          "back-end",
+          "back end",
+          "full-stack",
+          "fullstack",
+          "full stack",
+          "software engineer",
+          "software engineering",
+          "software developer",
+          "platform engineer",
+          "développeur",
+          "ingénieur logiciel",
+          "softwareentwickler"
+        ]
+      },
+      {
+        "label": "Engineering title",
+        "points": 12,
+        "terms": [
+          "data engineer",
+          "data engineering",
+          "frontend",
+          "front-end",
+          "devops",
+          "cloud",
+          "developer",
+          "engineer",
+          "engineering",
+          "ingénieur",
+          "entwickler",
+          "informatik"
+        ]
+      }
+    ]
+  },
+  "stack": {
+    "max": 15,
+    "pointsEach": 3,
+    "terms": [
+      "python",
+      "typescript",
+      "javascript",
+      "fastapi",
+      "node",
+      "node.js",
+      "react",
+      "pytorch",
+      "tensorflow",
+      "jax",
+      "llm",
+      "llms",
+      "rag",
+      "postgres",
+      "postgresql",
+      "sql",
+      "docker",
+      "kubernetes",
+      "transformers",
+      "hugging face"
+    ]
+  },
+  "student": {
+    "max": 20,
+    "typePoints": {
+      "internship": 16,
+      "pfe": 18,
+      "program": 16,
+      "junior": 6,
+      "fulltime": 0
+    },
+    "termPoints": 4,
+    "terms": [
+      "summer 2027",
+      "2027",
+      "8 weeks",
+      "2 months",
+      "two months",
+      "2 mois",
+      "deux mois",
+      "student",
+      "students",
+      "étudiant",
+      "étudiante",
+      "summer internship",
+      "stage d’été",
+      "stage d'été"
+    ]
+  },
+  "location": {
+    "max": 10,
+    "regionPoints": 5,
+    "workplacePoints": 3,
+    "languagePoints": {
+      "en": 2,
+      "fr": 1
+    }
+  },
+  "regions": {
+    "Europe": [
+      "europe",
+      "eu",
+      "emea",
+      "france",
+      "paris",
+      "lyon",
+      "germany",
+      "berlin",
+      "munich",
+      "hamburg",
+      "cologne",
+      "netherlands",
+      "amsterdam",
+      "united kingdom",
+      "uk",
+      "london",
+      "switzerland",
+      "zurich",
+      "spain",
+      "madrid",
+      "barcelona",
+      "belgium",
+      "brussels",
+      "ireland",
+      "dublin",
+      "sweden",
+      "stockholm",
+      "poland",
+      "warsaw",
+      "austria",
+      "vienna",
+      "linz",
+      "italy",
+      "milan",
+      "portugal",
+      "lisbon",
+      "denmark",
+      "copenhagen",
+      "norway",
+      "oslo",
+      "finland",
+      "helsinki"
+    ],
+    "Middle East": [
+      "middle east",
+      "uae",
+      "united arab emirates",
+      "abu dhabi",
+      "dubai",
+      "saudi arabia",
+      "riyadh",
+      "thuwal",
+      "qatar",
+      "doha"
+    ],
+    "North America": [
+      "north america",
+      "united states",
+      "usa",
+      "us",
+      "canada",
+      "toronto",
+      "montreal",
+      "vancouver",
+      "new york",
+      "san francisco",
+      "palo alto",
+      "seattle",
+      "boston"
+    ],
+    "Tunisia": ["tunisia", "tunisie", "tunis", "sfax", "sousse", "ariana"],
+    "Remote": ["remote", "anywhere", "worldwide", "werken op afstand"]
+  },
+  "visa": {
+    "points": 10,
+    "terms": [
+      "visa sponsorship",
+      "sponsor visas",
+      "sponsor your visa",
+      "we sponsor",
+      "visa support",
+      "visa assistance",
+      "work permit support",
+      "relocation support",
+      "relocation package",
+      "relocation assistance",
+      "international students",
+      "international applicants welcome"
+    ]
+  },
+  "watchlist": {
+    "points": 5,
+    "orgs": [
+      "Hugging Face",
+      "Mistral AI",
+      "Cohere",
+      "DeepL",
+      "Photoroom",
+      "Weaviate",
+      "InstaDeep",
+      "Entrelacs",
+      "MBZUAI",
+      "KAUST",
+      "IAESTE Tunisia",
+      "Google Summer of Code"
+    ]
+  },
+  "fresh": {
+    "points": 5,
+    "days": 14
+  },
+  "deadline": {
+    "points": 5,
+    "minDaysAway": 14
+  },
+  "penalties": {
+    "max": 40,
+    "seniorTitle": {
+      "points": -25,
+      "terms": [
+        "senior",
+        "sr",
+        "staff",
+        "principal",
+        "lead",
+        "manager",
+        "director",
+        "head of",
+        "vp",
+        "vice president",
+        "chief"
+      ]
+    },
+    "experience": {
+      "points": -10,
+      "terms": [
+        "5+ years",
+        "5 years of experience",
+        "6+ years",
+        "7+ years",
+        "8+ years",
+        "10+ years",
+        "phd required"
+      ]
+    },
+    "language": {
+      "points": -25,
+      "spoken": ["english", "french", "arabic"],
+      "otherLanguagePostingPoints": -10
+    },
+    "notRemote": {
+      "points": -15
+    }
+  },
+  "hardFilters": {
+    "titleExcludes": [
+      "senior",
+      "sr",
+      "staff",
+      "principal",
+      "lead",
+      "manager",
+      "director",
+      "head of",
+      "vp",
+      "vice president",
+      "chief",
+      "5+ years",
+      "phd required"
+    ],
+    "allowedInStudentTitles": ["lead", "manager"],
+    "studentTypes": ["internship", "pfe", "program"]
+  },
+  "eligibility": {
+    "workAuthLock": [
+      "us persons only",
+      "u.s. persons only",
+      "us citizens only",
+      "u.s. citizens only",
+      "us citizenship required",
+      "eu citizens only",
+      "citizens only",
+      "security clearance",
+      "active clearance",
+      "will not sponsor",
+      "won't sponsor",
+      "unable to sponsor",
+      "not able to sponsor",
+      "no visa sponsorship",
+      "without visa sponsorship",
+      "does not sponsor",
+      "do not sponsor",
+      "not offer visa sponsorship"
+    ],
+    "workAuthAmbiguous": [
+      "must be authorized to work",
+      "authorized to work in",
+      "authorization to work in",
+      "right to work in",
+      "eligible to work in",
+      "legally authorized",
+      "existing work permit",
+      "valid work permit",
+      "work permit required",
+      "require a work permit",
+      "must hold a work permit",
+      "eu citizenship"
+    ],
+    "agreementTerms": [
+      "convention de stage",
+      "internship agreement",
+      "signed agreement from your school",
+      "currently enrolled",
+      "must be enrolled"
+    ]
+  }
+}

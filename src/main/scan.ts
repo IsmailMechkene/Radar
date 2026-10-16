@@ -13,6 +13,8 @@ export interface ScanServiceDeps {
   now?: () => Date;
   onProgress?: (p: ScanProgress) => void;
   onFinished?: (s: ScanSummary) => void;
+  /** Runs after storing and before onFinished (re-scoring), so listeners see scored rows. */
+  afterScan?: () => void;
 }
 
 export function createScanService(deps: ScanServiceDeps) {
@@ -38,6 +40,7 @@ export function createScanService(deps: ScanServiceDeps) {
           now: deps.now,
           onSource: (outcome, done, total) => deps.onProgress?.({ outcome, done, total }),
         });
+        deps.afterScan?.();
         deps.onFinished?.(summary);
         return summary;
       } finally {

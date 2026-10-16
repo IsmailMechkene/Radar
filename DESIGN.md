@@ -209,7 +209,7 @@ Shell pieces (`src/renderer/src/shell`): `Sidebar` (brand, nav, scan card), `Sca
 
 Built from the design's `opportunities` screen (`src/renderer/src/pages/opportunities/`). Top to bottom:
 
-1. **Header:** `PageTitle` ("Opportunities", subtitle "N open · N new since <weekday> · sorted by <sort>") and the sort button (secondary, arrow-down-up, `OptionMenu`: Score, Deadline, Newest, Posted).
+1. **Header:** `PageTitle` ("Opportunities", subtitle "N open · N new since <weekday> · sorted by <sort>") and the sort button (secondary, arrow-down-up, `OptionMenu`: Score, Deadline, Newest, Posted). Score sort puts Skip rows last, whatever their score.
 2. **New since your last visit:** eyebrow (11/600 caps) and the last-visit time; cards in 5 columns (3 below 1200 px), radius 14, 14 px padding, `card` shadow, hover lifts 2 px to `pop`. A card holds OrgAvatar `sm`, ScoreRing `card`, a 14/600 title clamped to 2 lines, "org · location", MetaChip + VerdictBadge `sm`, and a hairline footer with the long deadline label. "See all N" filters to new items. Items first seen after the previous visit are new (first visit: the last 3 days); the marker advances once per session.
 3. **Saved views:** tab bar (fill track, radius 10, 26 px tabs, 12.5/500, count in 11 px tertiary): All, Strong matches (verdict Apply), Closing soon (≤ 14 days), Remote, Starred. ←/→ move.
 4. **Filters:** FilterPills Verdict, Score, Remote, Location, Deadline, Source (plus "New since last visit" when active), "Clear all", result count right-aligned.

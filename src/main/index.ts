@@ -17,7 +17,11 @@ import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
 import { createHttpClient } from '../core/http/client';
-import { getSetting, seedDefaultSettings } from '../core/settings/store';
+import { compileRules, type CompiledRules } from '../core/rules/engine';
+import { profileFromSettings, SCORING_SETTING_KEYS } from '../core/rules/profile';
+import { rescoreAll } from '../core/rules/rescore';
+import { parseRules } from '../core/rules/schema';
+import { getAllSettings, getSetting, seedDefaultSettings } from '../core/settings/store';
 import { parseSeedSources } from '../core/sources/seeds';
 import { syncSeedSources } from '../core/sources/sync';
 import { IPC_EVENTS, type WindowInfo } from '../shared/ipc';
@@ -167,6 +171,36 @@ function installMenu(): void {
   );
 }
 
+/** Loads seeds/rules.json. A broken file is reported and scoring is skipped, never fatal. */
+function loadRules(): CompiledRules | null {
+  try {
+    const raw = JSON.parse(readFileSync(join(app.getAppPath(), 'seeds', 'rules.json'), 'utf8'));
+    return compileRules(parseRules(raw));
+  } catch (err) {
+    console.error('[radar] could not load seeds/rules.json; scores are not updated:', err);
+    return null;
+  }
+}
+
+/** Re-scores every stored (non-sample) opportunity with the current rules and settings. */
+function rescore(database: Database.Database, rules: CompiledRules | null, why: string): void {
+  if (!rules) return;
+  try {
+    const r = rescoreAll(
+      database,
+      rules,
+      profileFromSettings(getAllSettings(database)),
+      new Date(),
+    );
+    const v = r.byVerdict;
+    console.log(
+      `[radar] re-scored ${r.scored} (${why}): ${v.apply} apply, ${v.maybe} maybe, ${v.needs_review} needs review, ${v.skip} skip`,
+    );
+  } catch (err) {
+    console.error(`[radar] re-scoring failed (${why}):`, err);
+  }
+}
+
 /** Loads seeds/sources.json into the database. A broken file is reported, never fatal. */
 function syncSeeds(database: Database.Database): void {
   try {
@@ -199,10 +233,13 @@ function start(): void {
     );
     nativeTheme.themeSource = getSetting(database, 'theme');
     syncSeeds(database);
+    const rules = loadRules();
+    rescore(database, rules, 'startup');
     const scan = createScanService({
       db: database,
       http: createHttpClient(),
       onProgress: (p) => broadcast(IPC_EVENTS.scanProgress, p),
+      afterScan: () => rescore(database, rules, 'after scan'),
       onFinished: (summary) => broadcast(IPC_EVENTS.scanFinished, summary),
     });
     if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
@@ -219,6 +256,11 @@ function start(): void {
           readFileSync(join(app.getAppPath(), 'fixtures', 'sample-opportunities.json'), 'utf8'),
         ) as unknown,
       scan,
+      onSettingChanged: (key) => {
+        if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
+          rescore(database, rules, `setting ${key}`);
+        }
+      },
     });
   } catch (err) {
     fail(`Radar could not open its database (${dbPath})`, err);

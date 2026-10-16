@@ -252,7 +252,14 @@ export function sortItems(items: readonly Item[], sort: SortId): Item[] {
   const out = [...items];
   switch (sort) {
     case 'score':
-      return out.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || byNewest(a, b));
+      // Skipped rows keep their real score for review, but rank after everything else so a
+      // filtered-out job never sits between strong matches.
+      return out.sort(
+        (a, b) =>
+          Number(a.verdict === 'skip') - Number(b.verdict === 'skip') ||
+          (b.score ?? -1) - (a.score ?? -1) ||
+          byNewest(a, b),
+      );
     case 'deadline':
       return out.sort((a, b) => {
         if (a.deadline_at === b.deadline_at) return (b.score ?? -1) - (a.score ?? -1);

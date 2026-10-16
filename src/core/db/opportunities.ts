@@ -178,15 +178,30 @@ export function restoreOpportunities(db: Database.Database, ids: readonly number
 export function applyScore(
   db: Database.Database,
   id: number,
-  result: { score: number; verdict: string; breakdown: ScoreBreakdown },
+  result: {
+    score: number;
+    verdict: string;
+    breakdown: ScoreBreakdown;
+    /** When given (null included), replaces the eligibility notes; omitted keeps them. */
+    eligibilityNotes?: string | null;
+  },
 ): void {
   const verdict = verdictSchema.parse(result.verdict);
   const breakdown = scoreBreakdownSchema.parse(result.breakdown);
   if (!Number.isFinite(result.score)) throw new Error('Score must be a finite number');
-  const changed = db
-    .prepare(
-      'UPDATE opportunities SET score = ?, verdict = ?, score_breakdown_json = ? WHERE id = ?',
-    )
-    .run(result.score, verdict, JSON.stringify(breakdown), id).changes;
+  const changed =
+    result.eligibilityNotes === undefined
+      ? db
+          .prepare(
+            'UPDATE opportunities SET score = ?, verdict = ?, score_breakdown_json = ? WHERE id = ?',
+          )
+          .run(result.score, verdict, JSON.stringify(breakdown), id).changes
+      : db
+          .prepare(
+            `UPDATE opportunities SET score = ?, verdict = ?, score_breakdown_json = ?,
+               eligibility_notes = ? WHERE id = ?`,
+          )
+          .run(result.score, verdict, JSON.stringify(breakdown), result.eligibilityNotes, id)
+          .changes;
   if (changed === 0) throw new Error(`No opportunity with id ${id}`);
 }

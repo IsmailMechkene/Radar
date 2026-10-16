@@ -65,7 +65,7 @@ export function htmlToText(html: string): string {
 // ---------- keyword matching ----------
 
 /** Case-insensitive, accent-tolerant match of whole words or phrases. */
-function wordRegExp(words: readonly string[]): RegExp {
+export function wordRegExp(words: readonly string[]): RegExp {
   const alts = words.map((w) =>
     w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]+'),
   );

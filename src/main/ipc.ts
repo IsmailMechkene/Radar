@@ -44,6 +44,8 @@ export interface IpcDeps {
   /** Reads the dev sample fixture (raw JSON, validated by the loader). */
   readSampleFixture: () => unknown;
   scan: Pick<ScanService, 'run' | 'status'>;
+  /** Called after a setting is stored (e.g. to re-score when a scoring setting changed). */
+  onSettingChanged?: (key: string) => void;
   now?: () => Date;
 }
 
@@ -90,6 +92,7 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     }
     const stored = setSetting(db, key, value);
     if (key === 'theme') applyTheme(settingsSchema.shape.theme.parse(stored));
+    deps.onSettingChanged?.(key);
     return stored;
   });
 

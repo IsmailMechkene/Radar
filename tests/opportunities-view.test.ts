@@ -208,7 +208,17 @@ describe('views, filters, search and sort', () => {
   });
 
   it('sorts by score, deadline, newest; unscored and undated go last', () => {
-    expect(sortItems(items, 'score').map((i) => i.score)).toEqual([92, 62, 22, null]);
+    // Skipped rows (22) rank after everything else, unscored ones included.
+    expect(sortItems(items, 'score').map((i) => i.score)).toEqual([92, 62, null, 22]);
+    const highSkip = { ...items[0]!, id: 999, score: 99, verdict: 'skip' as const };
+    // A skip with a high score still ranks after every non-skipped row, then by score.
+    expect(sortItems([highSkip, ...items], 'score').map((i) => i.score)).toEqual([
+      92,
+      62,
+      null,
+      99,
+      22,
+    ]);
     expect(sortItems(items, 'deadline').map((i) => i.title)).toEqual([
       'Data Intern',
       'ML Engineer Intern',

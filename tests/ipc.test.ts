@@ -34,6 +34,7 @@ describe('IPC handlers', () => {
   let applyTheme: Mock<(theme: ThemePreference) => void>;
   let openExternal: Mock<(url: string) => Promise<void>>;
   let info: WindowInfo;
+  let changed: string[];
   let progress: ScanProgress[];
   let finished: ScanSummary[];
 
@@ -46,6 +47,7 @@ describe('IPC handlers', () => {
     applyTheme = vi.fn<(theme: ThemePreference) => void>();
     openExternal = vi.fn<(url: string) => Promise<void>>(() => Promise.resolve());
     info = { platform: 'win32', isPackaged: false, material: 'none' };
+    changed = [];
     progress = [];
     finished = [];
     // Only the Weaviate board answers (it serves the recorded Cohere payload); everything else,
@@ -74,6 +76,7 @@ describe('IPC handlers', () => {
       openExternal,
       readSampleFixture: fixture,
       scan,
+      onSettingChanged: (key) => changed.push(key),
       now: () => NOW,
     });
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -216,5 +219,13 @@ describe('IPC handlers', () => {
     expect(failed).toMatchObject({ sourcesOk: 0, sourcesFailed: 1 });
     expect(failed.errorSummary).toMatch(/Cohere: .*404/);
     await expect(invoke(IPC_CHANNELS.scanRun, { sources: [] })).rejects.toThrow(/invalid payload/);
+  });
+
+  it('tells main which setting changed (scoring settings trigger a re-score)', async () => {
+    await invoke(IPC_CHANNELS.settingsSet, { key: 'targetRegions', value: ['Europe'] });
+    await expect(
+      invoke(IPC_CHANNELS.settingsSet, { key: 'scanIntervalHours', value: 0 }),
+    ).rejects.toThrow();
+    expect(changed).toEqual(['targetRegions']); // rejected values do not notify
   });
 });

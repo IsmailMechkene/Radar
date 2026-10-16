@@ -2,7 +2,7 @@
 
 A local-first desktop app that searches job boards, company career pages and student programs for internships and jobs abroad, scores the results with plain rules, and shows deadlines when they exist. Everything runs on your machine; data lives in one SQLite file.
 
-Status: early. The app has its window shell, navigation, the Opportunities page (list, filters, detail drawer) and a working Settings page; the other pages are placeholders. Nothing is scanned yet, so Opportunities starts empty. It lives in the system tray.
+Status: early. The app has its window shell, navigation, the Opportunities page (list, filters, detail drawer) and a working Settings page; the other pages are placeholders. Scans fetch real postings, and every posting gets a score and a verdict from plain rules. It lives in the system tray.
 
 UI work follows [DESIGN.md](DESIGN.md).
 
@@ -65,6 +65,20 @@ calls to the same host.
 None of the current sources needs an API key. Sources that do (Adzuna, later) will read their free
 key from environment variables (`ADZUNA_APP_ID`, `ADZUNA_APP_KEY`); keys are never stored in the
 repository.
+
+## Scoring
+
+Every posting gets a score out of 100 and a verdict: **Apply** (65 or more), **Maybe** (40–64),
+**Skip** (below 40, or caught by a hard filter such as a senior title), or **Needs review** when
+eligibility is unclear (work authorization, GPA). The detail drawer lists each signal and its points.
+Keywords, weights and thresholds live in [seeds/rules.json](seeds/rules.json); your role, region
+and remote preferences come from Settings. Postings are re-scored at startup, after every scan and
+when a scoring setting changes. After editing the rules file:
+
+```sh
+npm run rescore                                # re-score the app database
+npm run rescore -- --db ./scratch.db           # another database file
+```
 
 ## Build
 

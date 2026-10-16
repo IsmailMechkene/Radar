@@ -10,17 +10,24 @@ import { migrate } from './core/db/migrate';
 import { openDatabase, resolveDbPath } from './core/db/open';
 import { createHttpClient, HttpError, RobotsDisallowedError } from './core/http/client';
 import { defaultDataDir } from './core/paths';
+import { compileRules } from './core/rules/engine';
+import { profileFromSettings } from './core/rules/profile';
+import { rescoreAll } from './core/rules/rescore';
+import { parseRules } from './core/rules/schema';
 import { runScan } from './core/runner';
+import { getAllSettings, seedDefaultSettings } from './core/settings/store';
 import { findSeedSource, parseSeedSources, type SeedSource } from './core/sources/seeds';
 import { syncSeedSources } from './core/sources/sync';
 
-const COMMANDS = ['scan', 'remind', 'export'] as const;
+const COMMANDS = ['scan', 'rescore', 'remind', 'export'] as const;
 const USAGE = `Usage:
   radar scan [--source <name>]... [--db <file>]
   radar scan --dry --source <name> [--json] [--limit <n>]
+  radar rescore [--db <file>]
   radar <remind|export>   (not implemented yet)
 
-  scan       fetch every enabled source (or only the --source ones) and store the results
+  scan       fetch every enabled source (or only the --source ones), store and score the results
+  rescore    score every stored opportunity again with seeds/rules.json and your settings
   --db       database file (default: the app's own, e.g. %APPDATA%\\radar\\radar.db)
   --dry      fetch and print only; nothing is written to the database
   --source   a source name from seeds/sources.json (repeatable without --dry)
@@ -152,11 +159,39 @@ async function scanDry(args: Args): Promise<number> {
   return 0;
 }
 
-/** Real scan into the app's database (or --db). Seeds are synced first. */
-async function scanLive(args: Args): Promise<number> {
-  const dbPath = args.db
+function dbPathFor(args: Args): string {
+  return args.db
     ? resolve(args.db)
     : resolveDbPath(defaultDataDir(process.platform, process.env, homedir()));
+}
+
+/** Scores every stored opportunity with seeds/rules.json and the stored settings. */
+function rescoreDb(db: ReturnType<typeof openDatabase>): string {
+  const rules = compileRules(
+    parseRules(JSON.parse(readFileSync(resolve(process.cwd(), 'seeds', 'rules.json'), 'utf8'))),
+  );
+  seedDefaultSettings(db);
+  const r = rescoreAll(db, rules, profileFromSettings(getAllSettings(db)), new Date());
+  const v = r.byVerdict;
+  return `Scored ${r.scored}: ${v.apply} apply, ${v.maybe} maybe, ${v.needs_review} needs review, ${v.skip} skip`;
+}
+
+async function rescoreCommand(args: Args): Promise<number> {
+  const dbPath = dbPathFor(args);
+  mkdirSync(dirname(dbPath), { recursive: true });
+  const db = openDatabase(dbPath);
+  try {
+    migrate(db);
+    console.log(rescoreDb(db));
+    return 0;
+  } finally {
+    db.close();
+  }
+}
+
+/** Real scan into the app's database (or --db). Seeds are synced first; results are scored. */
+async function scanLive(args: Args): Promise<number> {
+  const dbPath = dbPathFor(args);
   mkdirSync(dirname(dbPath), { recursive: true });
   const db = openDatabase(dbPath);
   try {
@@ -189,6 +224,7 @@ async function scanLive(args: Args): Promise<number> {
         `${summary.newItems} new`,
     );
     if (summary.errorSummary) console.log(`Problems:\n${summary.errorSummary}`);
+    console.log(rescoreDb(db));
     return summary.sourcesFailed > 0 && summary.sourcesOk === 0 ? 1 : 0;
   } finally {
     db.close();
@@ -204,11 +240,12 @@ async function main(argv: readonly string[]): Promise<number> {
     return 1;
   }
   if (args.command === 'scan') return args.dry ? scanDry(args) : scanLive(args);
+  if (args.command === 'rescore') return rescoreCommand(args);
   if (!args.command || !(COMMANDS as readonly string[]).includes(args.command)) {
     console.error(USAGE);
     return 1;
   }
-  console.error(`radar ${args.command}: not implemented yet (only "scan" works)`);
+  console.error(`radar ${args.command}: not implemented yet (only "scan" and "rescore" work)`);
   return 1;
 }
 
