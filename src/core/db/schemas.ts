@@ -32,6 +32,10 @@ export const sourceRowSchema = z.object({
   last_error: z.string().nullable(),
   consecutive_empty: z.int(),
   created_at: utcTimestampSchema,
+  /** The user's switch on the Sources page (survives seed sync). */
+  paused: sqliteBool,
+  /** Added on the Sources page; only these can be deleted. */
+  added_by_user: sqliteBool,
 });
 export type SourceRow = z.output<typeof sourceRowSchema>;
 

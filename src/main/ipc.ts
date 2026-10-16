@@ -35,6 +35,16 @@ import {
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
 import { navCounts } from '../core/nav';
+import {
+  addSource,
+  adapterSourceFor,
+  adapterSourceOf,
+  deleteSource,
+  listSourceItems,
+  setSourcePaused,
+  type TestResult,
+} from '../core/sources/manage';
+import type { AdapterSource } from '../core/adapters/types';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
@@ -66,6 +76,11 @@ import {
   programsUpdatePayloadSchema,
   programIdPayloadSchema,
   programsMarkReviewedPayloadSchema,
+  sourcesListPayloadSchema,
+  sourcesSetPausedPayloadSchema,
+  sourcesAddPayloadSchema,
+  sourceIdPayloadSchema,
+  sourcesTestPayloadSchema,
   scanRunPayloadSchema,
   scanStatusPayloadSchema,
   settingsGetAllPayloadSchema,
@@ -96,6 +111,8 @@ export interface IpcDeps {
   onRemindersChanged?: () => void;
   /** Fetches a program's watched page now (shared fetch layer). */
   checkProgramPage?: (programId: number) => Promise<PageCheck>;
+  /** Test fetch through the shared fetch layer; stores nothing. */
+  testSource?: (source: AdapterSource) => Promise<TestResult>;
   /** Native "save file" dialog; writes the text and resolves to the path, or null when cancelled. */
   saveTextFile?: (suggestedName: string, contents: string) => Promise<string | null>;
   now?: () => Date;
@@ -284,6 +301,25 @@ export function registerIpcHandlers(deps: IpcDeps): void {
   handle(ipcMain, C.programsMarkReviewed, programsMarkReviewedPayloadSchema, ({ alertId }) =>
     markAlertReviewed(db, alertId, now()),
   );
+
+  handle(ipcMain, C.sourcesList, sourcesListPayloadSchema, () => listSourceItems(db));
+
+  handle(ipcMain, C.sourcesSetPaused, sourcesSetPausedPayloadSchema, ({ id, paused }) =>
+    setSourcePaused(db, id, paused),
+  );
+
+  handle(ipcMain, C.sourcesAdd, sourcesAddPayloadSchema, ({ source }) =>
+    addSource(db, source, now()),
+  );
+
+  handle(ipcMain, C.sourcesDelete, sourceIdPayloadSchema, ({ id }) => deleteSource(db, id));
+
+  handle(ipcMain, C.sourcesTest, sourcesTestPayloadSchema, (target) => {
+    if (!deps.testSource) throw new Error('Test fetch is not available');
+    const source =
+      'id' in target ? adapterSourceOf(db, target.id) : adapterSourceFor(target.source);
+    return deps.testSource(source);
+  });
 
   handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));
 

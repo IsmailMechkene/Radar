@@ -131,6 +131,15 @@ the card turns amber and shows what changed; **Update deadline** lets you enter 
 confirmed, **Mark reviewed** dismisses it. **Check now** fetches the page right away. Once you edit
 a program, your version is kept even when the seed file changes.
 
+## Sources
+
+The Sources page lists every board, feed and page Radar fetches, grouped by type, with its health
+(green healthy, amber nothing found last time, red broken after a failure or 3 empty runs), when it
+last worked, how many open postings it lists and the last error. The switch pauses a source (kept
+across restarts). **Test fetch** fetches it the way a scan would and shows what came back without
+saving anything. **Add source** adds an Ashby job board (paste its jobs.ashbyhq.com link) or a web
+page to watch for changes, with a preview before adding.
+
 ## Pipeline
 
 The Pipeline page tracks outreach from Not started to Offer. **Add entry** creates a row for any

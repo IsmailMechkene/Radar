@@ -28,6 +28,13 @@ import {
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
 import type { NavCounts } from '../core/nav';
+import {
+  newSourceSchema,
+  type NewSource,
+  type SourceHealth,
+  type SourceItem,
+  type TestResult,
+} from '../core/sources/manage';
 import type { RunRow } from '../core/db/runs';
 import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas';
 import type { ScanSummary, SourceOutcome } from '../core/runner';
@@ -64,6 +71,11 @@ export const IPC_CHANNELS = {
   programsDelete: 'programs:delete',
   programsCheck: 'programs:check',
   programsMarkReviewed: 'programs:mark-reviewed',
+  sourcesList: 'sources:list',
+  sourcesSetPaused: 'sources:set-paused',
+  sourcesAdd: 'sources:add',
+  sourcesDelete: 'sources:delete',
+  sourcesTest: 'sources:test',
   devLoadSample: 'dev:load-sample',
   devClearSample: 'dev:clear-sample',
   scanRun: 'scan:run',
@@ -143,6 +155,18 @@ export const programsUpdatePayloadSchema = z.strictObject({
 });
 export const programIdPayloadSchema = z.strictObject({ id: z.int().positive() });
 export const programsMarkReviewedPayloadSchema = z.strictObject({ alertId: z.int().positive() });
+export const sourcesListPayloadSchema = noPayload;
+export const sourcesSetPausedPayloadSchema = z.strictObject({
+  id: z.int().positive(),
+  paused: z.boolean(),
+});
+export const sourcesAddPayloadSchema = z.strictObject({ source: newSourceSchema });
+export const sourceIdPayloadSchema = z.strictObject({ id: z.int().positive() });
+/** Test a stored source by id, or a new one before adding it. */
+export const sourcesTestPayloadSchema = z.union([
+  z.strictObject({ id: z.int().positive() }),
+  z.strictObject({ source: newSourceSchema }),
+]);
 export const devPayloadSchema = noPayload;
 export const scanRunPayloadSchema = z
   .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
@@ -165,6 +189,10 @@ export type IcsExport = { file: string; count: number } | null;
 
 export type {
   NavCounts,
+  NewSource,
+  SourceHealth,
+  SourceItem,
+  TestResult,
   PageCheck,
   ProgramItem,
   ProgramNew,
@@ -263,6 +291,18 @@ export interface RadarApi {
     /** Fetches the program page now (robots.txt and rate limits still apply). */
     check(id: number): Promise<PageCheck>;
     markReviewed(alertId: number): Promise<void>;
+  };
+  sources: {
+    /** Every source with its health and how many open postings it lists. */
+    list(): Promise<SourceItem[]>;
+    /** Pausing survives app restarts; a paused source is skipped by scans and page checks. */
+    setPaused(id: number, paused: boolean): Promise<void>;
+    /** An Ashby job board or a web page to watch. */
+    add(source: NewSource): Promise<SourceItem>;
+    /** Only sources you added that never found anything. */
+    remove(id: number): Promise<number>;
+    /** Fetches like a scan would and stores nothing. */
+    test(target: { id: number } | { source: NewSource }): Promise<TestResult>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

@@ -145,7 +145,9 @@ export interface WatchOptions {
 
 export function watchedPages(db: Database.Database): SourceRow[] {
   return db
-    .prepare('SELECT * FROM sources WHERE kind = ? AND enabled = 1 AND url IS NOT NULL ORDER BY id')
+    .prepare(
+      'SELECT * FROM sources WHERE kind = ? AND enabled = 1 AND paused = 0 AND url IS NOT NULL ORDER BY id',
+    )
     .all(PAGE_KIND)
     .map((r) => sourceRowSchema.parse(r));
 }

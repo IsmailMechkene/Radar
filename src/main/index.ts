@@ -38,6 +38,7 @@ import { createScanService } from './scan';
 import { createScheduler, type Scheduler } from './scheduler';
 import { checkPage, watchPages } from '../core/watch/pages';
 import { getSource } from '../core/db/sources';
+import { testFetch } from '../core/sources/manage';
 import { chooseWindowMaterial } from './window-material';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
@@ -341,12 +342,14 @@ function start(): void {
         return r.canceled ? null : (r.filePaths[0] ?? null);
       },
       readTextFile: (path) => readFileSync(path, 'utf8'),
+      testSource: (source) => testFetch(source, http),
       checkProgramPage: async (programId) => {
         const row = database
           .prepare('SELECT source_id FROM programs WHERE id = ?')
           .get(programId) as { source_id: number | null } | undefined;
         const source = row?.source_id ? getSource(database, row.source_id) : undefined;
         if (!source?.url || !source.enabled) throw new Error('This program has no page to watch');
+        if (source.paused) throw new Error('Its page is paused on the Sources page');
         const at = new Date();
         const r = await checkPage(database, source, { http, now: at, force: true });
         // The user is looking at the result: no desktop notification for this alert.

@@ -15,7 +15,7 @@ export interface NavCounts {
   followupsDue: number;
   /** Programs with a page change not reviewed yet. */
   programsChanged: number;
-  /** Enabled sources whose last fetch failed, or that returned nothing 3 runs in a row. */
+  /** Enabled, unpaused sources whose last fetch failed, or that returned nothing 3 runs in a row. */
   sourcesBroken: number;
 }
 
@@ -46,7 +46,7 @@ export function navCounts(
     ),
     sourcesBroken: count(
       `SELECT COUNT(*) FROM sources
-        WHERE enabled = 1 AND kind <> 'sample'
+        WHERE enabled = 1 AND paused = 0 AND kind <> 'sample'
           AND (last_error IS NOT NULL OR consecutive_empty >= ?)`,
       BROKEN_AFTER_EMPTY_RUNS,
     ),

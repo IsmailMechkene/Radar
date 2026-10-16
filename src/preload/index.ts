@@ -53,6 +53,13 @@ const api: RadarApi = {
     check: (id) => ipcRenderer.invoke(C.programsCheck, { id }),
     markReviewed: (alertId) => ipcRenderer.invoke(C.programsMarkReviewed, { alertId }),
   },
+  sources: {
+    list: () => ipcRenderer.invoke(C.sourcesList),
+    setPaused: (id, paused) => ipcRenderer.invoke(C.sourcesSetPaused, { id, paused }),
+    add: (source) => ipcRenderer.invoke(C.sourcesAdd, { source }),
+    remove: (id) => ipcRenderer.invoke(C.sourcesDelete, { id }),
+    test: (target) => ipcRenderer.invoke(C.sourcesTest, target),
+  },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),
     status: () => ipcRenderer.invoke(C.scanStatus),

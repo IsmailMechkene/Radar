@@ -54,7 +54,7 @@ export function scannableSources(
 ): SourceRow[] {
   const wanted = only?.map((n) => n.trim().toLowerCase());
   return db
-    .prepare('SELECT * FROM sources WHERE enabled = 1 ORDER BY id')
+    .prepare('SELECT * FROM sources WHERE enabled = 1 AND paused = 0 ORDER BY id')
     .all()
     .map((r) => sourceRowSchema.parse(r))
     .filter((s) => s.kind in adapters)
