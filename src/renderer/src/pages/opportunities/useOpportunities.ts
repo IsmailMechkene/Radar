@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { notifyDataChanged } from '../../lib/data-events';
 import type { OpportunityListItem } from '../../../../shared/ipc';
 import { useToast } from '../../../components/Toast';
 import { cleanIpcError } from '../../lib/settings-helpers';
@@ -31,6 +32,7 @@ export function useOpportunities() {
       window.radar.opportunities.list().then(
         (list) => {
           setItems(list);
+          notifyDataChanged();
           setError(null);
         },
         (err: unknown) => {
@@ -51,6 +53,7 @@ export function useOpportunities() {
       setItems(before.map((i) => (ids.includes(i.id) ? { ...i, starred } : i)));
       try {
         await window.radar.opportunities.setStarred(ids, starred);
+        notifyDataChanged();
         const who = name(before, ids);
         toast({
           message: `${starred ? 'Starred' : 'Unstarred'}${who ? ` · ${who}` : ` ${ids.length} opportunities`}`,
@@ -68,6 +71,7 @@ export function useOpportunities() {
       const before = itemsRef.current;
       try {
         await window.radar.opportunities.dismiss(ids);
+        notifyDataChanged();
         setItems(before.filter((i) => !ids.includes(i.id)));
         const who = name(before, ids);
         toast({
@@ -92,6 +96,7 @@ export function useOpportunities() {
     async (ids: number[]) => {
       try {
         const { added, skipped } = await window.radar.pipeline.add(ids);
+        notifyDataChanged();
         if (added.length === 0) {
           toast({ message: ids.length === 1 ? 'Already in Pipeline' : 'All already in Pipeline' });
           return;

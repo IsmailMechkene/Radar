@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { notifyDataChanged } from '../../lib/data-events';
 import type { ProgramItem, ProgramNew, ProgramPatch } from '../../../../shared/ipc';
 import { useToast } from '../../../components/Toast';
 import { cleanIpcError } from '../../lib/settings-helpers';
@@ -23,6 +24,7 @@ export function usePrograms() {
       window.radar.programs.list().then(
         (list) => {
           setItems(list);
+          notifyDataChanged();
           setError(null);
         },
         (err: unknown) => {

@@ -3,6 +3,8 @@ import { BrandMark } from '../../components/Brand';
 import { SidebarItem } from '../../components/SidebarItem';
 import { routeHref, type Route } from '../lib/router';
 import { shortcutLabel } from '../lib/settings-helpers';
+import type { NavCounts } from '../../../shared/ipc';
+import { navBadges } from '../lib/nav-badges';
 import { NAV_PRIMARY, NAV_SECONDARY, type NavItem } from './nav';
 import { ScanCard } from './ScanStatus';
 
@@ -19,11 +21,13 @@ interface SidebarProps {
   route: Route;
   onNavigate: (route: Route) => void;
   platform: string | undefined;
+  counts: NavCounts | null;
 }
 
 /** 240 px translucent sidebar: drag strip, brand, two nav groups, scan status card. */
-export function Sidebar({ route, onNavigate, platform }: SidebarProps) {
+export function Sidebar({ route, onNavigate, platform, counts }: SidebarProps) {
   const navRef = useRef<HTMLElement>(null);
+  const badges = navBadges(counts);
 
   // Up/Down move focus between nav items; Home/End jump to the ends.
   function onKeyDown(e: KeyboardEvent<HTMLAnchorElement>) {
@@ -51,7 +55,7 @@ export function Sidebar({ route, onNavigate, platform }: SidebarProps) {
       href={routeHref(n.route)}
       label={n.label}
       icon={n.icon}
-      badge={n.badge}
+      badge={badges[n.route]}
       active={n.route === route}
       onNavigate={() => onNavigate(n.route)}
       onKeyDown={onKeyDown}

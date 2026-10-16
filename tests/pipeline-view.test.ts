@@ -71,7 +71,7 @@ describe('pipeline display', () => {
     expect(followupChips(item, at('2026-10-30T00:00:00Z'), TZ)).toEqual([
       { label: '+7 Oct 28', tone: 'done' },
     ]);
-    expect(followupsDue([item], at('2026-11-05T00:00:00Z'), TZ)).toBe(0);
+    expect(followupsDue([item], at('2026-11-05T00:00:00Z'))).toBe(0);
   });
 
   it('counts, subtitle and role fallback', () => {

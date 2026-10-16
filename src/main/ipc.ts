@@ -34,12 +34,14 @@ import {
   updateProgram,
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
+import { navCounts } from '../core/nav';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
 import {
   appGetWindowInfoPayloadSchema,
   appOpenExternalPayloadSchema,
+  appNavCountsPayloadSchema,
   devPayloadSchema,
   IPC_CHANNELS as C,
   opportunitiesGetPayloadSchema,
@@ -150,6 +152,10 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.appOpenExternal, appOpenExternalPayloadSchema, ({ url }) =>
     deps.openExternal(url),
+  );
+
+  handle(ipcMain, C.appNavCounts, appNavCountsPayloadSchema, ({ newSince }) =>
+    navCounts(db, { now: now(), timeZone: getSetting(db, 'timezone'), newSince }),
   );
 
   handle(ipcMain, C.opportunitiesList, opportunitiesListPayloadSchema, () =>

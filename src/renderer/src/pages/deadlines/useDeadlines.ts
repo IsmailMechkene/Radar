@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { notifyDataChanged } from '../../lib/data-events';
 import type { DeadlinesView, ManualDeadlineInput, ReminderTarget } from '../../../../shared/ipc';
 import { useToast } from '../../../components/Toast';
 import type { DueItem } from '../../lib/deadlines';
@@ -33,6 +34,7 @@ export function useDeadlines() {
       window.radar.deadlines.list().then(
         (v) => {
           setView(v);
+          notifyDataChanged();
           setError(null);
         },
         (err: unknown) => {

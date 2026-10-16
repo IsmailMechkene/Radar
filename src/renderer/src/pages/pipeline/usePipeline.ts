@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { notifyDataChanged } from '../../lib/data-events';
 import type { PipelineItem, PipelineNew, PipelinePatch } from '../../../../shared/ipc';
 import { useToast } from '../../../components/Toast';
 import { STATUS_META } from '../../lib/pipeline';
@@ -27,6 +28,7 @@ export function usePipeline() {
       window.radar.pipeline.list().then(
         (list) => {
           setItems(list);
+          notifyDataChanged();
           setError(null);
         },
         (err: unknown) => {
@@ -41,8 +43,10 @@ export function usePipeline() {
     void reload();
   }, [reload]);
 
-  const replace = (row: PipelineItem) =>
+  const replace = (row: PipelineItem) => {
     setItems((list) => (list ?? []).map((i) => (i.id === row.id ? row : i)));
+    notifyDataChanged();
+  };
 
   /** Saves a patch. Returns the saved row, or null when it failed (already reported). */
   const update = useCallback(
@@ -50,6 +54,7 @@ export function usePipeline() {
       const before = itemsRef.current.find((i) => i.id === id);
       try {
         const row = await window.radar.pipeline.update(id, patch);
+        notifyDataChanged();
         replace(row);
         toast({
           message,
@@ -89,6 +94,7 @@ export function usePipeline() {
     async (row: PipelineNew): Promise<PipelineItem | null> => {
       try {
         const created = await window.radar.pipeline.create(row);
+        notifyDataChanged();
         setItems((list) => [...(list ?? []), created]);
         await reload(); // keeps the planned-date order
         toast({
@@ -114,6 +120,7 @@ export function usePipeline() {
     async (item: PipelineItem): Promise<boolean> => {
       try {
         await window.radar.pipeline.remove([item.id]);
+        notifyDataChanged();
         setItems((list) => (list ?? []).filter((i) => i.id !== item.id));
         toast({ message: `Deleted ${item.org}` });
         return true;

@@ -1,5 +1,6 @@
 // Display rules for the Pipeline page. Pure: the clock and time zone are passed in.
 import {
+  followupDue,
   PIPELINE_STATUSES,
   type PipelineItem,
   type PipelinePatch,
@@ -70,8 +71,9 @@ export function followupChips(i: PipelineItem, now: Date, timeZone: string): Fol
   return chips.length ? chips : [{ label: '—', tone: 'none' }];
 }
 
-export function followupsDue(items: readonly PipelineItem[], now: Date, timeZone: string): number {
-  return items.filter((i) => followupChips(i, now, timeZone)[0]?.tone === 'due').length;
+/** Same rule as the sidebar count (core `followupDue`). */
+export function followupsDue(items: readonly PipelineItem[], now: Date): number {
+  return items.filter((i) => followupDue(i, now)).length;
 }
 
 /** "2026-10-19" -> "Oct 19" (a planned date is a calendar day, no time zone shift). */

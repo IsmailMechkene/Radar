@@ -9,15 +9,12 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
-import type { CountTone } from '../../components/Badge';
 import type { Route } from '../lib/router';
 
 export interface NavItem {
   route: Route;
   label: string;
   icon: LucideIcon;
-  /** PLACEHOLDER counts from the design until real data exists (step 2b brief). */
-  badge?: { text: string; tone: CountTone };
   description: string;
 }
 
@@ -26,28 +23,24 @@ export const NAV_PRIMARY: readonly NavItem[] = [
     route: 'opportunities',
     label: 'Opportunities',
     icon: Radar,
-    badge: { text: '12 new', tone: 'accent' },
     description: 'Every result from every source, scored and sorted, with deadlines when known.',
   },
   {
     route: 'deadlines',
     label: 'Deadlines',
     icon: CalendarClock,
-    badge: { text: '3 due', tone: 'amber' },
     description: 'Results that have a deadline, plus reminders that are due.',
   },
   {
     route: 'pipeline',
     label: 'Pipeline',
     icon: Kanban,
-    badge: { text: '2', tone: 'amber' },
     description: 'Applications from not started to offer, with follow-up dates.',
   },
   {
     route: 'programs',
     label: 'Programs',
     icon: GraduationCap,
-    badge: { text: '1', tone: 'gray' },
     description: 'Watched programs with their typical windows and change alerts.',
   },
   {
@@ -63,7 +56,6 @@ export const NAV_SECONDARY: readonly NavItem[] = [
     route: 'sources',
     label: 'Sources',
     icon: Database,
-    badge: { text: '1', tone: 'red' },
     description: 'Boards, feeds and pages Radar searches, with their health.',
   },
   {

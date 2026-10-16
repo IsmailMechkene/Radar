@@ -25,6 +25,7 @@ import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { useScan } from '../state/scan';
 import { useSettings } from '../state/settings';
+import { useNavCounts } from '../state/nav-counts';
 import { useAppliedTheme } from '../state/theme';
 import { navItem, ROUTE_TITLES } from './nav';
 import { ScanPill } from './ScanStatus';
@@ -61,6 +62,7 @@ export function AppShell({ info }: { info: WindowInfo | null }) {
     navInit(parseRoute(window.location.hash, true)),
   );
   const route = currentRoute(nav);
+  const navCounts = useNavCounts(route);
   const searchRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const allowDev = info ? !info.isPackaged : true;
@@ -123,7 +125,7 @@ export function AppShell({ info }: { info: WindowInfo | null }) {
           <div className="sidebar-blob sidebar-blob-2" />
         </div>
 
-        <Sidebar route={route} onNavigate={go} platform={info?.platform} />
+        <Sidebar route={route} onNavigate={go} platform={info?.platform} counts={navCounts} />
 
         <div className="relative flex min-w-0 flex-1 flex-col bg-bg">
           <Toolbar>

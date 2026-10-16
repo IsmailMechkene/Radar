@@ -9,7 +9,8 @@ interface SidebarItemProps {
   label: string;
   icon: LucideIcon;
   active?: boolean;
-  badge?: { text: string; tone: CountTone };
+  /** `label` is read instead of the short text ("3 follow-ups due" for "3"). */
+  badge?: { text: string; tone: CountTone; label?: string };
   onNavigate: () => void;
   onKeyDown?: (e: KeyboardEvent<HTMLAnchorElement>) => void;
 }
@@ -42,8 +43,11 @@ export function SidebarItem({
       <Icon icon={icon} size={16} className={active ? 'text-accent' : 'text-fg-2'} />
       <span className="text-body">{label}</span>
       {badge && (
-        <span className="ml-auto">
-          <CountBadge tone={badge.tone}>{badge.text}</CountBadge>
+        <span className="ml-auto" title={badge.label}>
+          <span aria-hidden={badge.label ? true : undefined}>
+            <CountBadge tone={badge.tone}>{badge.text}</CountBadge>
+          </span>
+          {badge.label && <span className="sr-only">, {badge.label}</span>}
         </span>
       )}
     </a>

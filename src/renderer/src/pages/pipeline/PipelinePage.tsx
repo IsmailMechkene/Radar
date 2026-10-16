@@ -73,7 +73,7 @@ export function PipelinePage() {
   }, []);
 
   const items = useMemo(() => api.items ?? [], [api.items]);
-  const due = followupsDue(items, now, timeZone);
+  const due = followupsDue(items, now);
   const openItem = items.find((i) => i.id === openId) ?? null;
 
   const close = useCallback(() => {

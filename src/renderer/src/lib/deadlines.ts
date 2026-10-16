@@ -1,5 +1,5 @@
 // Display rules for the Deadlines page. Pure: the clock and time zone are passed in.
-import type { DeadlineEvent, DueFollowup } from '../../../core/deadlines/list';
+import type { DeadlineEvent } from '../../../core/deadlines/list';
 import { zonedParts } from '../../../core/time';
 import { calendarDaysBetween } from './dates';
 
@@ -67,32 +67,8 @@ export function groupEvents(events: readonly DeadlineEvent[], now: Date, tz: str
   return groups.filter((g) => g.items.length > 0);
 }
 
-export type DueItem =
-  | { kind: 'event'; key: string; at: string; event: DeadlineEvent }
-  | { kind: 'followup'; key: string; at: string; followup: DueFollowup };
-
-/**
- * "Due soon" (next 14 days): tracked deadlines and openings not done or snoozed, overdue ones
- * from the last week, and follow-ups that are due.
- */
-export function dueSoon(
-  events: readonly DeadlineEvent[],
-  followups: readonly DueFollowup[],
-  now: Date,
-  tz: string,
-): DueItem[] {
-  const items: DueItem[] = [];
-  for (const e of events) {
-    if (!e.tracked || e.done) continue;
-    if (e.snoozed_until && new Date(e.snoozed_until).getTime() > now.getTime()) continue;
-    const d = daysLeft(e.at, now, tz);
-    const inWindow = e.event === 'deadline' ? d >= -7 && d <= 14 : d >= 0 && d <= 14;
-    if (inWindow) items.push({ kind: 'event', key: e.key, at: e.at, event: e });
-  }
-  for (const f of followups)
-    items.push({ kind: 'followup', key: f.key, at: f.due_at, followup: f });
-  return items.sort((a, b) => a.at.localeCompare(b.at));
-}
+/** "Due soon" lives in core: the sidebar count uses the same rule. */
+export { dueSoon, type DueItem } from '../../../core/deadlines/due';
 
 export interface MonthCell {
   /** Local calendar day, "2026-11-04". */

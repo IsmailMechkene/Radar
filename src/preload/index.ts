@@ -19,6 +19,7 @@ const api: RadarApi = {
   app: {
     getWindowInfo: () => ipcRenderer.invoke(C.appGetWindowInfo),
     openExternal: (url) => ipcRenderer.invoke(C.appOpenExternal, { url }),
+    navCounts: (newSince) => ipcRenderer.invoke(C.appNavCounts, { newSince }),
   },
   opportunities: {
     list: () => ipcRenderer.invoke(C.opportunitiesList),

@@ -27,6 +27,7 @@ import {
   type ProgramStatus,
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
+import type { NavCounts } from '../core/nav';
 import type { RunRow } from '../core/db/runs';
 import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas';
 import type { ScanSummary, SourceOutcome } from '../core/runner';
@@ -38,6 +39,7 @@ export const IPC_CHANNELS = {
   settingsSet: 'settings:set',
   appGetWindowInfo: 'app:get-window-info',
   appOpenExternal: 'app:open-external',
+  appNavCounts: 'app:nav-counts',
   opportunitiesList: 'opportunities:list',
   opportunitiesGet: 'opportunities:get',
   opportunitiesSetStarred: 'opportunities:set-starred',
@@ -99,6 +101,8 @@ function isWebUrl(value: string): boolean {
 export const appOpenExternalPayloadSchema = z.strictObject({
   url: z.string().refine(isWebUrl, 'only http(s) links can open'),
 });
+/** "New since" for the Opportunities count: the last visit (or 3 days ago on the first). */
+export const appNavCountsPayloadSchema = z.strictObject({ newSince: z.iso.datetime() });
 export const opportunitiesListPayloadSchema = noPayload;
 export const opportunitiesGetPayloadSchema = z.strictObject({ id: z.int().positive() });
 export const opportunitiesSetStarredPayloadSchema = z.strictObject({
@@ -160,6 +164,7 @@ export type PipelineImport = (ImportResult & { file: string }) | null;
 export type IcsExport = { file: string; count: number } | null;
 
 export type {
+  NavCounts,
   PageCheck,
   ProgramItem,
   ProgramNew,
@@ -208,6 +213,8 @@ export interface RadarApi {
     getWindowInfo(): Promise<WindowInfo>;
     /** Opens an http(s) link in the default browser. */
     openExternal(url: string): Promise<void>;
+    /** Sidebar counts (same rules as each page). */
+    navCounts(newSince: string): Promise<NavCounts>;
   };
   opportunities: {
     /** Open opportunities (not dismissed, not closed), best score first. */

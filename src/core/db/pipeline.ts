@@ -73,6 +73,21 @@ export const pipelineItemSchema = pipelineRowSchema.extend({
 });
 export type PipelineItem = z.output<typeof pipelineItemSchema>;
 
+/**
+ * A follow-up is due once its date passed while the row still waits for an answer: the first
+ * while Sent, the second while Sent or Follow-up sent.
+ */
+export function followupDue(
+  i: Pick<PipelineRow, 'status' | 'followup1_at' | 'followup2_at'>,
+  now: Date,
+): boolean {
+  const passed = (at: string | null) => at !== null && new Date(at).getTime() <= now.getTime();
+  return (
+    (i.status === 'sent' && passed(i.followup1_at)) ||
+    ((i.status === 'sent' || i.status === 'followup_sent') && passed(i.followup2_at))
+  );
+}
+
 export function listPipeline(db: Database.Database): PipelineItem[] {
   return db
     .prepare(
