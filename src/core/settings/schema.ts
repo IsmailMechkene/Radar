@@ -30,6 +30,9 @@ export const settingsSchema = z.strictObject({
   scanIntervalHours: z.int().min(1).max(168),
   // Appearance. 'system' follows the OS light/dark setting.
   theme: z.enum(['system', 'light', 'dark']),
+  // Internal: when the Opportunities page was last opened (drives "New since your last visit").
+  // Not shown on the Settings page.
+  opportunitiesSeenAt: z.iso.datetime().nullable(),
 });
 
 export type Settings = z.output<typeof settingsSchema>;
@@ -52,4 +55,5 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   scanIntervalHours: 6,
   theme: 'system',
+  opportunitiesSeenAt: null,
 };

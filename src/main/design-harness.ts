@@ -5,6 +5,8 @@ export interface HarnessOptions {
   screen: string;
   theme: 'light' | 'dark';
   width: number;
+  /** Extra screen props, e.g. { drawer: 'hf1' } to open the detail drawer. */
+  attrs?: Record<string, string>;
 }
 
 const TEMPLATE_BLOCK = /(<script type="__bundler\/template">)([\s\S]*?)(<\/script>)/;
@@ -21,8 +23,11 @@ export function buildDesignHarness(bundleHtml: string, o: HarnessOptions): strin
   if (typeof template !== 'string' || !BODY.test(template)) {
     throw new Error('Design template has an unexpected shape (no <helmet> … </x-dc>)');
   }
+  const extra = Object.entries(o.attrs ?? {})
+    .map(([k, v]) => ` ${k}="${v}"`)
+    .join('');
   const screen =
-    `</helmet><dc-import name="Radar" screen="${o.screen}" theme="${o.theme}" ` +
+    `</helmet><dc-import name="Radar" screen="${o.screen}" theme="${o.theme}"${extra} ` +
     `embedded="true" width="${o.width}" hint-size="${o.width}px,900px"></dc-import></x-dc>`;
   const replaced = template.replace(BODY, () => screen);
   // Same escaping as the bundler: never emit a literal "</" inside the script element.

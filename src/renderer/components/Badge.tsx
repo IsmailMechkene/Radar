@@ -25,23 +25,40 @@ interface BadgeProps {
   /** Dashed outline in the current color (inferred dates, e.g. "~ Dec 15"). */
   dashed?: boolean;
   icon?: LucideIcon;
+  /** sm 20 px (cards), md 22 px (rows, default), lg 24 px (drawer header). */
+  size?: 'sm' | 'md' | 'lg';
   children: ReactNode;
   className?: string;
 }
 
-/** Badge (22 px, pill): verdicts, deadline chips, statuses. */
-export function Badge({ tone = 'neutral', strong, dashed, icon, children, className }: BadgeProps) {
+const SIZES = {
+  sm: 'h-5 px-1.75 text-caption-2',
+  md: 'h-5.5 px-2 text-caption',
+  lg: 'h-6 px-2.5 text-footnote',
+} as const;
+
+/** Badge (pill): verdicts, deadline chips, statuses. Numbers inside are tabular. */
+export function Badge({
+  tone = 'neutral',
+  strong,
+  dashed,
+  icon,
+  size = 'md',
+  children,
+  className,
+}: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex h-5.5 w-max items-center gap-1 rounded-full px-2 text-caption whitespace-nowrap',
+        'inline-flex w-max items-center gap-1 rounded-full whitespace-nowrap tabular-nums',
+        SIZES[size],
         strong ? 'font-semibold' : 'font-medium',
         TONES[tone],
         dashed && 'border border-dashed border-current',
         className,
       )}
     >
-      {icon && <Icon icon={icon} size={12} />}
+      {icon && <Icon icon={icon} size={size === 'sm' ? 11 : 12} />}
       {children}
     </span>
   );
@@ -56,10 +73,24 @@ const VERDICTS: Record<Verdict, { label: string; tone: BadgeTone }> = {
   skip: { label: 'Skip', tone: 'gray' },
 };
 
-export function VerdictBadge({ verdict }: { verdict: Verdict }) {
+/** Verdict badge; `null` (not scored yet) renders a quiet outline. */
+export function VerdictBadge({
+  verdict,
+  size,
+}: {
+  verdict: Verdict | null;
+  size?: BadgeProps['size'];
+}) {
+  if (!verdict) {
+    return (
+      <Badge tone="outline" size={size}>
+        Unscored
+      </Badge>
+    );
+  }
   const v = VERDICTS[verdict];
   return (
-    <Badge tone={v.tone} strong>
+    <Badge tone={v.tone} strong size={size}>
       {v.label}
     </Badge>
   );

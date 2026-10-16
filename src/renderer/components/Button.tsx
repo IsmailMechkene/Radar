@@ -1,12 +1,12 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { Icon } from './Icon';
 import { cn } from './lib/cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'plain' | 'destructive';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   icon?: LucideIcon;
@@ -29,7 +29,8 @@ const SIZES: Record<ButtonSize, string> = {
   lg: 'h-7.5 rounded-md text-body',
 };
 
-const PADDING: Record<ButtonSize, string> = { sm: 'px-2.5', md: 'px-3', lg: 'px-3.5' };
+// Secondary/plain padding (solid buttons are wider, see below). lg = drawer actions, 10 px.
+const PADDING: Record<ButtonSize, string> = { sm: 'px-2.5', md: 'px-3', lg: 'px-2.5' };
 const SQUARE: Record<ButtonSize, string> = { sm: 'w-6', md: 'w-7', lg: 'w-7.5' };
 
 export function Button({

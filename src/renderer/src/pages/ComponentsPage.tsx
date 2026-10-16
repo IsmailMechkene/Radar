@@ -19,6 +19,10 @@ import {
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Badge, CountBadge, StatusDot, VerdictBadge } from '../../components/Badge';
+import { BrandMark, OrgAvatar } from '../../components/Brand';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { OptionMenu } from '../../components/OptionMenu';
+import { Shimmer, Skeleton } from '../../components/Skeleton';
 import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
 import { Checkbox } from '../../components/Checkbox';
@@ -224,6 +228,7 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
   const [checked, setChecked] = useState(true);
   const [tz, setTz] = useState('Africa/Tunis');
   const [drawer, setDrawer] = useState(false);
+  const [dialog, setDialog] = useState(false);
 
   return (
     <div
@@ -330,7 +335,8 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
         <Card title="Pills and chips">
           <div className="flex flex-wrap gap-1.5">
             <FilterPill label="Country" />
-            <FilterPill label="Score ≥ 60" active />
+            <FilterPill label="Score ≥ 60" active onClear={noop} />
+            <FilterPill label="Closing within 14 days" active />
             <Chip label="machine learning" onRemove={noop} />
             <Chip label="senior" tone="danger" onRemove={noop} />
             <Tag label="[first name]" />
@@ -509,6 +515,65 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
           <Banner title="Returned nothing for 3 runs." />
           <Banner tone="warning" title="Page changed, review" />
         </div>
+      </div>
+
+      <div className="grid grid-cols-[260px_1fr_1fr] items-start gap-6">
+        <div>
+          <div className="mb-3 text-body font-semibold">Option menu</div>
+          <div className="w-max rounded-xl bg-glass p-1.25 hairline border-glass-border shadow-pop backdrop-glass">
+            <OptionMenu
+              label="Deadline window"
+              options={[
+                { value: '7', label: 'Closing within 7 days', count: 4 },
+                { value: '14', label: 'Closing within 14 days', count: 9 },
+                { value: '30', label: 'Closing within 30 days', count: 17 },
+              ]}
+              selected={['14']}
+              onPick={noop}
+            />
+          </div>
+        </div>
+        <Card title="Avatars, sizes, rings">
+          <div className="flex items-center gap-3">
+            <OrgAvatar initials="HF" hue={75} />
+            <OrgAvatar initials="ID" hue={265} size="md" />
+            <BrandMark />
+            <BrandMark size="lg" />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <VerdictBadge verdict="apply" size="sm" />
+            <VerdictBadge verdict="apply" />
+            <VerdictBadge verdict="apply" size="lg" />
+            <VerdictBadge verdict={null} />
+          </div>
+          <div className="flex items-center gap-4">
+            <ScoreRing score={92} size="hero" animate />
+            <ScoreRing score={85} size="card" />
+            <ScoreRing score={null} />
+          </div>
+        </Card>
+        <Card title="Loading and dialog">
+          <div className="relative flex h-14 items-center gap-3 overflow-hidden rounded-xl bg-surface px-4 hairline border-line">
+            <Skeleton className="size-4" />
+            <Skeleton strong className="size-8 rounded-full" />
+            <span className="flex flex-1 flex-col gap-1.5">
+              <Skeleton strong className="h-2.75 w-[70%]" />
+              <Skeleton className="h-2.25 w-[90%]" />
+            </span>
+            <Shimmer />
+          </div>
+          <Button variant="destructive" size="sm" onClick={() => setDialog(true)}>
+            Open confirm dialog
+          </Button>
+          <ConfirmDialog
+            open={dialog}
+            title="Dismiss 3 opportunities?"
+            message="They disappear from every view. You can undo right after from the notification."
+            confirmLabel="Dismiss"
+            onCancel={() => setDialog(false)}
+            onConfirm={() => setDialog(false)}
+          />
+        </Card>
       </div>
 
       <div className="grid grid-cols-[260px_1fr] items-start gap-6">

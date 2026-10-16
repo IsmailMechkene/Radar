@@ -1,0 +1,726 @@
+{
+  "version": 1,
+  "sources": [
+    { "name": "Greenhouse", "access_method": "api" },
+    { "name": "Lever", "access_method": "api" },
+    { "name": "Ashby", "access_method": "api" },
+    { "name": "Company page", "access_method": "public_html" },
+    { "name": "Welcome to the Jungle", "access_method": "rss" },
+    { "name": "Programs", "access_method": "public_html" },
+    { "name": "LinkedIn alert", "access_method": "email_alert" },
+    { "name": "Indeed alert", "access_method": "email_alert" }
+  ],
+  "items": [
+    {
+      "key": "hf-ml-intern-2027",
+      "org": "Hugging Face",
+      "title": "Machine Learning Engineer Intern (Summer 2027)",
+      "location": "Paris",
+      "remote_type": "remote",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Greenhouse", "LinkedIn alert", "Welcome to the Jungle"],
+      "description": "Join our open-source ML team for a 5–6 month internship starting June 2027. You'll work on training and evaluation tooling used across the Hub, ship code in Transformers, and pair with an engineer on a scoped research project.\n\nYou are currently enrolled in a Master's or final-year engineering program, write solid Python, and have trained models with PyTorch. Experience with distributed training is a plus. Remote within Europe, or from our Paris office. We sponsor visas for interns where needed.\n\nPlease include a short note about a project you're proud of. A signed internship agreement from your school is required before the start date.",
+      "posted_days_ago": 2,
+      "first_seen_hours_ago": 6,
+      "deadline_in_days": 9,
+      "deadline_status": "confirmed",
+      "deadline_text": "Applications close at 23:59 CET on the date above. We review on a rolling basis.",
+      "eligibility_notes": "Needs convention de stage: signed internship agreement from your school before start\nGPA requirement: “Top 20% of class” requested. Flagged, not skipped",
+      "score": 92,
+      "verdict": "apply",
+      "summary": "AI/ML title, internship, remote, visa friendly",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Machine Learning Engineer” in title",
+          "points": 28
+        },
+        {
+          "id": "intern",
+          "label": "Internship",
+          "detail": "“Intern”, “Summer 2027”",
+          "points": 20
+        },
+        {
+          "id": "stack",
+          "label": "Stack match",
+          "detail": "Python, PyTorch, Transformers",
+          "points": 14
+        },
+        { "id": "remote", "label": "Remote", "detail": "Remote (Europe) allowed", "points": 10 },
+        {
+          "id": "visa",
+          "label": "Visa friendly",
+          "detail": "“We sponsor visas for interns”",
+          "points": 10
+        },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 2 days ago", "points": 5 },
+        { "id": "senior", "label": "Senior wording", "detail": "None found", "points": 0 }
+      ],
+      "starred": true
+    },
+    {
+      "key": "mistral-llm-inference",
+      "org": "Mistral AI",
+      "title": "Research Engineer Intern, LLM Inference",
+      "location": "Paris",
+      "remote_type": "onsite",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Lever"],
+      "description": "Work with the inference team on serving large language models efficiently. You will profile kernels, experiment with quantization and batching strategies, and help ship improvements to production.\n\nStrong Python and PyTorch, some CUDA or Triton exposure. Six-month internship in Paris. Work permit support available for EU internships.",
+      "posted_days_ago": 1,
+      "first_seen_hours_ago": 10,
+      "deadline_in_days": 27,
+      "deadline_status": "confirmed",
+      "deadline_text": "Deadline for summer 2027 internship applications is shown on the careers page.",
+      "eligibility_notes": null,
+      "score": 88,
+      "verdict": "apply",
+      "summary": "ML title, PyTorch + CUDA, internship, EU sponsor",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Research Engineer”, “LLM” in title",
+          "points": 26
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”, six months", "points": 18 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, PyTorch, CUDA", "points": 15 },
+        {
+          "id": "visa",
+          "label": "Visa friendly",
+          "detail": "Work permit support mentioned",
+          "points": 10
+        },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 1 day ago", "points": 5 },
+        {
+          "id": "deadline",
+          "label": "Deadline known",
+          "detail": "More than 14 days away",
+          "points": 5
+        },
+        { "id": "remote", "label": "Remote", "detail": "On-site only", "points": 4 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "instadeep-pfe-rl",
+      "org": "InstaDeep",
+      "title": "PFE Intern, Reinforcement Learning",
+      "location": "Tunis",
+      "remote_type": "hybrid",
+      "opportunity_type": "pfe",
+      "language": "en",
+      "sources": ["Company page"],
+      "description": "Final-year engineering project (PFE) in our Tunis office. You will work on reinforcement learning agents for combinatorial optimisation, from environment design to large-scale training.\n\nPython, JAX or PyTorch. Convention de stage accepted from Tunisian engineering schools.",
+      "posted_days_ago": 3,
+      "first_seen_hours_ago": 20,
+      "deadline_in_days": 42,
+      "deadline_status": "expected",
+      "deadline_text": "PFE windows have historically closed in November.",
+      "eligibility_notes": null,
+      "score": 85,
+      "verdict": "apply",
+      "summary": "PFE, RL stack, local, convention de stage accepted",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Reinforcement Learning”, “PFE”",
+          "points": 27
+        },
+        { "id": "intern", "label": "Internship", "detail": "PFE internship", "points": 20 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, JAX, PyTorch", "points": 13 },
+        { "id": "remote", "label": "Remote", "detail": "Hybrid in Tunis", "points": 8 },
+        { "id": "visa", "label": "Visa friendly", "detail": "Local, no visa needed", "points": 10 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 3 days ago", "points": 2 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "photoroom-cv-research",
+      "org": "Photoroom",
+      "title": "Computer Vision Research Intern",
+      "location": "Paris",
+      "remote_type": "onsite",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Welcome to the Jungle"],
+      "description": "Research internship on image segmentation and generative editing. You will run experiments, write clean training code and present results to the team.\n\nPython, PyTorch, a computer vision project you can show. We sponsor visas for interns.",
+      "posted_days_ago": 4,
+      "first_seen_hours_ago": 26,
+      "deadline_in_days": 24,
+      "deadline_status": "confirmed",
+      "deadline_text": "Applications for this internship close at the end of the month.",
+      "eligibility_notes": null,
+      "score": 82,
+      "verdict": "apply",
+      "summary": "CV title, internship, Python, visa friendly",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Computer Vision”, “Research” in title",
+          "points": 24
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 20 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, PyTorch", "points": 11 },
+        {
+          "id": "visa",
+          "label": "Visa friendly",
+          "detail": "“We sponsor visas for interns”",
+          "points": 10
+        },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        {
+          "id": "deadline",
+          "label": "Deadline known",
+          "detail": "More than 14 days away",
+          "points": 5
+        },
+        { "id": "remote", "label": "Remote", "detail": "On-site only", "points": 4 },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 4 days ago", "points": 3 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "mbzuai-ugrip",
+      "org": "MBZUAI",
+      "title": "UGRIP Undergraduate Research Intern",
+      "location": "Abu Dhabi",
+      "remote_type": "onsite",
+      "opportunity_type": "program",
+      "language": "en",
+      "sources": ["Programs"],
+      "description": "The Undergraduate Research Internship Program is a funded, on-campus research program in machine learning, computer vision and NLP. Travel, accommodation and a stipend are covered.\n\nOpen to undergraduate students worldwide with a strong academic record.",
+      "posted_days_ago": 5,
+      "first_seen_hours_ago": 30,
+      "deadline_in_days": 78,
+      "deadline_status": "expected",
+      "deadline_text": "Last cycle closed on February 28.",
+      "eligibility_notes": "GPA requirement: CGPA 3.5/4 or equivalent requested. Your 15/20 is unverified",
+      "score": 80,
+      "verdict": "needs_review",
+      "summary": "Funded research program, GPA requirement flagged",
+      "signals": [
+        { "id": "role", "label": "Role match", "detail": "ML research program", "points": 24 },
+        {
+          "id": "intern",
+          "label": "Internship",
+          "detail": "Undergraduate internship",
+          "points": 20
+        },
+        { "id": "stack", "label": "Stack match", "detail": "ML, CV, NLP", "points": 11 },
+        {
+          "id": "visa",
+          "label": "Visa friendly",
+          "detail": "Travel and visa covered",
+          "points": 10
+        },
+        {
+          "id": "watchlist",
+          "label": "Watchlist program",
+          "detail": "On your program watchlist",
+          "points": 5
+        },
+        {
+          "id": "deadline",
+          "label": "Deadline known",
+          "detail": "Expected from last cycle",
+          "points": 5
+        },
+        { "id": "remote", "label": "Remote", "detail": "On-site, funded travel", "points": 5 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "weaviate-backend",
+      "org": "Weaviate",
+      "title": "Backend Engineer Intern",
+      "location": "Remote (Europe)",
+      "remote_type": "remote",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Ashby"],
+      "description": "Help build the core of an open-source vector database. Go on the backend, some Python tooling. Fully remote within Europe.",
+      "posted_days_ago": 5,
+      "first_seen_hours_ago": 80,
+      "deadline_in_days": null,
+      "deadline_status": "unknown",
+      "deadline_text": null,
+      "eligibility_notes": null,
+      "score": 62,
+      "verdict": "maybe",
+      "summary": "Backend title, Go, remote EMEA",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Backend Engineer” in title",
+          "points": 22
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 18 },
+        {
+          "id": "stack",
+          "label": "Stack match",
+          "detail": "Go is not on your list; Python tooling",
+          "points": 4
+        },
+        { "id": "remote", "label": "Remote", "detail": "Remote (Europe)", "points": 10 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 5 days ago", "points": 3 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "deepl-fullstack-emea",
+      "org": "DeepL",
+      "title": "Full-Stack Intern, Remote EMEA",
+      "location": "Berlin",
+      "remote_type": "remote",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["LinkedIn alert"],
+      "description": "Build internal tools with TypeScript, React and Node. Remote within EMEA. Applicants must hold EU citizenship or an existing EU work permit.",
+      "posted_days_ago": 6,
+      "first_seen_hours_ago": 100,
+      "deadline_in_days": 17,
+      "deadline_status": "confirmed",
+      "deadline_text": "Please apply before the date shown; we fill internships in order of application.",
+      "eligibility_notes": "Work authorization: “EU citizens or existing EU work permit” may exclude you",
+      "score": 61,
+      "verdict": "needs_review",
+      "summary": "Full-stack title, TypeScript, remote, EU only",
+      "signals": [
+        { "id": "role", "label": "Role match", "detail": "“Full-Stack” in title", "points": 22 },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 18 },
+        {
+          "id": "stack",
+          "label": "Stack match",
+          "detail": "TypeScript, React, Node",
+          "points": 15
+        },
+        { "id": "remote", "label": "Remote", "detail": "Remote EMEA", "points": 10 },
+        {
+          "id": "deadline",
+          "label": "Deadline known",
+          "detail": "More than 14 days away",
+          "points": 5
+        },
+        {
+          "id": "visa",
+          "label": "Work authorization",
+          "detail": "EU only, ambiguous for you",
+          "points": -9
+        }
+      ],
+      "starred": false
+    },
+    {
+      "key": "cohere-embeddings",
+      "org": "Cohere",
+      "title": "Machine Learning Intern, Embeddings",
+      "location": "Remote (Europe)",
+      "remote_type": "remote",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Indeed alert"],
+      "description": "Research and engineering on embedding models for retrieval. Python, PyTorch, evaluation at scale.",
+      "posted_days_ago": 7,
+      "first_seen_hours_ago": 120,
+      "deadline_in_days": 2,
+      "deadline_status": "expected",
+      "deadline_text": "Internship applications typically close in early November.",
+      "eligibility_notes": "Work authorization: the posting does not say whether non-EU students can be hired",
+      "score": 71,
+      "verdict": "needs_review",
+      "summary": "ML title, remote, work authorization unclear",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Machine Learning” in title",
+          "points": 26
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 20 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, PyTorch, RAG", "points": 13 },
+        { "id": "remote", "label": "Remote", "detail": "Remote (Europe)", "points": 10 },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 7 days ago", "points": 2 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "kaust-vsrp",
+      "org": "KAUST",
+      "title": "VSRP Visiting Student Researcher",
+      "location": "Thuwal",
+      "remote_type": "onsite",
+      "opportunity_type": "program",
+      "language": "en",
+      "sources": ["Programs"],
+      "description": "Funded research internship of 3 to 6 months with a KAUST faculty member. Applications are reviewed on a rolling basis; apply 4 to 6 months before your preferred start.",
+      "posted_days_ago": 8,
+      "first_seen_hours_ago": 130,
+      "deadline_in_days": 90,
+      "deadline_status": "expected",
+      "deadline_text": "Rolling admission; apply 4 to 6 months ahead.",
+      "eligibility_notes": null,
+      "score": 58,
+      "verdict": "maybe",
+      "summary": "Funded research program, 3 to 6 months",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "Research program, field open",
+          "points": 16
+        },
+        { "id": "intern", "label": "Internship", "detail": "3 to 6 months", "points": 16 },
+        { "id": "visa", "label": "Visa friendly", "detail": "Funded, visa arranged", "points": 10 },
+        { "id": "stack", "label": "Stack match", "detail": "Depends on the lab", "points": 6 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist program",
+          "detail": "On your program watchlist",
+          "points": 5
+        },
+        { "id": "deadline", "label": "Deadline known", "detail": "Expected", "points": 5 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "entrelacs-data",
+      "org": "Entrelacs",
+      "title": "Data Engineer Intern",
+      "location": "Tunis",
+      "remote_type": "hybrid",
+      "opportunity_type": "internship",
+      "language": "fr",
+      "sources": ["Indeed alert"],
+      "description": "Stage de 2 mois en ingénierie des données : pipelines SQL et Python, tableaux de bord.",
+      "posted_days_ago": 9,
+      "first_seen_hours_ago": 160,
+      "deadline_in_days": null,
+      "deadline_status": "unknown",
+      "deadline_text": null,
+      "eligibility_notes": null,
+      "score": 48,
+      "verdict": "maybe",
+      "summary": "Data title, internship, SQL + Python",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Data Engineer”, close to your roles",
+          "points": 14
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Stage”, 2 months", "points": 20 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, SQL", "points": 8 },
+        { "id": "remote", "label": "Remote", "detail": "Hybrid", "points": 6 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "deepl-werkstudent",
+      "org": "DeepL",
+      "title": "Werkstudent Backend (m/w/d)",
+      "location": "Berlin",
+      "remote_type": "onsite",
+      "opportunity_type": "junior",
+      "language": "other",
+      "sources": ["Greenhouse"],
+      "description": "Teilzeit-Werkstudentenstelle im Backend-Team. Sehr gute Deutschkenntnisse (C1) erforderlich.",
+      "posted_days_ago": 14,
+      "first_seen_hours_ago": 300,
+      "deadline_in_days": null,
+      "deadline_status": "unknown",
+      "deadline_text": null,
+      "eligibility_notes": "Language: German C1 required",
+      "score": 32,
+      "verdict": "skip",
+      "summary": "German C1 required, part-time student job",
+      "signals": [
+        { "id": "role", "label": "Role match", "detail": "“Backend” in title", "points": 24 },
+        { "id": "intern", "label": "Internship", "detail": "Part-time student job", "points": 16 },
+        { "id": "stack", "label": "Stack match", "detail": "Not stated", "points": 12 },
+        { "id": "remote", "label": "Remote", "detail": "On-site only", "points": 0 },
+        { "id": "language", "label": "Language", "detail": "“Deutsch C1” required", "points": -20 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "hf-senior-ml",
+      "org": "Hugging Face",
+      "title": "Senior Machine Learning Engineer",
+      "location": "Remote (Europe)",
+      "remote_type": "remote",
+      "opportunity_type": "fulltime",
+      "language": "en",
+      "sources": ["Greenhouse"],
+      "description": "Senior role on the training infrastructure team. 5+ years of experience shipping ML systems.",
+      "posted_days_ago": 14,
+      "first_seen_hours_ago": 310,
+      "deadline_in_days": null,
+      "deadline_status": "unknown",
+      "deadline_text": null,
+      "eligibility_notes": null,
+      "score": 22,
+      "verdict": "skip",
+      "summary": "Senior wording, not an internship",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Machine Learning Engineer” in title",
+          "points": 28
+        },
+        { "id": "stack", "label": "Stack match", "detail": "Python, PyTorch", "points": 12 },
+        { "id": "remote", "label": "Remote", "detail": "Remote (Europe)", "points": 10 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        {
+          "id": "senior",
+          "label": "Senior wording",
+          "detail": "“Senior”, “5+ years”",
+          "points": -33
+        }
+      ],
+      "starred": false
+    },
+    {
+      "key": "gsoc-contributor",
+      "org": "Google Summer of Code",
+      "title": "Open-source ML contributor",
+      "location": "Remote",
+      "remote_type": "remote",
+      "opportunity_type": "program",
+      "language": "en",
+      "sources": ["Programs"],
+      "description": "Spend the summer contributing to an open-source organization with a mentor. Stipend paid. Contributor applications open in March.",
+      "posted_days_ago": 20,
+      "first_seen_hours_ago": 400,
+      "deadline_in_days": 150,
+      "deadline_status": "expected",
+      "deadline_text": "Contributor applications last cycle: March 16 to 31.",
+      "eligibility_notes": null,
+      "score": 70,
+      "verdict": "apply",
+      "summary": "Paid open-source summer program, remote",
+      "signals": [
+        { "id": "role", "label": "Role match", "detail": "ML open-source projects", "points": 20 },
+        { "id": "intern", "label": "Internship", "detail": "Summer program", "points": 18 },
+        { "id": "stack", "label": "Stack match", "detail": "Depends on the project", "points": 7 },
+        { "id": "remote", "label": "Remote", "detail": "Fully remote", "points": 10 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist program",
+          "detail": "On your program watchlist",
+          "points": 5
+        },
+        { "id": "visa", "label": "Visa friendly", "detail": "No visa needed", "points": 10 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "iaeste-registration",
+      "org": "IAESTE Tunisia",
+      "title": "Summer exchange registration",
+      "location": "Tunis",
+      "remote_type": "onsite",
+      "opportunity_type": "program",
+      "language": "fr",
+      "sources": ["Programs"],
+      "description": "Inscription au programme d'échange IAESTE pour les stages d'été à l'étranger.",
+      "posted_days_ago": 30,
+      "first_seen_hours_ago": 600,
+      "deadline_in_days": -2,
+      "deadline_status": "confirmed",
+      "deadline_text": "Clôture des inscriptions à la date indiquée.",
+      "eligibility_notes": null,
+      "score": 60,
+      "verdict": "maybe",
+      "summary": "Exchange program, registration window",
+      "signals": [
+        {
+          "id": "intern",
+          "label": "Internship",
+          "detail": "Summer internship abroad",
+          "points": 20
+        },
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "Field depends on the offer",
+          "points": 12
+        },
+        {
+          "id": "visa",
+          "label": "Visa friendly",
+          "detail": "Visa handled by IAESTE",
+          "points": 10
+        },
+        {
+          "id": "watchlist",
+          "label": "Watchlist program",
+          "detail": "On your program watchlist",
+          "points": 5
+        },
+        { "id": "stack", "label": "Stack match", "detail": "Not stated", "points": 8 },
+        { "id": "deadline", "label": "Deadline known", "detail": "Passed", "points": 5 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "photoroom-genai",
+      "org": "Photoroom",
+      "title": "Machine Learning Intern, Generative Models",
+      "location": "Paris",
+      "remote_type": "hybrid",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Welcome to the Jungle", "LinkedIn alert"],
+      "description": "Train and evaluate diffusion models for product photography. Python, PyTorch, an eye for image quality.",
+      "posted_days_ago": 3,
+      "first_seen_hours_ago": 50,
+      "deadline_in_days": 12,
+      "deadline_status": "confirmed",
+      "deadline_text": "Applications close on the date above.",
+      "eligibility_notes": null,
+      "score": 76,
+      "verdict": "apply",
+      "summary": "ML title, generative models, hybrid Paris",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "“Machine Learning” in title",
+          "points": 26
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 20 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, PyTorch", "points": 11 },
+        { "id": "remote", "label": "Remote", "detail": "Hybrid", "points": 6 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        },
+        { "id": "fresh", "label": "Fresh posting", "detail": "Posted 3 days ago", "points": 3 },
+        { "id": "visa", "label": "Visa friendly", "detail": "Not stated", "points": 5 }
+      ],
+      "starred": false
+    },
+    {
+      "key": "instadeep-bio",
+      "org": "InstaDeep",
+      "title": "AI Research Intern, Biology",
+      "location": "Tunis",
+      "remote_type": "onsite",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Company page"],
+      "description": "Research internship applying deep learning to protein design.",
+      "posted_days_ago": 10,
+      "first_seen_hours_ago": 200,
+      "deadline_in_days": 33,
+      "deadline_status": "expected",
+      "deadline_text": "Internship windows have historically closed in November.",
+      "eligibility_notes": null,
+      "score": 69,
+      "verdict": "apply",
+      "summary": "AI research title, local, internship",
+      "signals": [
+        { "id": "role", "label": "Role match", "detail": "“AI Research” in title", "points": 24 },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 20 },
+        { "id": "stack", "label": "Stack match", "detail": "Python, deep learning", "points": 10 },
+        { "id": "visa", "label": "Visa friendly", "detail": "Local", "points": 10 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        }
+      ],
+      "starred": true
+    },
+    {
+      "key": "hf-oss-transformers",
+      "org": "Hugging Face",
+      "title": "Open-Source Intern, Transformers",
+      "location": "Remote (Europe)",
+      "remote_type": "remote",
+      "opportunity_type": "internship",
+      "language": "en",
+      "sources": ["Greenhouse"],
+      "description": "Contribute to the Transformers library: new model integrations, documentation and tests.",
+      "posted_days_ago": 12,
+      "first_seen_hours_ago": 260,
+      "deadline_in_days": null,
+      "deadline_status": "rolling",
+      "deadline_text": "We review applications on a rolling basis until the role is filled.",
+      "eligibility_notes": null,
+      "score": 74,
+      "verdict": "apply",
+      "summary": "Open-source ML, internship, remote",
+      "signals": [
+        {
+          "id": "role",
+          "label": "Role match",
+          "detail": "Open-source ML engineering",
+          "points": 22
+        },
+        { "id": "intern", "label": "Internship", "detail": "“Intern”", "points": 20 },
+        {
+          "id": "stack",
+          "label": "Stack match",
+          "detail": "Python, PyTorch, Transformers",
+          "points": 12
+        },
+        { "id": "remote", "label": "Remote", "detail": "Remote (Europe)", "points": 10 },
+        { "id": "visa", "label": "Visa friendly", "detail": "Remote, no visa needed", "points": 5 },
+        {
+          "id": "watchlist",
+          "label": "Watchlist company",
+          "detail": "On your company list",
+          "points": 5
+        }
+      ],
+      "starred": false
+    }
+  ]
+}

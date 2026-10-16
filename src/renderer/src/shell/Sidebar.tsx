@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from 'react';
+import { BrandMark } from '../../components/Brand';
 import { SidebarItem } from '../../components/SidebarItem';
 import { routeHref, type Route } from '../lib/router';
 import { shortcutLabel } from '../lib/settings-helpers';
@@ -8,11 +9,7 @@ import { ScanCard } from './ScanStatus';
 function Brand() {
   return (
     <div className="flex items-center gap-2.5 px-5 pt-0.5 pb-4.5">
-      <div className="grid size-6.5 place-items-center rounded-sm bg-linear-to-b from-(--brand-from) to-(--brand-to) shadow-brand">
-        <div className="grid size-3.5 place-items-center rounded-full border-(length:--border-brand) border-(--brand-ring)">
-          <div className="size-1 rounded-full bg-on-accent" />
-        </div>
-      </div>
+      <BrandMark />
       <div className="text-callout font-semibold tracking-brand">Radar</div>
     </div>
   );

@@ -67,6 +67,8 @@ interface ToastState {
   toast: (ToastInput & { id: number }) | null;
   show: (t: ToastInput) => void;
   dismiss: () => void;
+  lifted: boolean;
+  setLifted: (lifted: boolean) => void;
 }
 
 const ToastContext = createContext<ToastState | null>(null);
@@ -82,9 +84,19 @@ export function useToast(): (t: ToastInput) => void {
   return useToastState().show;
 }
 
+/** Raises toasts above a bottom bar (e.g. the bulk-action bar) while `active` is true. */
+export function useToastLift(active: boolean): void {
+  const { setLifted } = useToastState();
+  useEffect(() => {
+    setLifted(active);
+    return () => setLifted(false);
+  }, [active, setLifted]);
+}
+
 /** Holds toast state. Render <ToastViewport /> where toasts should appear. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState['toast']>(null);
+  const [lifted, setLifted] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const seq = useRef(0);
 
@@ -100,19 +112,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => () => clearTimeout(timer.current), []);
-  const value = useMemo(() => ({ toast, show, dismiss }), [toast, show, dismiss]);
+  const value = useMemo(
+    () => ({ toast, show, dismiss, lifted, setLifted }),
+    [toast, show, dismiss, lifted],
+  );
   return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }
 
 /** Centred at the bottom of the nearest positioned ancestor (the content column). */
 export function ToastViewport() {
-  const { toast, dismiss } = useToastState();
+  const { toast, dismiss, lifted } = useToastState();
   const error = toast?.tone === 'error';
   return (
     <div
       role={error ? 'alert' : 'status'}
       aria-live={error ? 'assertive' : 'polite'}
-      className="pointer-events-none absolute bottom-6 left-1/2 z-40 -translate-x-1/2"
+      className={cn(
+        'pointer-events-none absolute left-1/2 z-40 -translate-x-1/2',
+        'transition-[bottom] duration-(--duration-base) ease-out',
+        lifted ? 'bottom-21' : 'bottom-6',
+      )}
     >
       {toast && (
         <div key={toast.id} className="pointer-events-auto animate-toast-in">

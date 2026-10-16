@@ -27,7 +27,8 @@ function useCountUp(target: number, animate: boolean): number {
 }
 
 interface ScoreRingProps {
-  score: number;
+  /** null = not scored yet: empty track and a dash. */
+  score: number | null;
   size?: RingSize;
   /** Count up and draw the stroke on mount. Off for table rows. */
   animate?: boolean;
@@ -35,13 +36,13 @@ interface ScoreRingProps {
 
 /** Score ring: the only colorful element in a table row. Green >= 75, amber >= 55, gray below. */
 export function ScoreRing({ score, size = 'sm', animate = false }: ScoreRingProps) {
-  const s = clampScore(score);
+  const s = score === null ? 0 : clampScore(score);
   const spec = RING_SIZES[size];
   const shown = useCountUp(s, animate);
   return (
     <div
       role="img"
-      aria-label={`Score ${s} of 100`}
+      aria-label={score === null ? 'Not scored yet' : `Score ${s} of 100`}
       className="relative shrink-0"
       style={{ width: spec.px, height: spec.px }}
     >
@@ -62,15 +63,21 @@ export function ScoreRing({ score, size = 'sm', animate = false }: ScoreRingProp
           stroke={RING_STROKE_VAR[ringTone(s)]}
           strokeWidth={spec.stroke}
           strokeLinecap="round"
-          strokeDasharray={`${shown} 100`}
+          strokeDasharray={`${score === null ? 0 : shown} 100`}
+          opacity={score === null ? 0 : 1}
         />
       </svg>
       <div
         aria-hidden="true"
-        className="absolute inset-0 grid place-items-center font-semibold tabular-nums"
-        style={{ fontSize: spec.fontPx }}
+        className="absolute inset-0 flex flex-col items-center justify-center font-semibold tabular-nums"
       >
-        {shown}
+        <span
+          className={spec.caption ? 'leading-none tracking-large-title' : undefined}
+          style={{ fontSize: spec.fontPx }}
+        >
+          {score === null ? '–' : shown}
+        </span>
+        {spec.caption && <span className="mt-0.5 text-micro font-normal text-fg-3">of 100</span>}
       </div>
     </div>
   );

@@ -6,12 +6,34 @@ import { join } from 'node:path';
 import { buildDesignHarness } from './design-harness';
 
 const THEMES = ['light', 'dark'] as const;
-/** App routes and the matching screen name in the design file. */
-const PAIRS = [
-  { route: 'opportunities', design: 'opportunities' },
-  { route: 'settings', design: 'settings' },
-  { route: 'components', design: 'components' },
-] as const;
+
+interface Pair {
+  /** File name stem. */
+  name: string;
+  route: string;
+  /** Screen name in the design file plus extra screen props. */
+  design: string;
+  designAttrs?: Record<string, string>;
+  /** Opens the first row's detail drawer in the app before capturing. */
+  openDrawer?: boolean;
+  parts?: number;
+}
+
+/** Long pages: capture the top, then scroll by 90% of the viewport, up to this many frames. */
+const MAX_PARTS = 4;
+
+const PAIRS: Pair[] = [
+  { name: 'opportunities', route: 'opportunities', design: 'opportunities' },
+  {
+    name: 'drawer',
+    route: 'opportunities',
+    design: 'opportunities',
+    designAttrs: { drawer: 'hf1' },
+    openDrawer: true,
+  },
+  { name: 'settings', route: 'settings', design: 'settings' },
+  { name: 'components', route: 'components', design: 'components', parts: MAX_PARTS },
+];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -34,8 +56,6 @@ async function capture(win: BrowserWindow, file: string): Promise<void> {
   console.log(`[shot] ${file}`);
 }
 
-/** Long pages: capture the top, then scroll by 90% of the viewport, up to `parts` frames. */
-const MAX_PARTS = 4;
 async function captureParts(
   win: BrowserWindow,
   scroller: string,
@@ -74,22 +94,43 @@ export async function runShots(appWin: BrowserWindow): Promise<void> {
   const [width = 1440, height = 900] = appWin.getContentSize();
   console.log(`[shot] capturing at ${width}x${height}`);
 
+  // The throwaway profile is empty; the dev sample fills the Opportunities page.
+  await wc.executeJavaScript('window.radar.dev.loadSampleData()');
+
   for (const theme of THEMES) {
     await wc.executeJavaScript(`window.radar.settings.set('theme', '${theme}')`);
     wc.reload();
     await loaded(wc);
     await waitFor(wc, `document.documentElement.dataset.theme === '${theme}'`, 10_000);
-    for (const { route } of PAIRS) {
-      await wc.executeJavaScript(`location.hash = '#/${route}'`);
+    for (const pair of PAIRS) {
+      await wc.executeJavaScript(`location.hash = '#/${pair.route}'`);
       await waitFor(wc, `!!document.querySelector('main h1')`, 10_000);
+      if (pair.route === 'opportunities') {
+        await waitFor(
+          wc,
+          `!!document.querySelector('[role="table"] [role="row"][aria-label]')`,
+          10_000,
+        );
+      }
+      if (pair.openDrawer) {
+        await wc.executeJavaScript(
+          `document.querySelector('[role="table"] [role="row"][aria-label]').click()`,
+        );
+        await waitFor(wc, `!!document.querySelector('[role="dialog"] h2')`, 10_000);
+      }
       await wc.executeJavaScript('document.fonts.ready.then(() => true)');
       await sleep(900); // score rings count up for 600 ms
       await captureParts(
         appWin,
         "document.querySelector('main')",
-        join(out, `app-${route}-${theme}`),
-        route === 'components' ? MAX_PARTS : 1,
+        join(out, `app-${pair.name}-${theme}`),
+        pair.parts ?? 1,
       );
+      if (pair.openDrawer) {
+        await wc.executeJavaScript(
+          `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`,
+        );
+      }
     }
   }
 
@@ -107,9 +148,17 @@ export async function runShots(appWin: BrowserWindow): Promise<void> {
   });
   try {
     for (const theme of THEMES) {
-      for (const { route, design } of PAIRS) {
-        const file = join(harnessDir, `${design}-${theme}.html`);
-        writeFileSync(file, buildDesignHarness(bundle, { screen: design, theme, width }));
+      for (const pair of PAIRS) {
+        const file = join(harnessDir, `${pair.name}-${theme}.html`);
+        writeFileSync(
+          file,
+          buildDesignHarness(bundle, {
+            screen: pair.design,
+            theme,
+            width,
+            attrs: pair.designAttrs,
+          }),
+        );
         await designWin.loadFile(file);
         await waitFor(designWin.webContents, `document.body.innerText.length > 200`, 20_000);
         await waitFor(designWin.webContents, `document.fonts.status === 'loaded'`, 10_000);
@@ -117,8 +166,8 @@ export async function runShots(appWin: BrowserWindow): Promise<void> {
         await captureParts(
           designWin,
           'document.scrollingElement',
-          join(out, `design-${route}-${theme}`),
-          route === 'components' ? MAX_PARTS : 1,
+          join(out, `design-${pair.name}-${theme}`),
+          pair.parts ?? 1,
         );
       }
     }
@@ -133,14 +182,14 @@ export async function runShots(appWin: BrowserWindow): Promise<void> {
 function compareHtml(width: number): string {
   const img = (name: string) => `<img src="${name}.png" onerror="this.replaceWith('(none)')">`;
   const rows = THEMES.flatMap((theme) =>
-    PAIRS.flatMap(({ route }) =>
-      Array.from({ length: route === 'components' ? MAX_PARTS : 1 }, (_, i) => {
+    PAIRS.flatMap(({ name, parts }) =>
+      Array.from({ length: parts ?? 1 }, (_, i) => {
         const part = i === 0 ? '' : `-${i + 1}`;
         return `
-  <h2>${route}${part} · ${theme}</h2>
+  <h2>${name}${part} · ${theme}</h2>
   <div class="pair">
-    <figure><figcaption>App</figcaption>${img(`app-${route}-${theme}${part}`)}</figure>
-    <figure><figcaption>Design</figcaption>${img(`design-${route}-${theme}${part}`)}</figure>
+    <figure><figcaption>App</figcaption>${img(`app-${name}-${theme}${part}`)}</figure>
+    <figure><figcaption>Design</figcaption>${img(`design-${name}-${theme}${part}`)}</figure>
   </div>`;
       }),
     ),

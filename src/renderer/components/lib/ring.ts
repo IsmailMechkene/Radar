@@ -15,13 +15,21 @@ export const RING_STROKE_VAR: Record<RingTone, string> = {
   gray: 'var(--gyf)',
 };
 
-export type RingSize = 'xl' | 'lg' | 'md' | 'sm';
+export type RingSize = 'hero' | 'xl' | 'lg' | 'md' | 'card' | 'sm';
 
-/** px = diameter, stroke in the 40-unit viewBox, fontPx = centred number. */
-export const RING_SIZES: Record<RingSize, { px: number; stroke: number; fontPx: number }> = {
+/**
+ * px = diameter, stroke in the 40-unit viewBox, fontPx = centred number.
+ * hero = drawer score card (thin stroke, "of 100" caption); card = new-results strip.
+ */
+export const RING_SIZES: Record<
+  RingSize,
+  { px: number; stroke: number; fontPx: number; caption?: boolean }
+> = {
+  hero: { px: 88, stroke: 2.6, fontPx: 28, caption: true },
   xl: { px: 88, stroke: 3.4, fontPx: 24 },
   lg: { px: 64, stroke: 3.4, fontPx: 19 },
   md: { px: 44, stroke: 3.4, fontPx: 14 },
+  card: { px: 40, stroke: 3.5, fontPx: 13 },
   sm: { px: 32, stroke: 4, fontPx: 11.5 },
 };
 

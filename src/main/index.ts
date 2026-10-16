@@ -6,9 +6,11 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  shell,
   Tray,
   type BrowserWindowConstructorOptions,
 } from 'electron';
+import { readFileSync } from 'node:fs';
 import { release, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -24,6 +26,11 @@ import { chooseWindowMaterial } from './window-material';
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
 const SHOT_MODE = process.argv.includes('--radar-shot');
 if (SHOT_MODE) app.setPath('userData', join(tmpdir(), `radar-shot-${process.pid}`));
+// Development only: RADAR_USER_DATA points a second instance at its own profile (own DB and
+// single-instance lock), e.g. for UI tests while your normal dev app keeps running.
+else if (!app.isPackaged && process.env['RADAR_USER_DATA']) {
+  app.setPath('userData', process.env['RADAR_USER_DATA']);
+}
 
 // The native controls stop 1 px short of the toolbar so its bottom hairline stays visible.
 const OVERLAY_HEIGHT = TOOLBAR_HEIGHT - 1;
@@ -87,6 +94,13 @@ function createWindow(): BrowserWindow {
   win.once('ready-to-show', () => {
     win.maximize();
     win.show();
+  });
+  // Links never open inside the app: new windows are denied and off-app navigation is blocked.
+  // External links go through window.radar.app.openExternal (http/https only).
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event, url) => {
+    const devUrl = process.env['ELECTRON_RENDERER_URL'];
+    if (!(devUrl && url.startsWith(devUrl)) && !url.startsWith('file://')) event.preventDefault();
   });
   win.on('close', (event) => lifecycle.handleWindowClose(win, event));
   win.on('closed', () => lifecycle.handleWindowClosed());
@@ -153,6 +167,12 @@ function start(): void {
       applyAutostart: (enabled) => applyAutostart(app, enabled),
       applyTheme,
       windowInfo,
+      openExternal: (url) => shell.openExternal(url),
+      // Dev only: the fixture lives in the repo, next to package.json.
+      readSampleFixture: () =>
+        JSON.parse(
+          readFileSync(join(app.getAppPath(), 'fixtures', 'sample-opportunities.json'), 'utf8'),
+        ) as unknown,
     });
   } catch (err) {
     fail(`Radar could not open its database (${dbPath})`, err);
