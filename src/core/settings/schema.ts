@@ -33,6 +33,9 @@ export const settingsSchema = z.strictObject({
   // Internal: when the Opportunities page was last opened (drives "New since your last visit").
   // Not shown on the Settings page.
   opportunitiesSeenAt: z.iso.datetime().nullable(),
+  // Outreach merge fields used for every organization ("my name", "my school"). Keys are
+  // field names as written in templates, lower case.
+  outreachDefaults: z.record(z.string().trim().toLowerCase().min(1).max(60), z.string().max(500)),
 });
 
 export type Settings = z.output<typeof settingsSchema>;
@@ -56,4 +59,5 @@ export const DEFAULT_SETTINGS: Settings = {
   scanIntervalHours: 6,
   theme: 'system',
   opportunitiesSeenAt: null,
+  outreachDefaults: {},
 };

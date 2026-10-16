@@ -29,6 +29,14 @@ import {
 import type { PageCheck } from '../core/watch/pages';
 import type { NavCounts } from '../core/nav';
 import {
+  draftInputSchema,
+  templateInputSchema,
+  type DraftInput,
+  type OutreachItem,
+  type TemplateInput,
+  type TemplateRow,
+} from '../core/outreach';
+import {
   newSourceSchema,
   type NewSource,
   type SourceHealth,
@@ -47,6 +55,13 @@ export const IPC_CHANNELS = {
   appGetWindowInfo: 'app:get-window-info',
   appOpenExternal: 'app:open-external',
   appNavCounts: 'app:nav-counts',
+  appCopyText: 'app:copy-text',
+  appOpenMail: 'app:open-mail',
+  outreachList: 'outreach:list',
+  outreachSaveDraft: 'outreach:save-draft',
+  outreachTemplates: 'outreach:templates',
+  outreachSaveTemplate: 'outreach:save-template',
+  outreachDeleteTemplate: 'outreach:delete-template',
   opportunitiesList: 'opportunities:list',
   opportunitiesGet: 'opportunities:get',
   opportunitiesSetStarred: 'opportunities:set-starred',
@@ -115,6 +130,24 @@ export const appOpenExternalPayloadSchema = z.strictObject({
 });
 /** "New since" for the Opportunities count: the last visit (or 3 days ago on the first). */
 export const appNavCountsPayloadSchema = z.strictObject({ newSince: z.iso.datetime() });
+export const appCopyTextPayloadSchema = z.strictObject({ text: z.string().max(50_000) });
+/** A draft for the default mail app (mailto:). Nothing is sent. */
+export const appOpenMailPayloadSchema = z.strictObject({
+  to: z.string().max(320),
+  subject: z.string().max(1000),
+  body: z.string().max(20_000),
+});
+export const outreachListPayloadSchema = noPayload;
+export const outreachSaveDraftPayloadSchema = z.strictObject({
+  pipelineId: z.int().positive(),
+  draft: draftInputSchema,
+});
+export const outreachTemplatesPayloadSchema = noPayload;
+export const outreachSaveTemplatePayloadSchema = z.strictObject({
+  id: z.int().positive().nullable(),
+  template: templateInputSchema,
+});
+export const outreachDeleteTemplatePayloadSchema = z.strictObject({ id: z.int().positive() });
 export const opportunitiesListPayloadSchema = noPayload;
 export const opportunitiesGetPayloadSchema = z.strictObject({ id: z.int().positive() });
 export const opportunitiesSetStarredPayloadSchema = z.strictObject({
@@ -188,6 +221,10 @@ export type PipelineImport = (ImportResult & { file: string }) | null;
 export type IcsExport = { file: string; count: number } | null;
 
 export type {
+  DraftInput,
+  OutreachItem,
+  TemplateInput,
+  TemplateRow,
   NavCounts,
   NewSource,
   SourceHealth,
@@ -243,6 +280,9 @@ export interface RadarApi {
     openExternal(url: string): Promise<void>;
     /** Sidebar counts (same rules as each page). */
     navCounts(newSince: string): Promise<NavCounts>;
+    copyText(text: string): Promise<void>;
+    /** Opens a draft in the default mail app (mailto:). Radar never sends email. */
+    openMail(to: string, subject: string, body: string): Promise<void>;
   };
   opportunities: {
     /** Open opportunities (not dismissed, not closed), best score first. */
@@ -303,6 +343,15 @@ export interface RadarApi {
     remove(id: number): Promise<number>;
     /** Fetches like a scan would and stores nothing. */
     test(target: { id: number } | { source: NewSource }): Promise<TestResult>;
+  };
+  outreach: {
+    /** Pipeline rows with their draft (template and typed fields) and the values Radar knows. */
+    list(): Promise<OutreachItem[]>;
+    saveDraft(pipelineId: number, draft: DraftInput): Promise<void>;
+    templates(): Promise<TemplateRow[]>;
+    /** Creates (id null) or updates a template. */
+    saveTemplate(id: number | null, template: TemplateInput): Promise<TemplateRow>;
+    deleteTemplate(id: number): Promise<number>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

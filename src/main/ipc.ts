@@ -36,6 +36,14 @@ import {
 import type { PageCheck } from '../core/watch/pages';
 import { navCounts } from '../core/nav';
 import {
+  deleteTemplate,
+  listOutreach,
+  listTemplates,
+  mailtoUrl,
+  saveDraft,
+  saveTemplate,
+} from '../core/outreach';
+import {
   addSource,
   adapterSourceFor,
   adapterSourceOf,
@@ -52,6 +60,13 @@ import {
   appGetWindowInfoPayloadSchema,
   appOpenExternalPayloadSchema,
   appNavCountsPayloadSchema,
+  appCopyTextPayloadSchema,
+  appOpenMailPayloadSchema,
+  outreachListPayloadSchema,
+  outreachSaveDraftPayloadSchema,
+  outreachTemplatesPayloadSchema,
+  outreachSaveTemplatePayloadSchema,
+  outreachDeleteTemplatePayloadSchema,
   devPayloadSchema,
   IPC_CHANNELS as C,
   opportunitiesGetPayloadSchema,
@@ -99,6 +114,10 @@ export interface IpcDeps {
   applyTheme: (theme: ThemePreference) => void;
   windowInfo: () => WindowInfo;
   openExternal: (url: string) => Promise<void>;
+  /** System clipboard (main process). */
+  copyText?: (text: string) => void;
+  /** Opens a mailto: link in the default mail app. */
+  openMailto?: (url: string) => Promise<void>;
   /** Reads the dev sample fixture (raw JSON, validated by the loader). */
   readSampleFixture: () => unknown;
   scan: Pick<ScanService, 'run' | 'status'>;
@@ -173,6 +192,34 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.appNavCounts, appNavCountsPayloadSchema, ({ newSince }) =>
     navCounts(db, { now: now(), timeZone: getSetting(db, 'timezone'), newSince }),
+  );
+
+  handle(ipcMain, C.appCopyText, appCopyTextPayloadSchema, ({ text }) => {
+    if (!deps.copyText) throw new Error('Copy is not available');
+    deps.copyText(text);
+  });
+
+  handle(ipcMain, C.appOpenMail, appOpenMailPayloadSchema, ({ to, subject, body }) => {
+    if (!deps.openMailto) throw new Error('Opening the mail app is not available');
+    return deps.openMailto(mailtoUrl(to, subject, body));
+  });
+
+  handle(ipcMain, C.outreachList, outreachListPayloadSchema, () =>
+    listOutreach(db, getSetting(db, 'timezone')),
+  );
+
+  handle(ipcMain, C.outreachSaveDraft, outreachSaveDraftPayloadSchema, ({ pipelineId, draft }) =>
+    saveDraft(db, pipelineId, draft, now()),
+  );
+
+  handle(ipcMain, C.outreachTemplates, outreachTemplatesPayloadSchema, () => listTemplates(db));
+
+  handle(ipcMain, C.outreachSaveTemplate, outreachSaveTemplatePayloadSchema, ({ id, template }) =>
+    saveTemplate(db, id, template, now()),
+  );
+
+  handle(ipcMain, C.outreachDeleteTemplate, outreachDeleteTemplatePayloadSchema, ({ id }) =>
+    deleteTemplate(db, id),
   );
 
   handle(ipcMain, C.opportunitiesList, opportunitiesListPayloadSchema, () =>

@@ -20,6 +20,8 @@ const api: RadarApi = {
     getWindowInfo: () => ipcRenderer.invoke(C.appGetWindowInfo),
     openExternal: (url) => ipcRenderer.invoke(C.appOpenExternal, { url }),
     navCounts: (newSince) => ipcRenderer.invoke(C.appNavCounts, { newSince }),
+    copyText: (text) => ipcRenderer.invoke(C.appCopyText, { text }),
+    openMail: (to, subject, body) => ipcRenderer.invoke(C.appOpenMail, { to, subject, body }),
   },
   opportunities: {
     list: () => ipcRenderer.invoke(C.opportunitiesList),
@@ -59,6 +61,14 @@ const api: RadarApi = {
     add: (source) => ipcRenderer.invoke(C.sourcesAdd, { source }),
     remove: (id) => ipcRenderer.invoke(C.sourcesDelete, { id }),
     test: (target) => ipcRenderer.invoke(C.sourcesTest, target),
+  },
+  outreach: {
+    list: () => ipcRenderer.invoke(C.outreachList),
+    saveDraft: (pipelineId, draft) =>
+      ipcRenderer.invoke(C.outreachSaveDraft, { pipelineId, draft }),
+    templates: () => ipcRenderer.invoke(C.outreachTemplates),
+    saveTemplate: (id, template) => ipcRenderer.invoke(C.outreachSaveTemplate, { id, template }),
+    deleteTemplate: (id) => ipcRenderer.invoke(C.outreachDeleteTemplate, { id }),
   },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),

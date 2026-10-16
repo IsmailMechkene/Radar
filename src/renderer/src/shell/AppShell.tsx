@@ -19,6 +19,7 @@ import {
 import { shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
 import { DeadlinesPage } from '../pages/deadlines/DeadlinesPage';
+import { OutreachPage } from '../pages/outreach/OutreachPage';
 import { PipelinePage } from '../pages/pipeline/PipelinePage';
 import { ProgramsPage } from '../pages/programs/ProgramsPage';
 import { SourcesPage } from '../pages/sources/SourcesPage';
@@ -44,6 +45,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
   if (route === 'deadlines') return <DeadlinesPage />;
   if (route === 'programs') return <ProgramsPage />;
   if (route === 'sources') return <SourcesPage />;
+  if (route === 'outreach') return <OutreachPage />;
   if (route === 'settings') return <SettingsPage isPackaged={info?.isPackaged ?? true} />;
   if (route === 'components') {
     return (

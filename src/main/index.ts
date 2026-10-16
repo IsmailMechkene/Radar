@@ -7,6 +7,7 @@ import {
   nativeImage,
   nativeTheme,
   Notification,
+  clipboard,
   powerMonitor,
   shell,
   Tray,
@@ -39,6 +40,7 @@ import { createScheduler, type Scheduler } from './scheduler';
 import { checkPage, watchPages } from '../core/watch/pages';
 import { getSource } from '../core/db/sources';
 import { testFetch } from '../core/sources/manage';
+import { ensureDefaultTemplates } from '../core/outreach';
 import { chooseWindowMaterial } from './window-material';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
@@ -293,6 +295,7 @@ function start(): void {
     nativeTheme.themeSource = getSetting(database, 'theme');
     syncSeeds(database);
     syncPrograms(database);
+    ensureDefaultTemplates(database, new Date());
     refreshDeadlines(database, 'startup');
     const rules = loadRules();
     rescore(database, rules, 'startup');
@@ -323,6 +326,11 @@ function start(): void {
       applyTheme,
       windowInfo,
       openExternal: (url) => shell.openExternal(url),
+      copyText: (text) => clipboard.writeText(text),
+      openMailto: (url) => {
+        if (!url.startsWith('mailto:')) throw new Error('Not a mail link');
+        return shell.openExternal(url);
+      },
       // Dev only: the fixture lives in the repo, next to package.json.
       readSampleFixture: () =>
         JSON.parse(

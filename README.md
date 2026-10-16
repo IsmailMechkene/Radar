@@ -140,6 +140,16 @@ across restarts). **Test fetch** fetches it the way a scan would and shows what 
 saving anything. **Add source** adds an Ashby job board (paste its jobs.ashbyhq.com link) or a web
 page to watch for changes, with a preview before adding.
 
+## Outreach
+
+The Outreach page drafts emails for the organizations in your Pipeline. Pick a template (an English
+first email, a follow-up and a French candidature come with Radar; edit them or add your own under
+**Templates**) and fill its [fields]: company, role, the contact's first name, the email and the
+sent date come from the Pipeline; "my name" and "my school" are typed once for every organization;
+the rest (product, project, ...) per organization. **Copy** puts the draft on the clipboard and
+**Open in Mail** opens it in your mail app; Radar never sends email. After opening it, **Mark sent**
+records the date and plans the follow-ups.
+
 ## Pipeline
 
 The Pipeline page tracks outreach from Not started to Offer. **Add entry** creates a row for any
