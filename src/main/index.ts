@@ -6,6 +6,8 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  Notification,
+  powerMonitor,
   shell,
   Tray,
   type BrowserWindowConstructorOptions,
@@ -16,7 +18,10 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
+import { extractDeadlines } from '../core/deadlines/postings';
 import { createHttpClient } from '../core/http/client';
+import { parseSeedPrograms, syncSeedPrograms } from '../core/programs/seeds';
+import type { Notice } from '../core/reminders/store';
 import { compileRules, type CompiledRules } from '../core/rules/engine';
 import { profileFromSettings, SCORING_SETTING_KEYS } from '../core/rules/profile';
 import { rescoreAll } from '../core/rules/rescore';
@@ -29,6 +34,8 @@ import { TITLE_BAR_OVERLAY, TOOLBAR_HEIGHT, type ThemePreference } from '../shar
 import { registerIpcHandlers } from './ipc';
 import { applyAutostart, createLifecycle } from './lifecycle';
 import { createScanService } from './scan';
+import { createScheduler, type Scheduler } from './scheduler';
+import { watchPages } from '../core/watch/pages';
 import { chooseWindowMaterial } from './window-material';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
@@ -52,6 +59,9 @@ const windowInfo = (): WindowInfo => ({
 
 let tray: Tray | null = null;
 let db: Database.Database | null = null;
+let scheduler: Scheduler | null = null;
+// Notifications are kept referenced until closed, or their click handler can be collected.
+const liveNotifications = new Set<Notification>();
 
 const lifecycle = createLifecycle({ app, createWindow });
 
@@ -212,6 +222,52 @@ function syncSeeds(database: Database.Database): void {
   }
 }
 
+/** Loads seeds/programs.json (the Programs watchlist). A broken file is reported, never fatal. */
+function syncPrograms(database: Database.Database): void {
+  try {
+    const raw = JSON.parse(readFileSync(join(app.getAppPath(), 'seeds', 'programs.json'), 'utf8'));
+    const r = syncSeedPrograms(
+      database,
+      parseSeedPrograms(raw),
+      getSetting(database, 'timezone'),
+      new Date(),
+    );
+    console.log(
+      `[radar] programs synced from seeds: ${r.inserted} new, ${r.updated} updated, ${r.watched} pages watched`,
+    );
+  } catch (err) {
+    console.error('[radar] could not sync seeds/programs.json:', err);
+  }
+}
+
+/** Reads posting deadlines from their text (confirmed, rolling or unknown). */
+function refreshDeadlines(database: Database.Database, why: string): void {
+  try {
+    const r = extractDeadlines(database, getSetting(database, 'timezone'));
+    console.log(
+      `[radar] deadlines read (${why}): ${r.confirmed} confirmed, ${r.rolling} rolling, ${r.doubtful} to check, of ${r.checked}`,
+    );
+  } catch (err) {
+    console.error(`[radar] reading deadlines failed (${why}):`, err);
+  }
+}
+
+/** Native notification; clicking it brings the window forward. */
+function showNotice(notice: Notice): void {
+  if (!Notification.isSupported()) {
+    console.warn(`[radar] notifications unsupported; not shown: ${notice.title}`);
+    return;
+  }
+  const n = new Notification({ title: notice.title, body: notice.body });
+  liveNotifications.add(n);
+  n.on('click', () => {
+    lifecycle.showWindow();
+    liveNotifications.delete(n);
+  });
+  n.on('close', () => liveNotifications.delete(n));
+  n.show();
+}
+
 function fail(title: string, err: unknown): void {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`[radar] ${title}:`, err);
@@ -233,16 +289,30 @@ function start(): void {
     );
     nativeTheme.themeSource = getSetting(database, 'theme');
     syncSeeds(database);
+    syncPrograms(database);
+    refreshDeadlines(database, 'startup');
     const rules = loadRules();
     rescore(database, rules, 'startup');
+    const http = createHttpClient();
     const scan = createScanService({
       db: database,
-      http: createHttpClient(),
+      http,
       onProgress: (p) => broadcast(IPC_EVENTS.scanProgress, p),
-      afterScan: () => rescore(database, rules, 'after scan'),
+      afterScan: () => {
+        refreshDeadlines(database, 'after scan');
+        rescore(database, rules, 'after scan');
+      },
       onFinished: (summary) => broadcast(IPC_EVENTS.scanFinished, summary),
     });
     if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
+    scheduler = createScheduler({
+      db: database,
+      scan: { run: (trigger) => scan.run(trigger), status: () => scan.status() },
+      watchPages: async () => {
+        await watchPages(database, { http, now: new Date() });
+      },
+      notify: showNotice,
+    });
     registerIpcHandlers({
       ipcMain,
       db: database,
@@ -257,7 +327,12 @@ function start(): void {
         ) as unknown,
       scan,
       onSettingChanged: (key) => {
-        if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
+        if (key === 'timezone') {
+          // Local calendar days moved: expected program dates and parsed deadlines follow.
+          syncPrograms(database);
+          refreshDeadlines(database, 'setting timezone');
+          rescore(database, rules, 'setting timezone');
+        } else if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
           rescore(database, rules, `setting ${key}`);
         }
       },
@@ -285,6 +360,9 @@ function start(): void {
   createTray();
   lifecycle.showWindow();
   app.on('activate', () => lifecycle.showWindow());
+  // Hourly tick, now (startup catch-up), and after the computer wakes up.
+  scheduler?.start();
+  powerMonitor.on('resume', () => void scheduler?.tick('resume'));
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -298,6 +376,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {});
   app.on('before-quit', () => lifecycle.handleBeforeQuit());
   app.on('will-quit', () => {
+    scheduler?.stop();
     tray?.destroy();
     db?.close();
   });

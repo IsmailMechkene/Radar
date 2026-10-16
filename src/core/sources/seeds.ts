@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { getAdapter } from '../adapters/registry';
 import { accessMethodSchema } from '../db/schemas';
 
+/** Source kind for a web page watched for changes (programs, pages added by the user). */
+export const PAGE_KIND = 'page';
+
 export const seedSourceSchema = z.strictObject({
   /** Unique, human-readable; used by `scan:dry --source <name>`. */
   name: z.string().trim().min(1),
@@ -34,6 +37,17 @@ export const seedSourcesFileSchema = z
       }
       seen.add(key);
       if (s.status !== 'active') return;
+      // Watched pages have no adapter: they are fetched for change detection, not scanned.
+      if (s.kind === PAGE_KIND) {
+        if (!s.url) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `"${s.name}": a page needs a url`,
+            path: ['sources', i, 'url'],
+          });
+        }
+        return;
+      }
       // Active sources must have a registered adapter and a valid config for it.
       let configSchema: z.ZodType;
       try {

@@ -1,33 +1,44 @@
-// Headless entry point: `cli scan | remind | export`.
-// Implemented so far: `scan` (store results in the database, for OS schedulers) and
-// `scan --dry --source <name>` (fetch one source, print, save nothing).
-import { mkdirSync, readFileSync } from 'node:fs';
+// Headless entry point: `cli scan | rescore | remind | export`.
+// Implemented so far: `scan` (store results in the database, for OS schedulers),
+// `scan --dry --source <name>` (fetch one source, print, save nothing), `rescore`, and
+// `remind --dry --now <time>` (what would fire at that time, on a copy; nothing is saved).
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
+import Database from 'better-sqlite3';
 import { getAdapter } from './core/adapters/registry';
 import type { AdapterResult, RawItem } from './core/adapters/types';
 import { migrate } from './core/db/migrate';
 import { openDatabase, resolveDbPath } from './core/db/open';
 import { createHttpClient, HttpError, RobotsDisallowedError } from './core/http/client';
+import { extractDeadlines } from './core/deadlines/postings';
 import { defaultDataDir } from './core/paths';
+import { parseSeedPrograms, syncSeedPrograms } from './core/programs/seeds';
+import { isQuietTime } from './core/reminders/quiet';
+import { fireDue, syncReminders } from './core/reminders/store';
 import { compileRules } from './core/rules/engine';
 import { profileFromSettings } from './core/rules/profile';
 import { rescoreAll } from './core/rules/rescore';
 import { parseRules } from './core/rules/schema';
 import { runScan } from './core/runner';
-import { getAllSettings, seedDefaultSettings } from './core/settings/store';
+import { getAllSettings, getSetting, seedDefaultSettings } from './core/settings/store';
 import { findSeedSource, parseSeedSources, type SeedSource } from './core/sources/seeds';
 import { syncSeedSources } from './core/sources/sync';
+import { zonedToUtc } from './core/time';
 
 const COMMANDS = ['scan', 'rescore', 'remind', 'export'] as const;
 const USAGE = `Usage:
   radar scan [--source <name>]... [--db <file>]
   radar scan --dry --source <name> [--json] [--limit <n>]
   radar rescore [--db <file>]
-  radar <remind|export>   (not implemented yet)
+  radar remind --dry [--now <time>] [--db <file>]
+  radar export   (not implemented yet)
 
   scan       fetch every enabled source (or only the --source ones), store and score the results
   rescore    score every stored opportunity again with seeds/rules.json and your settings
+  remind     with --dry: print the notifications that would fire at --now (default: now),
+             planned on an in-memory copy of the database; nothing is saved
+  --now      2026-10-19T09:00 (your Settings time zone) or a full ISO time with Z or an offset
   --db       database file (default: the app's own, e.g. %APPDATA%\\radar\\radar.db)
   --dry      fetch and print only; nothing is written to the database
   --source   a source name from seeds/sources.json (repeatable without --dry)
@@ -41,6 +52,7 @@ interface Args {
   sources: string[];
   db: string | undefined;
   limit: number;
+  now: string | undefined;
 }
 
 export function parseArgs(argv: readonly string[]): Args {
@@ -51,6 +63,7 @@ export function parseArgs(argv: readonly string[]): Args {
     sources: [],
     db: undefined,
     limit: 50,
+    now: undefined,
   };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
@@ -59,6 +72,7 @@ export function parseArgs(argv: readonly string[]): Args {
     else if (a === '--source') args.sources.push(argv[++i] ?? '');
     else if (a === '--db') args.db = argv[++i];
     else if (a === '--limit') args.limit = Number(argv[++i]);
+    else if (a === '--now') args.now = argv[++i];
     else throw new Error(`Unknown argument "${a}"`);
   }
   if (!Number.isInteger(args.limit) || args.limit < 0) {
@@ -171,6 +185,7 @@ function rescoreDb(db: ReturnType<typeof openDatabase>): string {
     parseRules(JSON.parse(readFileSync(resolve(process.cwd(), 'seeds', 'rules.json'), 'utf8'))),
   );
   seedDefaultSettings(db);
+  extractDeadlines(db, getSetting(db, 'timezone'));
   const r = rescoreAll(db, rules, profileFromSettings(getAllSettings(db)), new Date());
   const v = r.byVerdict;
   return `Scored ${r.scored}: ${v.apply} apply, ${v.maybe} maybe, ${v.needs_review} needs review, ${v.skip} skip`;
@@ -183,6 +198,103 @@ async function rescoreCommand(args: Args): Promise<number> {
   try {
     migrate(db);
     console.log(rescoreDb(db));
+    return 0;
+  } finally {
+    db.close();
+  }
+}
+
+/** "2026-10-19T09:00" is local time in `timeZone`; a value with Z or an offset is absolute. */
+export function parseNow(value: string, timeZone: string): Date {
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) throw new Error(`--now: cannot read "${value}"`);
+    return d;
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(value);
+  if (!m) throw new Error(`--now: expected 2026-10-19T09:00, got "${value}"`);
+  const [, y, mo, d, h = '0', mi = '0', s = '0'] = m;
+  return zonedToUtc(+y!, +mo!, +d!, +h, +mi, +s, 0, timeZone);
+}
+
+/** What would fire at --now, computed on an in-memory copy (the real file is opened read-only). */
+async function remindDry(args: Args): Promise<number> {
+  if (!args.dry) {
+    console.error('Only "remind --dry" exists; the app fires reminders itself.\n');
+    console.error(USAGE);
+    return 1;
+  }
+  const dbPath = dbPathFor(args);
+  let db: Database.Database;
+  if (existsSync(dbPath)) {
+    const file = new Database(dbPath, { readonly: true, fileMustExist: true });
+    const image = file.serialize();
+    file.close();
+    // The app's file is in WAL mode, which an in-memory copy cannot use: mark the copy as a
+    // rollback-journal database (header bytes 18-19) so it can be written.
+    image[18] = 1;
+    image[19] = 1;
+    db = new Database(image);
+  } else {
+    console.error(`No database at ${dbPath}; using an empty one.`);
+    db = new Database(':memory:');
+  }
+  try {
+    migrate(db);
+    seedDefaultSettings(db);
+    const timeZone = getSetting(db, 'timezone');
+    const now = args.now ? parseNow(args.now, timeZone) : new Date();
+    const programs = parseSeedPrograms(
+      JSON.parse(readFileSync(resolve(process.cwd(), 'seeds', 'programs.json'), 'utf8')),
+    );
+    syncSeedPrograms(db, programs, timeZone, now);
+    extractDeadlines(db, timeZone);
+    const quietHours = getSetting(db, 'quietHours');
+    const quiet = isQuietTime(now, quietHours, timeZone);
+    const local = new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+      timeZone,
+    }).format(now);
+    console.log(`Dry run at ${local} (${timeZone}). Nothing is saved.`);
+    syncReminders(db, now, timeZone);
+    // Fire with quiet hours off to list what is due; report quiet hours separately.
+    const r = fireDue(db, now, { timeZone, quietHours: { ...quietHours, enabled: false } });
+    if (r.notices.length === 0) console.log('Nothing would fire.');
+    for (const n of r.notices) {
+      const extra = n.collapsed ? ` (+${n.collapsed} earlier, collapsed)` : '';
+      console.log(`  • ${n.title}${extra}\n      ${n.body.replace(/\n/g, '\n      ')}`);
+    }
+    if (quiet && r.notices.length) {
+      console.log(
+        `Quiet hours (${quietHours.start}-${quietHours.end}): these would wait until they end.`,
+      );
+    }
+    const upcoming = db
+      .prepare(
+        `SELECT r.kind, r.due_at,
+                CASE r.target_type
+                  WHEN 'opportunity' THEN (SELECT org || ' · ' || title FROM opportunities WHERE id = r.target_id)
+                  WHEN 'program' THEN (SELECT name FROM programs WHERE id = r.target_id)
+                  ELSE (SELECT 'Follow-up · ' || org FROM pipeline WHERE id = r.target_id)
+                END AS label
+           FROM reminders r
+          WHERE r.fired_at IS NULL AND r.done_at IS NULL ORDER BY r.due_at LIMIT 8`,
+      )
+      .all() as { kind: string; due_at: string; label: string | null }[];
+    if (upcoming.length) {
+      console.log('Next planned:');
+      const fmt = new Intl.DateTimeFormat('en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone,
+      });
+      for (const u of upcoming) {
+        console.log(
+          `  ${fmt.format(new Date(u.due_at))}  ${u.kind.padEnd(12)}  ${u.label ?? '(removed)'}`,
+        );
+      }
+    }
     return 0;
   } finally {
     db.close();
@@ -241,11 +353,14 @@ async function main(argv: readonly string[]): Promise<number> {
   }
   if (args.command === 'scan') return args.dry ? scanDry(args) : scanLive(args);
   if (args.command === 'rescore') return rescoreCommand(args);
+  if (args.command === 'remind') return remindDry(args);
   if (!args.command || !(COMMANDS as readonly string[]).includes(args.command)) {
     console.error(USAGE);
     return 1;
   }
-  console.error(`radar ${args.command}: not implemented yet (only "scan" and "rescore" work)`);
+  console.error(
+    `radar ${args.command}: not implemented yet (only "scan", "rescore" and "remind --dry" work)`,
+  );
   return 1;
 }
 

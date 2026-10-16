@@ -16,7 +16,8 @@
     "shot": "electron-vite build && electron . --radar-shot",
     "scan:dry": "tsx src/cli.ts scan --dry",
     "scan": "tsx src/cli.ts scan",
-    "rescore": "tsx src/cli.ts rescore"
+    "rescore": "tsx src/cli.ts rescore",
+    "remind:dry": "tsx src/cli.ts remind --dry"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",

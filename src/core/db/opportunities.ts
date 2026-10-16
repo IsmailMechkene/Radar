@@ -174,6 +174,21 @@ export function restoreOpportunities(db: Database.Database, ids: readonly number
     .run(...ids).changes;
 }
 
+/** Removes score and verdict (programs are not scored); sets the eligibility notes. */
+export function clearScore(
+  db: Database.Database,
+  id: number,
+  eligibilityNotes: string | null,
+): void {
+  const changed = db
+    .prepare(
+      `UPDATE opportunities SET score = NULL, verdict = NULL, score_breakdown_json = NULL,
+         eligibility_notes = ? WHERE id = ?`,
+    )
+    .run(eligibilityNotes, id).changes;
+  if (changed === 0) throw new Error(`No opportunity with id ${id}`);
+}
+
 /** Stores a rules-engine result. Verdict and breakdown are validated before writing. */
 export function applyScore(
   db: Database.Database,

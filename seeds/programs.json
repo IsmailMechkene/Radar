@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "programs": [
+    {
+      "name": "IAESTE Tunisia",
+      "org": "IAESTE Tunisia",
+      "url": "https://www.iaeste.tn/tunisia/",
+      "typical_open": "December",
+      "typical_deadline": "February",
+      "last_cycle_deadline": null,
+      "expected_open": "2026-12-01",
+      "expected_deadline": "2027-02-28",
+      "deadline_status": "expected",
+      "eligibility": { "note": "Nomination through the IAESTE Tunisia committee" },
+      "notes": "Nominations Dec-Feb in the last cycle. URL checked live 2026-10-16."
+    },
+    {
+      "name": "MBZUAI UGRIP",
+      "org": "MBZUAI",
+      "url": null,
+      "typical_open": null,
+      "typical_deadline": "February 28",
+      "last_cycle_deadline": "2026-02-28",
+      "expected_open": null,
+      "expected_deadline": "2027-02-28",
+      "deadline_status": "expected",
+      "eligibility": { "gpa": "CGPA 3.5/4 or equivalent" },
+      "notes": "Undergraduate Research Internship Program. Official page not confirmed: mbzuai.ac.ae answered 403 (bot protection) on 2026-10-16."
+    },
+    {
+      "name": "KAUST VSRP",
+      "org": "KAUST",
+      "url": "https://admissions.kaust.edu.sa/study/internships",
+      "typical_open": "Rolling",
+      "typical_deadline": "Rolling, apply 4-6 months before the start",
+      "last_cycle_deadline": null,
+      "expected_open": null,
+      "expected_deadline": null,
+      "deadline_status": "rolling",
+      "eligibility": { "gpa": "GPA 3.5/4 or equivalent", "year": "3rd year or later" },
+      "notes": "Visiting Student Research Program. vsrp.kaust.edu.sa redirects to this page (checked 2026-10-16)."
+    },
+    {
+      "name": "Google Summer of Code",
+      "org": "Google",
+      "url": "https://summerofcode.withgoogle.com/",
+      "watch_url": "https://developers.google.com/open-source/gsoc/timeline",
+      "typical_open": "March 16",
+      "typical_deadline": "March 31",
+      "last_cycle_deadline": "2026-03-31",
+      "expected_open": "2027-03-16",
+      "expected_deadline": "2027-03-31",
+      "deadline_status": "expected",
+      "eligibility": { "note": "Contributors 18+, new to open source or students" },
+      "notes": "Contributor applications Mar 16-31 (18:00 UTC) in the 2026 timeline, read live 2026-10-16. The timeline page is watched for the 2027 dates."
+    },
+    {
+      "name": "Erasmus+ International Credit Mobility",
+      "org": "Erasmus+ (via my school)",
+      "url": null,
+      "typical_open": null,
+      "typical_deadline": null,
+      "last_cycle_deadline": null,
+      "expected_open": null,
+      "expected_deadline": null,
+      "deadline_status": "unknown",
+      "eligibility": {
+        "note": "Through the school's international office and its partner agreements"
+      },
+      "notes": "Calls come from the school's international office; add its page as the URL once known."
+    },
+    {
+      "name": "InstaDeep Tunis PFE",
+      "org": "InstaDeep",
+      "url": "https://instadeep.com/about-us/careers/",
+      "typical_open": null,
+      "typical_deadline": "November",
+      "last_cycle_deadline": null,
+      "expected_open": null,
+      "expected_deadline": "2026-11-01",
+      "deadline_status": "expected",
+      "eligibility": { "note": "Final-year (PFE) internship in Tunis" },
+      "notes": "PFE windows closed in November in earlier years; the day is unknown, so reminders count down to November 1 to be early."
+    },
+    {
+      "name": "Hugging Face summer 2027 internships",
+      "org": "Hugging Face",
+      "url": "https://apply.workable.com/huggingface/",
+      "typical_open": "November-December",
+      "typical_deadline": null,
+      "last_cycle_deadline": null,
+      "expected_open": "2026-11-01",
+      "expected_deadline": null,
+      "deadline_status": "expected",
+      "eligibility": {},
+      "notes": "Summer 2027 postings expected Nov-Dec 2026. The Workable page is rendered by script, so its watched text is small."
+    },
+    {
+      "name": "Entrelacs",
+      "org": "Entrelacs",
+      "url": null,
+      "typical_open": null,
+      "typical_deadline": null,
+      "last_cycle_deadline": null,
+      "expected_open": null,
+      "expected_deadline": null,
+      "deadline_status": "unknown",
+      "eligibility": {},
+      "notes": "Careers page not found (entrelacs.ai belongs to a different company, checked 2026-10-16)."
+    }
+  ]
+}

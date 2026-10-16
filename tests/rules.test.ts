@@ -217,7 +217,8 @@ describe('rescoreAll', () => {
   });
 
   it('stores flags, is idempotent and leaves development sample rows alone', () => {
-    const id = store(byId('ugrip-gpa'));
+    // Stored as an internship: program postings are left unscored by rescoreAll.
+    const id = store({ ...byId('ugrip-gpa'), opportunity_type: 'internship' });
     loadSampleData(t.db, read('fixtures/sample-opportunities.json'), NOW);
     const first = rescoreAll(t.db, compiled, profile, NOW);
     expect(first.scored).toBe(1);
