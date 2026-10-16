@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -41,6 +42,9 @@ describe('IPC handlers', () => {
   let finished: ScanSummary[];
   let pipelineChanges: number;
   let csvPick: string | null;
+  let dataDir: string;
+  let folderPick: string | null;
+  let saved: { name: string; contents: string } | null;
 
   beforeEach(() => {
     t = tempDb();
@@ -56,6 +60,9 @@ describe('IPC handlers', () => {
     finished = [];
     pipelineChanges = 0;
     csvPick = null;
+    dataDir = mkdtempSync(join(tmpdir(), 'radar-data-'));
+    folderPick = null;
+    saved = null;
     // Only the Weaviate board answers (it serves the recorded Cohere payload); everything else,
     // robots.txt included, is 404.
     const weaviate = readFileSync(
@@ -85,6 +92,14 @@ describe('IPC handlers', () => {
       onSettingChanged: (key) => changed.push(key),
       pickCsvFile: async () => csvPick,
       readTextFile: (path) => readFileSync(path, 'utf8'),
+      defaultBackupFolder: () => join(dataDir, 'Backups'),
+      chooseFolder: async () => folderPick,
+      saveTextFile: async (name, contents) => {
+        saved = { name, contents };
+        const file = join(dataDir, name);
+        writeFileSync(file, contents);
+        return file;
+      },
       onRemindersChanged: () => void (pipelineChanges += 1),
       now: () => NOW,
     });
@@ -268,5 +283,37 @@ describe('IPC handlers', () => {
     const r = (await invoke(IPC_CHANNELS.pipelineImportCsv)) as PipelineImport;
     expect(r).toMatchObject({ added: 13, skipped: 0, file: csvPick });
     expect(pipelineChanges).toBe(1);
+  });
+
+  it('backs up to the default folder, then to a chosen one, and exports JSON and CSV', async () => {
+    try {
+      expect(await invoke(IPC_CHANNELS.dataBackupInfo)).toMatchObject({
+        chosen: false,
+        count: 0,
+        last: null,
+      });
+      const first = (await invoke(IPC_CHANNELS.dataBackupNow)) as { folder: string; count: number };
+      expect(first).toMatchObject({ folder: join(dataDir, 'Backups'), count: 1, pruned: 0 });
+      expect(await invoke(IPC_CHANNELS.dataChooseBackupFolder)).toBeNull(); // cancelled
+      folderPick = join(dataDir, 'Mine');
+      expect(await invoke(IPC_CHANNELS.dataChooseBackupFolder)).toMatchObject({
+        folder: folderPick,
+        chosen: true,
+        count: 0,
+      });
+      await invoke(IPC_CHANNELS.dataBackupNow);
+      expect(readdirSync(folderPick)).toEqual(['radar-2026-10-16.db']);
+
+      const json = (await invoke(IPC_CHANNELS.dataExportJson)) as { path: string };
+      expect(saved!.name).toBe('radar-export-2026-10-16.json');
+      expect(JSON.parse(saved!.contents)).toMatchObject({ app: 'Radar' });
+      expect(existsSync(json.path)).toBe(true);
+      folderPick = dataDir;
+      const csv = (await invoke(IPC_CHANNELS.dataExportCsv)) as { path: string; files: number };
+      expect(csv.path).toBe(join(dataDir, 'radar-export-2026-10-16'));
+      expect(csv.files).toBeGreaterThan(10);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 });

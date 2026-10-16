@@ -44,6 +44,7 @@ import { checkPage, watchPages } from '../core/watch/pages';
 import { getSource } from '../core/db/sources';
 import { testFetch } from '../core/sources/manage';
 import { ensureDefaultTemplates } from '../core/outreach';
+import { backupDatabase, hasBackupFor } from '../core/backup';
 import { chooseWindowMaterial } from './window-material';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
@@ -299,6 +300,23 @@ function showNotice(notice: Notice): void {
   n.show();
 }
 
+/** Backups go here until a folder is chosen in Settings. */
+function defaultBackupFolder(): string {
+  return join(app.getPath('userData'), 'Backups');
+}
+
+/** The daily backup, made by the scheduler when today's is missing. */
+async function dailyBackup(database: Database.Database): Promise<void> {
+  const folder = getSetting(database, 'backupFolder') ?? defaultBackupFolder();
+  const timeZone = getSetting(database, 'timezone');
+  const now = new Date();
+  if (hasBackupFor(folder, now, timeZone)) return;
+  const r = await backupDatabase(database, folder, now, timeZone);
+  console.log(
+    `[radar] backup written: ${r.file}${r.pruned.length ? ` (removed ${r.pruned.length} old)` : ''}`,
+  );
+}
+
 function fail(title: string, err: unknown): void {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`[radar] ${title}:`, err);
@@ -344,6 +362,7 @@ function start(): void {
       watchPages: async () => {
         await watchPages(database, { http, now: new Date() });
       },
+      dailyBackup: () => dailyBackup(database),
       notify: showNotice,
     });
     registerIpcHandlers({
@@ -401,12 +420,12 @@ function start(): void {
         }
         return r;
       },
-      saveTextFile: async (suggestedName, contents) => {
+      saveTextFile: async (suggestedName, contents, filter) => {
         const win = BrowserWindow.getFocusedWindow();
         const options = {
-          title: 'Export deadlines',
+          title: `Save ${filter.name}`,
           defaultPath: join(app.getPath('downloads'), suggestedName),
-          filters: [{ name: 'Calendar', extensions: ['ics'] }],
+          filters: [filter],
         };
         const r = win
           ? await dialog.showSaveDialog(win, options)
@@ -414,6 +433,23 @@ function start(): void {
         if (r.canceled || !r.filePath) return null;
         writeFileSync(r.filePath, contents, 'utf8');
         return r.filePath;
+      },
+      defaultBackupFolder: () => defaultBackupFolder(),
+      chooseFolder: async (title, defaultPath) => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = {
+          title,
+          defaultPath,
+          properties: ['openDirectory' as const, 'createDirectory' as const],
+        };
+        const r = win
+          ? await dialog.showOpenDialog(win, options)
+          : await dialog.showOpenDialog(options);
+        return r.canceled ? null : (r.filePaths[0] ?? null);
+      },
+      openFolder: async (path) => {
+        const error = await shell.openPath(path);
+        if (error) throw new Error(error);
       },
       onRemindersChanged: () => {
         try {

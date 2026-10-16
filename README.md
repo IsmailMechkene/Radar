@@ -163,6 +163,16 @@ Dates are read day-first (19/10/2026, 2026-10-19, Oct 19, 19 octobre). Rows alre
 pipeline (same organization and role) are skipped, so importing again is safe, and every row or
 value that could not be read is listed after the import.
 
+## Backups and export
+
+Radar backs up its database once a day (a consistent SQLite copy named `radar-YYYY-MM-DD.db`) and
+keeps the last 14. Backups go to a `Backups` folder inside Radar's data folder until you choose
+another one in **Settings → Data**, which also has **Back up now** and **Open**. To restore, quit
+Radar and copy a backup over `radar.db` in the data folder.
+
+**Export JSON** saves every table in one file; **Export CSV** writes one CSV per table into a new
+folder (UTF-8, opens in Excel; cells that would run as spreadsheet formulas are neutralized).
+
 ## Build
 
 ```sh

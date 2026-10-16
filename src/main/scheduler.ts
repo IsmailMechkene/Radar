@@ -20,6 +20,8 @@ export interface SchedulerDeps {
   scan: { run(trigger: RunTrigger): Promise<unknown>; status(): { running: boolean } };
   /** Checks watched pages that are due (page-change detection). */
   watchPages: () => Promise<void>;
+  /** Makes today's backup when it is missing (SPEC section 8: daily, keep 14). */
+  dailyBackup?: () => Promise<void>;
   notify: (notice: Notice) => void;
   setTimeout?: (fn: () => void, ms: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
@@ -63,6 +65,11 @@ export function createScheduler(deps: SchedulerDeps) {
       await deps.watchPages();
     } catch (err) {
       console.error('[scheduler] page watch failed:', err);
+    }
+    try {
+      await deps.dailyBackup?.();
+    } catch (err) {
+      console.error('[scheduler] backup failed:', err);
     }
 
     const at = now();

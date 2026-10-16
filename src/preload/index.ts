@@ -77,6 +77,14 @@ const api: RadarApi = {
     rescore: () => ipcRenderer.invoke(C.rulesRescore),
     preview: () => ipcRenderer.invoke(C.rulesPreview),
   },
+  data: {
+    backupInfo: () => ipcRenderer.invoke(C.dataBackupInfo),
+    backupNow: () => ipcRenderer.invoke(C.dataBackupNow),
+    chooseBackupFolder: () => ipcRenderer.invoke(C.dataChooseBackupFolder),
+    openBackupFolder: () => ipcRenderer.invoke(C.dataOpenBackupFolder),
+    exportJson: () => ipcRenderer.invoke(C.dataExportJson),
+    exportCsv: () => ipcRenderer.invoke(C.dataExportCsv),
+  },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),
     status: () => ipcRenderer.invoke(C.scanStatus),

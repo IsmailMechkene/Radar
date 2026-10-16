@@ -35,6 +35,8 @@ export const settingsSchema = z.strictObject({
   opportunitiesSeenAt: z.iso.datetime().nullable(),
   // Outreach merge fields used for every organization ("my name", "my school"). Keys are
   // field names as written in templates, lower case.
+  // Where daily backups go; null = the Backups folder inside Radar's data folder.
+  backupFolder: z.string().trim().min(1).nullable(),
   outreachDefaults: z.record(z.string().trim().toLowerCase().min(1).max(60), z.string().max(500)),
 });
 
@@ -60,4 +62,5 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   opportunitiesSeenAt: null,
   outreachDefaults: {},
+  backupFolder: null,
 };

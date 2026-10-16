@@ -58,6 +58,12 @@ export const IPC_CHANNELS = {
   appGetWindowInfo: 'app:get-window-info',
   appOpenExternal: 'app:open-external',
   appNavCounts: 'app:nav-counts',
+  dataBackupInfo: 'data:backup-info',
+  dataBackupNow: 'data:backup-now',
+  dataChooseBackupFolder: 'data:choose-backup-folder',
+  dataOpenBackupFolder: 'data:open-backup-folder',
+  dataExportJson: 'data:export-json',
+  dataExportCsv: 'data:export-csv',
   appCopyText: 'app:copy-text',
   appOpenMail: 'app:open-mail',
   outreachList: 'outreach:list',
@@ -156,6 +162,7 @@ export const outreachSaveTemplatePayloadSchema = z.strictObject({
   template: templateInputSchema,
 });
 export const outreachDeleteTemplatePayloadSchema = z.strictObject({ id: z.int().positive() });
+export const dataNoPayloadSchema = noPayload;
 export const opportunitiesListPayloadSchema = noPayload;
 export const opportunitiesGetPayloadSchema = z.strictObject({ id: z.int().positive() });
 export const opportunitiesSetStarredPayloadSchema = z.strictObject({
@@ -241,6 +248,14 @@ export interface RulesState {
   custom: boolean;
   /** A stored version that no longer validates (the defaults are used meanwhile). */
   error: string | null;
+}
+
+export interface BackupInfo {
+  folder: string;
+  /** False while the default folder (inside Radar's data folder) is used. */
+  chosen: boolean;
+  count: number;
+  last: { file: string; date: string; size: number; modifiedAt: string } | null;
 }
 
 export type {
@@ -388,6 +403,18 @@ export interface RadarApi {
     rescore(): Promise<RescoreResult | null>;
     /** A few real postings for the live preview. */
     preview(): Promise<PreviewItem[]>;
+  };
+  data: {
+    backupInfo(): Promise<BackupInfo>;
+    /** Today's backup now (replaces an earlier one from today); keeps the last 14. */
+    backupNow(): Promise<BackupInfo & { pruned: number }>;
+    /** Folder picker; null when cancelled. */
+    chooseBackupFolder(): Promise<BackupInfo | null>;
+    openBackupFolder(): Promise<void>;
+    /** Everything as one JSON file (save dialog); null when cancelled. */
+    exportJson(): Promise<{ path: string } | null>;
+    /** One CSV per table in a new folder (folder picker); null when cancelled. */
+    exportCsv(): Promise<{ path: string; files: number } | null>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

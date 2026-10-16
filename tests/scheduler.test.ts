@@ -120,6 +120,25 @@ describe('scheduler', () => {
     expect(notices.map((n) => n.kind)).toEqual(['deadline_t30']);
   });
 
+  it('makes the daily backup on a tick; a failing backup does not stop reminders', async () => {
+    let backups = 0;
+    const s = createScheduler({
+      db: t.db,
+      now: () => now,
+      scan: { run: async () => {}, status: () => ({ running: false }) },
+      watchPages: async () => {},
+      dailyBackup: async () => {
+        backups += 1;
+        throw new Error('disk full');
+      },
+      notify: (n) => notices.push(n),
+      setInterval: () => 0,
+    });
+    const r = await s.tick('startup');
+    expect(backups).toBe(1);
+    expect(r.notices).toBe(1);
+  });
+
   it('a failing scan or page watch does not stop reminders', async () => {
     const s = createScheduler({
       db: t.db,

@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { IpcMain } from 'electron';
+import { mkdirSync } from 'node:fs';
 import { z } from 'zod';
 import {
   dismissOpportunities,
@@ -35,6 +36,9 @@ import {
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
 import { navCounts } from '../core/nav';
+import { backupDatabase, backupFileName, listBackups } from '../core/backup';
+import { exportCsv, exportJson } from '../core/export';
+import { join } from 'node:path';
 import {
   deleteTemplate,
   listOutreach,
@@ -63,6 +67,7 @@ import {
   appGetWindowInfoPayloadSchema,
   appOpenExternalPayloadSchema,
   appNavCountsPayloadSchema,
+  dataNoPayloadSchema,
   appCopyTextPayloadSchema,
   appOpenMailPayloadSchema,
   outreachListPayloadSchema,
@@ -144,7 +149,17 @@ export interface IpcDeps {
   rulesChanged?: () => RescoreResult | null;
   rescoreNow?: () => RescoreResult | null;
   /** Native "save file" dialog; writes the text and resolves to the path, or null when cancelled. */
-  saveTextFile?: (suggestedName: string, contents: string) => Promise<string | null>;
+  saveTextFile?: (
+    suggestedName: string,
+    contents: string,
+    filter: { name: string; extensions: string[] },
+  ) => Promise<string | null>;
+  /** Backups folder when none is chosen. */
+  defaultBackupFolder?: () => string;
+  /** Native folder picker; null when cancelled. */
+  chooseFolder?: (title: string, defaultPath?: string) => Promise<string | null>;
+  /** Shows a folder in the file manager. */
+  openFolder?: (path: string) => Promise<void>;
   now?: () => Date;
 }
 
@@ -232,6 +247,61 @@ export function registerIpcHandlers(deps: IpcDeps): void {
   handle(ipcMain, C.outreachDeleteTemplate, outreachDeleteTemplatePayloadSchema, ({ id }) =>
     deleteTemplate(db, id),
   );
+
+  const backupFolder = () => {
+    const chosen = getSetting(db, 'backupFolder');
+    const fallback = deps.defaultBackupFolder?.();
+    if (!chosen && !fallback) throw new Error('No backups folder');
+    return { folder: chosen ?? fallback!, chosen: chosen !== null };
+  };
+  const backupInfo = () => {
+    const { folder, chosen } = backupFolder();
+    const backups = listBackups(folder);
+    return { folder, chosen, count: backups.length, last: backups[0] ?? null };
+  };
+  /** The user's local day, "2026-10-16", for export names. */
+  const today = () =>
+    backupFileName(now(), getSetting(db, 'timezone')).slice('radar-'.length, -'.db'.length);
+
+  handle(ipcMain, C.dataBackupInfo, dataNoPayloadSchema, () => backupInfo());
+
+  handle(ipcMain, C.dataBackupNow, dataNoPayloadSchema, async () => {
+    const r = await backupDatabase(db, backupFolder().folder, now(), getSetting(db, 'timezone'));
+    return { ...backupInfo(), pruned: r.pruned.length };
+  });
+
+  handle(ipcMain, C.dataChooseBackupFolder, dataNoPayloadSchema, async () => {
+    if (!deps.chooseFolder) throw new Error('Choosing a folder is not available');
+    const picked = await deps.chooseFolder('Choose the backups folder', backupFolder().folder);
+    if (!picked) return null;
+    setSetting(db, 'backupFolder', picked);
+    return backupInfo();
+  });
+
+  handle(ipcMain, C.dataOpenBackupFolder, dataNoPayloadSchema, async () => {
+    if (!deps.openFolder) throw new Error('Opening folders is not available');
+    const { folder } = backupFolder();
+    mkdirSync(folder, { recursive: true });
+    await deps.openFolder(folder);
+  });
+
+  handle(ipcMain, C.dataExportJson, dataNoPayloadSchema, async () => {
+    if (!deps.saveTextFile) throw new Error('Export is not available');
+    const file = await deps.saveTextFile(`radar-export-${today()}.json`, exportJson(db, now()), {
+      name: 'JSON',
+      extensions: ['json'],
+    });
+    return file ? { path: file } : null;
+  });
+
+  handle(ipcMain, C.dataExportCsv, dataNoPayloadSchema, async () => {
+    if (!deps.chooseFolder) throw new Error('Export is not available');
+    const parent = await deps.chooseFolder('Choose where to save the CSV files');
+    if (!parent) return null;
+    const folder = join(parent, `radar-export-${today()}`);
+    const files = exportCsv(db, folder);
+    return { path: folder, files: files.length };
+  });
 
   handle(ipcMain, C.opportunitiesList, opportunitiesListPayloadSchema, () =>
     listOpportunityItems(db),
@@ -327,7 +397,10 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     // Upcoming only, from a day back so a deadline that ends tonight is included.
     const from = at.getTime() - 86_400_000;
     const events = listDeadlines(db, at).events.filter((e) => new Date(e.at).getTime() >= from);
-    const file = await deps.saveTextFile('radar-deadlines.ics', toIcs(events, timeZone, at));
+    const file = await deps.saveTextFile('radar-deadlines.ics', toIcs(events, timeZone, at), {
+      name: 'Calendar',
+      extensions: ['ics'],
+    });
     return file ? { file, count: events.length } : null;
   });
 

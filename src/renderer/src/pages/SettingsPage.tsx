@@ -33,6 +33,7 @@ import {
   timezoneList,
 } from '../lib/settings-helpers';
 import { useSettings } from '../state/settings';
+import { DataSection } from './DataSection';
 import { PageTitle } from './PageTitle';
 
 /** Text field that saves on Enter or blur, not on every keystroke. */
@@ -341,6 +342,8 @@ export function SettingsPage({ isPackaged }: { isPackaged: boolean }) {
           />
         </GroupedRow>
       </GroupedSection>
+
+      <DataSection timeZone={settings.timezone} />
     </div>
   );
 }
