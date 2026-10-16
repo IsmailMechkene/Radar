@@ -20,6 +20,7 @@ import { compileRules } from './core/rules/engine';
 import { profileFromSettings } from './core/rules/profile';
 import { rescoreAll } from './core/rules/rescore';
 import { parseRules } from './core/rules/schema';
+import { effectiveRules } from './core/rules/store';
 import { runScan } from './core/runner';
 import { getAllSettings, getSetting, seedDefaultSettings } from './core/settings/store';
 import { findSeedSource, parseSeedSources, type SeedSource } from './core/sources/seeds';
@@ -181,9 +182,12 @@ function dbPathFor(args: Args): string {
 
 /** Scores every stored opportunity with seeds/rules.json and the stored settings. */
 function rescoreDb(db: ReturnType<typeof openDatabase>): string {
-  const rules = compileRules(
-    parseRules(JSON.parse(readFileSync(resolve(process.cwd(), 'seeds', 'rules.json'), 'utf8'))),
+  const defaults = parseRules(
+    JSON.parse(readFileSync(resolve(process.cwd(), 'seeds', 'rules.json'), 'utf8')),
   );
+  const effective = effectiveRules(db, defaults);
+  if (effective.error) console.error(effective.error);
+  const rules = compileRules(effective.rules);
   seedDefaultSettings(db);
   extractDeadlines(db, getSetting(db, 'timezone'));
   const r = rescoreAll(db, rules, profileFromSettings(getAllSettings(db)), new Date());

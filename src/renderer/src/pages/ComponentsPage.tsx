@@ -35,6 +35,7 @@ import { ScoreRing } from '../../components/ScoreRing';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { Select } from '../../components/Select';
 import { SidebarItem } from '../../components/SidebarItem';
+import { Slider } from '../../components/Slider';
 import { Switch } from '../../components/Switch';
 import { RowTitle, TableRow } from '../../components/TableRow';
 import { ToastView } from '../../components/Toast';
@@ -223,6 +224,7 @@ function Swatches() {
 
 function Gallery({ theme }: { theme: ResolvedTheme }) {
   const [sw, setSw] = useState({ a: true, b: false });
+  const [slider, setSlider] = useState(10);
   const [seg, setSeg] = useState<'list' | 'month'>('month');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [checked, setChecked] = useState(true);
@@ -368,6 +370,16 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
             <Checkbox label="Checked" checked={checked} onChange={setChecked} />
             <Checkbox label="Unchecked" checked={false} onChange={noop} />
           </div>
+          <Slider
+            label="Visa friendly"
+            description="Sponsorship or relocation mentioned"
+            value={slider}
+            min={0}
+            max={20}
+            changed={slider !== 10}
+            format={(v) => (v > 0 ? `+${v}` : String(v))}
+            onChange={setSlider}
+          />
           <div className="text-caption text-fg-3">
             Switch knob uses a spring (overshoot 1.4), 250 ms.
           </div>

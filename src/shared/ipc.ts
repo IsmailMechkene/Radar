@@ -28,6 +28,9 @@ import {
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
 import type { NavCounts } from '../core/nav';
+import type { RescoreResult } from '../core/rules/rescore';
+import type { Rules } from '../core/rules/schema';
+import type { PreviewItem } from '../core/rules/store';
 import {
   draftInputSchema,
   templateInputSchema,
@@ -91,6 +94,11 @@ export const IPC_CHANNELS = {
   sourcesAdd: 'sources:add',
   sourcesDelete: 'sources:delete',
   sourcesTest: 'sources:test',
+  rulesGet: 'rules:get',
+  rulesSave: 'rules:save',
+  rulesReset: 'rules:reset',
+  rulesRescore: 'rules:rescore',
+  rulesPreview: 'rules:preview',
   devLoadSample: 'dev:load-sample',
   devClearSample: 'dev:clear-sample',
   scanRun: 'scan:run',
@@ -200,6 +208,10 @@ export const sourcesTestPayloadSchema = z.union([
   z.strictObject({ id: z.int().positive() }),
   z.strictObject({ source: newSourceSchema }),
 ]);
+export const rulesGetPayloadSchema = noPayload;
+/** Validated in main by the rules schema (a large, nested object). */
+export const rulesSavePayloadSchema = z.strictObject({ rules: z.record(z.string(), z.unknown()) });
+export const rulesNoPayloadSchema = noPayload;
 export const devPayloadSchema = noPayload;
 export const scanRunPayloadSchema = z
   .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
@@ -220,7 +232,21 @@ export type PipelineImport = (ImportResult & { file: string }) | null;
 /** Result of "Export .ics": null when the save dialog was cancelled. */
 export type IcsExport = { file: string; count: number } | null;
 
+export interface RulesState {
+  /** The rules in use. */
+  rules: Rules;
+  /** seeds/rules.json, for "Reset to defaults" and showing what changed. */
+  defaults: Rules;
+  /** True when the Rules page's version is in use. */
+  custom: boolean;
+  /** A stored version that no longer validates (the defaults are used meanwhile). */
+  error: string | null;
+}
+
 export type {
+  PreviewItem,
+  RescoreResult,
+  Rules,
   DraftInput,
   OutreachItem,
   TemplateInput,
@@ -352,6 +378,16 @@ export interface RadarApi {
     /** Creates (id null) or updates a template. */
     saveTemplate(id: number | null, template: TemplateInput): Promise<TemplateRow>;
     deleteTemplate(id: number): Promise<number>;
+  };
+  rules: {
+    get(): Promise<RulesState>;
+    /** Saves your version (validated) and re-scores everything with it. */
+    save(rules: Rules): Promise<RescoreResult | null>;
+    /** Back to seeds/rules.json, and re-score. */
+    reset(): Promise<RescoreResult | null>;
+    rescore(): Promise<RescoreResult | null>;
+    /** A few real postings for the live preview. */
+    preview(): Promise<PreviewItem[]>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

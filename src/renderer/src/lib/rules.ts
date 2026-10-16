@@ -1,0 +1,278 @@
+// Rules page: which parts of the rules are editable and how. Pure; the engine scores the preview.
+import {
+  compileRules,
+  scoreOpportunity,
+  type ScoreResult,
+  type ScoringProfile,
+} from '../../../core/rules/engine';
+import type { Rules } from '../../../core/rules/schema';
+import type { PreviewItem } from '../../../core/rules/store';
+
+export interface WeightDef {
+  id: string;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+  get: (r: Rules) => number;
+  set: (r: Rules, v: number) => Rules;
+}
+
+/** Copy-on-write helpers keep the draft immutable (React state). */
+const clone = (r: Rules): Rules => structuredClone(r);
+
+export const WEIGHTS: WeightDef[] = [
+  {
+    id: 'roles',
+    label: 'Your roles of interest',
+    description: 'Title matches a role from Settings',
+    min: 0,
+    max: 40,
+    get: (r) => r.role.rolesOfInterestPoints,
+    set: (r, v) => ({ ...clone(r), role: { ...r.role, rolesOfInterestPoints: v } }),
+  },
+  {
+    id: 'internship',
+    label: 'Internship',
+    description: 'Intern, stage, Werkstudent, summer',
+    min: 0,
+    max: 30,
+    get: (r) => r.student.typePoints.internship ?? 0,
+    set: (r, v) => ({
+      ...clone(r),
+      student: { ...r.student, typePoints: { ...r.student.typePoints, internship: v } },
+    }),
+  },
+  {
+    id: 'pfe',
+    label: 'PFE / end-of-studies',
+    description: 'Projet de fin d’études, master thesis',
+    min: 0,
+    max: 30,
+    get: (r) => r.student.typePoints.pfe ?? 0,
+    set: (r, v) => ({
+      ...clone(r),
+      student: { ...r.student, typePoints: { ...r.student.typePoints, pfe: v } },
+    }),
+  },
+  {
+    id: 'junior',
+    label: 'Junior role',
+    description: 'Junior, graduate, entry level',
+    min: 0,
+    max: 30,
+    get: (r) => r.student.typePoints.junior ?? 0,
+    set: (r, v) => ({
+      ...clone(r),
+      student: { ...r.student, typePoints: { ...r.student.typePoints, junior: v } },
+    }),
+  },
+  {
+    id: 'stack',
+    label: 'Stack match, each',
+    description: 'Per stack keyword found (capped)',
+    min: 0,
+    max: 10,
+    get: (r) => r.stack.pointsEach,
+    set: (r, v) => ({ ...clone(r), stack: { ...r.stack, pointsEach: v } }),
+  },
+  {
+    id: 'region',
+    label: 'Target region',
+    description: 'Location in a region from Settings',
+    min: 0,
+    max: 10,
+    get: (r) => r.location.regionPoints,
+    set: (r, v) => ({ ...clone(r), location: { ...r.location, regionPoints: v } }),
+  },
+  {
+    id: 'visa',
+    label: 'Visa friendly',
+    description: 'Sponsorship or relocation mentioned',
+    min: 0,
+    max: 20,
+    get: (r) => r.visa.points,
+    set: (r, v) => ({ ...clone(r), visa: { ...r.visa, points: v } }),
+  },
+  {
+    id: 'watchlist',
+    label: 'Watchlist company',
+    description: 'On your company list below',
+    min: 0,
+    max: 20,
+    get: (r) => r.watchlist.points,
+    set: (r, v) => ({ ...clone(r), watchlist: { ...r.watchlist, points: v } }),
+  },
+  {
+    id: 'fresh',
+    label: 'Fresh posting',
+    description: 'Seen in the last 14 days',
+    min: 0,
+    max: 10,
+    get: (r) => r.fresh.points,
+    set: (r, v) => ({ ...clone(r), fresh: { ...r.fresh, points: v } }),
+  },
+  {
+    id: 'deadline',
+    label: 'Deadline far enough',
+    description: 'More than 14 days to apply',
+    min: 0,
+    max: 10,
+    get: (r) => r.deadline.points,
+    set: (r, v) => ({ ...clone(r), deadline: { ...r.deadline, points: v } }),
+  },
+  {
+    id: 'senior',
+    label: 'Senior wording',
+    description: 'Senior, staff, lead, principal',
+    min: -50,
+    max: 0,
+    get: (r) => r.penalties.seniorTitle.points,
+    set: (r, v) => ({
+      ...clone(r),
+      penalties: { ...r.penalties, seniorTitle: { ...r.penalties.seniorTitle, points: v } },
+    }),
+  },
+  {
+    id: 'experience',
+    label: 'Years of experience',
+    description: '5+ years required',
+    min: -40,
+    max: 0,
+    get: (r) => r.penalties.experience.points,
+    set: (r, v) => ({
+      ...clone(r),
+      penalties: { ...r.penalties, experience: { ...r.penalties.experience, points: v } },
+    }),
+  },
+  {
+    id: 'language',
+    label: 'Language barrier',
+    description: 'Requires a language you don’t speak',
+    min: -50,
+    max: 0,
+    get: (r) => r.penalties.language.points,
+    set: (r, v) => ({
+      ...clone(r),
+      penalties: { ...r.penalties, language: { ...r.penalties.language, points: v } },
+    }),
+  },
+  {
+    id: 'onsite',
+    label: 'On-site when you want remote',
+    description: 'Only with a remote-only preference',
+    min: -40,
+    max: 0,
+    get: (r) => r.penalties.notRemote.points,
+    set: (r, v) => ({ ...clone(r), penalties: { ...r.penalties, notRemote: { points: v } } }),
+  },
+];
+
+export const signed = (v: number) => (v > 0 ? `+${v}` : String(v));
+
+export interface ListDef {
+  id: string;
+  title: string;
+  description: string;
+  noun: string;
+  tone: 'default' | 'danger';
+  get: (r: Rules) => string[];
+  set: (r: Rules, items: string[]) => Rules;
+}
+
+export function roleGroupList(index: number): ListDef {
+  return {
+    id: `role-${index}`,
+    title: '',
+    description: '',
+    noun: 'keyword',
+    tone: 'default',
+    get: (r) => r.role.groups[index]?.terms ?? [],
+    set: (r, items) => {
+      const next = clone(r);
+      next.role.groups[index]!.terms = items;
+      return next;
+    },
+  };
+}
+
+export const LISTS: ListDef[] = [
+  {
+    id: 'excludes',
+    title: 'Exclude from titles',
+    description: 'A title with these words is skipped, unless it is an internship or PFE',
+    noun: 'word',
+    tone: 'danger',
+    get: (r) => r.hardFilters.titleExcludes,
+    set: (r, items) => ({ ...clone(r), hardFilters: { ...r.hardFilters, titleExcludes: items } }),
+  },
+  {
+    id: 'stack',
+    title: 'Stack keywords',
+    description: 'Each one found in a posting adds the stack points',
+    noun: 'keyword',
+    tone: 'default',
+    get: (r) => r.stack.terms,
+    set: (r, items) => ({ ...clone(r), stack: { ...r.stack, terms: items } }),
+  },
+  {
+    id: 'watchlist',
+    title: 'Watchlist companies',
+    description: 'Postings from these organizations get the watchlist points',
+    noun: 'company',
+    tone: 'default',
+    get: (r) => r.watchlist.orgs,
+    set: (r, items) => ({ ...clone(r), watchlist: { ...r.watchlist, orgs: items } }),
+  },
+];
+
+/** Group points (each role group is a weight too). */
+export function setGroupPoints(r: Rules, index: number, v: number): Rules {
+  const next = clone(r);
+  next.role.groups[index]!.points = v;
+  return next;
+}
+
+/** Thresholds keep Maybe at or below Apply. */
+export function setThreshold(r: Rules, which: 'maybe' | 'apply', v: number): Rules {
+  const t = { ...r.thresholds, [which]: v };
+  if (which === 'maybe' && t.maybe > t.apply) t.apply = t.maybe;
+  if (which === 'apply' && t.apply < t.maybe) t.maybe = t.apply;
+  return { ...clone(r), thresholds: t };
+}
+
+/** Lists cannot be emptied (the rules schema needs at least one term). */
+export const canRemove = (items: readonly string[]) => items.length > 1;
+
+export function sameRules(a: Rules, b: Rules): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export interface PreviewRow {
+  item: PreviewItem;
+  result: ScoreResult;
+  delta: number | null;
+}
+
+/** Scores the preview postings with draft rules, exactly as the engine will after saving. */
+export function scorePreview(
+  items: readonly PreviewItem[],
+  rules: Rules,
+  profile: ScoringProfile,
+  now: Date,
+): PreviewRow[] {
+  const compiled = compileRules(rules);
+  return items.map((item) => {
+    const result = scoreOpportunity(item, compiled, profile, now);
+    return { item, result, delta: item.score === null ? null : result.score - item.score };
+  });
+}
+
+/** "Re-scored 377: 6 apply, 2 maybe, 0 needs review, 369 skip" */
+export function rescoreSummary(
+  r: { scored: number; byVerdict: Record<string, number> } | null,
+): string {
+  if (!r) return 'Nothing to re-score';
+  const v = r.byVerdict;
+  return `Re-scored ${r.scored}: ${v['apply'] ?? 0} apply, ${v['maybe'] ?? 0} maybe, ${v['needs_review'] ?? 0} needs review, ${v['skip'] ?? 0} skip`;
+}

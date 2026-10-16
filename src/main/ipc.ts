@@ -53,6 +53,9 @@ import {
   type TestResult,
 } from '../core/sources/manage';
 import type { AdapterSource } from '../core/adapters/types';
+import type { RescoreResult } from '../core/rules/rescore';
+import type { Rules } from '../core/rules/schema';
+import { effectiveRules, previewItems, resetUserRules, saveUserRules } from '../core/rules/store';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
@@ -96,6 +99,9 @@ import {
   sourcesAddPayloadSchema,
   sourceIdPayloadSchema,
   sourcesTestPayloadSchema,
+  rulesGetPayloadSchema,
+  rulesSavePayloadSchema,
+  rulesNoPayloadSchema,
   scanRunPayloadSchema,
   scanStatusPayloadSchema,
   settingsGetAllPayloadSchema,
@@ -132,6 +138,11 @@ export interface IpcDeps {
   checkProgramPage?: (programId: number) => Promise<PageCheck>;
   /** Test fetch through the shared fetch layer; stores nothing. */
   testSource?: (source: AdapterSource) => Promise<TestResult>;
+  /** seeds/rules.json as loaded at startup (null when it could not be read). */
+  defaultRules?: () => Rules | null;
+  /** Reloads the rules in use and re-scores; returns the counts. */
+  rulesChanged?: () => RescoreResult | null;
+  rescoreNow?: () => RescoreResult | null;
   /** Native "save file" dialog; writes the text and resolves to the path, or null when cancelled. */
   saveTextFile?: (suggestedName: string, contents: string) => Promise<string | null>;
   now?: () => Date;
@@ -367,6 +378,31 @@ export function registerIpcHandlers(deps: IpcDeps): void {
       'id' in target ? adapterSourceOf(db, target.id) : adapterSourceFor(target.source);
     return deps.testSource(source);
   });
+
+  const defaults = (): Rules => {
+    const d = deps.defaultRules?.();
+    if (!d) throw new Error('seeds/rules.json could not be loaded');
+    return d;
+  };
+
+  handle(ipcMain, C.rulesGet, rulesGetPayloadSchema, () => {
+    const d = defaults();
+    return { ...effectiveRules(db, d), defaults: d };
+  });
+
+  handle(ipcMain, C.rulesSave, rulesSavePayloadSchema, ({ rules }) => {
+    saveUserRules(db, rules, now());
+    return deps.rulesChanged?.() ?? null;
+  });
+
+  handle(ipcMain, C.rulesReset, rulesNoPayloadSchema, () => {
+    resetUserRules(db);
+    return deps.rulesChanged?.() ?? null;
+  });
+
+  handle(ipcMain, C.rulesRescore, rulesNoPayloadSchema, () => deps.rescoreNow?.() ?? null);
+
+  handle(ipcMain, C.rulesPreview, rulesNoPayloadSchema, () => previewItems(db));
 
   handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));
 

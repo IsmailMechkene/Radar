@@ -7,6 +7,7 @@ import { sql as manualDeadlines } from './006_manual_deadlines';
 import { sql as programEdits } from './007_program_edits';
 import { sql as sourceControls } from './008_source_controls';
 import { sql as outreach } from './009_outreach';
+import { sql as userRules } from './010_user_rules';
 
 export interface Migration {
   version: number;
@@ -25,4 +26,5 @@ export const migrations: readonly Migration[] = [
   { version: 7, name: 'program_edits', sql: programEdits },
   { version: 8, name: 'source_controls', sql: sourceControls },
   { version: 9, name: 'outreach', sql: outreach },
+  { version: 10, name: 'user_rules', sql: userRules },
 ];

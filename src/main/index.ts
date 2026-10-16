@@ -25,6 +25,9 @@ import { createHttpClient } from '../core/http/client';
 import { parseSeedPrograms, syncSeedPrograms } from '../core/programs/seeds';
 import type { Notice } from '../core/reminders/store';
 import { compileRules, type CompiledRules } from '../core/rules/engine';
+import type { RescoreResult } from '../core/rules/rescore';
+import type { Rules } from '../core/rules/schema';
+import { effectiveRules } from '../core/rules/store';
 import { profileFromSettings, SCORING_SETTING_KEYS } from '../core/rules/profile';
 import { rescoreAll } from '../core/rules/rescore';
 import { parseRules } from '../core/rules/schema';
@@ -186,24 +189,36 @@ function installMenu(): void {
   );
 }
 
-/** Loads seeds/rules.json. A broken file is reported and scoring is skipped, never fatal. */
-function loadRules(): CompiledRules | null {
+/** The default rules (seeds/rules.json). A broken file is reported and scoring is skipped. */
+function loadDefaultRules(): Rules | null {
   try {
     const raw = JSON.parse(readFileSync(join(app.getAppPath(), 'seeds', 'rules.json'), 'utf8'));
-    return compileRules(parseRules(raw));
+    return parseRules(raw);
   } catch (err) {
     console.error('[radar] could not load seeds/rules.json; scores are not updated:', err);
     return null;
   }
 }
 
+let defaultRules: Rules | null = null;
+let compiledRules: CompiledRules | null = null;
+
+/** Rules in use: the Rules page's version when there is a valid one, else the defaults. */
+function applyRules(database: Database.Database): void {
+  if (!defaultRules) return;
+  const r = effectiveRules(database, defaultRules);
+  if (r.error) console.error(`[radar] ${r.error}`);
+  compiledRules = compileRules(r.rules);
+  console.log(`[radar] scoring with ${r.custom ? 'your edited rules' : 'the default rules'}`);
+}
+
 /** Re-scores every stored (non-sample) opportunity with the current rules and settings. */
-function rescore(database: Database.Database, rules: CompiledRules | null, why: string): void {
-  if (!rules) return;
+function rescore(database: Database.Database, why: string): RescoreResult | null {
+  if (!compiledRules) return null;
   try {
     const r = rescoreAll(
       database,
-      rules,
+      compiledRules,
       profileFromSettings(getAllSettings(database)),
       new Date(),
     );
@@ -211,8 +226,19 @@ function rescore(database: Database.Database, rules: CompiledRules | null, why: 
     console.log(
       `[radar] re-scored ${r.scored} (${why}): ${v.apply} apply, ${v.maybe} maybe, ${v.needs_review} needs review, ${v.skip} skip`,
     );
+    return r;
   } catch (err) {
     console.error(`[radar] re-scoring failed (${why}):`, err);
+    throw err;
+  }
+}
+
+/** Re-scoring triggered by data changes: logged, never fatal. */
+function rescoreQuietly(database: Database.Database, why: string): void {
+  try {
+    rescore(database, why);
+  } catch {
+    // already logged
   }
 }
 
@@ -297,8 +323,9 @@ function start(): void {
     syncPrograms(database);
     ensureDefaultTemplates(database, new Date());
     refreshDeadlines(database, 'startup');
-    const rules = loadRules();
-    rescore(database, rules, 'startup');
+    defaultRules = loadDefaultRules();
+    applyRules(database);
+    rescoreQuietly(database, 'startup');
     const http = createHttpClient();
     const scan = createScanService({
       db: database,
@@ -306,7 +333,7 @@ function start(): void {
       onProgress: (p) => broadcast(IPC_EVENTS.scanProgress, p),
       afterScan: () => {
         refreshDeadlines(database, 'after scan');
-        rescore(database, rules, 'after scan');
+        rescoreQuietly(database, 'after scan');
       },
       onFinished: (summary) => broadcast(IPC_EVENTS.scanFinished, summary),
     });
@@ -351,6 +378,12 @@ function start(): void {
       },
       readTextFile: (path) => readFileSync(path, 'utf8'),
       testSource: (source) => testFetch(source, http),
+      defaultRules: () => defaultRules,
+      rulesChanged: () => {
+        applyRules(database);
+        return rescore(database, 'rules changed');
+      },
+      rescoreNow: () => rescore(database, 'Re-score everything'),
       checkProgramPage: async (programId) => {
         const row = database
           .prepare('SELECT source_id FROM programs WHERE id = ?')
@@ -394,9 +427,9 @@ function start(): void {
           // Local calendar days moved: expected program dates and parsed deadlines follow.
           syncPrograms(database);
           refreshDeadlines(database, 'setting timezone');
-          rescore(database, rules, 'setting timezone');
+          rescoreQuietly(database, 'setting timezone');
         } else if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
-          rescore(database, rules, `setting ${key}`);
+          rescoreQuietly(database, `setting ${key}`);
         }
       },
     });

@@ -71,9 +71,9 @@ repository.
 Every posting gets a score out of 100 and a verdict: **Apply** (65 or more), **Maybe** (40–64),
 **Skip** (below 40, or caught by a hard filter such as a senior title), or **Needs review** when
 eligibility is unclear (work authorization, GPA). The detail drawer lists each signal and its points.
-Keywords, weights and thresholds live in [seeds/rules.json](seeds/rules.json); your role, region
+Keywords, weights and thresholds can be edited on the **Rules** page, which re-scores a live preview of your own postings as you drag and re-scores everything when you save; **Reset to defaults** goes back to [seeds/rules.json](seeds/rules.json); your role, region
 and remote preferences come from Settings. Postings are re-scored at startup, after every scan and
-when a scoring setting changes. After editing the rules file:
+when a scoring setting changes. To re-score from the command line (it uses your edited rules too):
 
 ```sh
 npm run rescore                                # re-score the app database

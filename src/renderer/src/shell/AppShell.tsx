@@ -24,6 +24,7 @@ import { PipelinePage } from '../pages/pipeline/PipelinePage';
 import { ProgramsPage } from '../pages/programs/ProgramsPage';
 import { SourcesPage } from '../pages/sources/SourcesPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
+import { RulesPage } from '../pages/RulesPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { useScan } from '../state/scan';
 import { useSettings } from '../state/settings';
@@ -46,6 +47,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
   if (route === 'programs') return <ProgramsPage />;
   if (route === 'sources') return <SourcesPage />;
   if (route === 'outreach') return <OutreachPage />;
+  if (route === 'rules') return <RulesPage />;
   if (route === 'settings') return <SettingsPage isPackaged={info?.isPackaged ?? true} />;
   if (route === 'components') {
     return (

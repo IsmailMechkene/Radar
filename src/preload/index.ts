@@ -70,6 +70,13 @@ const api: RadarApi = {
     saveTemplate: (id, template) => ipcRenderer.invoke(C.outreachSaveTemplate, { id, template }),
     deleteTemplate: (id) => ipcRenderer.invoke(C.outreachDeleteTemplate, { id }),
   },
+  rules: {
+    get: () => ipcRenderer.invoke(C.rulesGet),
+    save: (rules) => ipcRenderer.invoke(C.rulesSave, { rules }),
+    reset: () => ipcRenderer.invoke(C.rulesReset),
+    rescore: () => ipcRenderer.invoke(C.rulesRescore),
+    preview: () => ipcRenderer.invoke(C.rulesPreview),
+  },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),
     status: () => ipcRenderer.invoke(C.scanStatus),
