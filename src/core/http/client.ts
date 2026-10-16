@@ -81,6 +81,8 @@ export interface HttpClientOptions {
 
 export interface GetOptions {
   accept?: string;
+  /** Accept-Language; pages that localize by IP otherwise change language between fetches. */
+  language?: string;
 }
 
 const RETRYABLE = (status: number) => status === 429 || status >= 500;
@@ -198,6 +200,7 @@ export function createHttpClient(opts: HttpClientOptions = {}) {
 
       const headers: Record<string, string> = { 'User-Agent': userAgent };
       if (options.accept) headers['Accept'] = options.accept;
+      if (options.language) headers['Accept-Language'] = options.language;
       const cached = cache.get(url);
       if (cached?.etag) headers['If-None-Match'] = cached.etag;
       if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;

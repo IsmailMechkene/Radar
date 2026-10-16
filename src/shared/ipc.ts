@@ -18,6 +18,15 @@ import {
   type DueFollowup,
   type ManualDeadlineInput,
 } from '../core/deadlines/list';
+import {
+  programNewSchema,
+  programPatchSchema,
+  type ProgramItem,
+  type ProgramNew,
+  type ProgramPatch,
+  type ProgramStatus,
+} from '../core/programs/manage';
+import type { PageCheck } from '../core/watch/pages';
 import type { RunRow } from '../core/db/runs';
 import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas';
 import type { ScanSummary, SourceOutcome } from '../core/runner';
@@ -47,6 +56,12 @@ export const IPC_CHANNELS = {
   deadlinesDone: 'deadlines:done',
   deadlinesUndoDone: 'deadlines:undo-done',
   deadlinesExportIcs: 'deadlines:export-ics',
+  programsList: 'programs:list',
+  programsCreate: 'programs:create',
+  programsUpdate: 'programs:update',
+  programsDelete: 'programs:delete',
+  programsCheck: 'programs:check',
+  programsMarkReviewed: 'programs:mark-reviewed',
   devLoadSample: 'dev:load-sample',
   devClearSample: 'dev:clear-sample',
   scanRun: 'scan:run',
@@ -116,6 +131,14 @@ export const deadlinesSnoozePayloadSchema = z.strictObject({
 export const deadlinesDonePayloadSchema = z.strictObject({ target: reminderTargetSchema });
 export const deadlinesUndoDonePayloadSchema = z.strictObject({ ids: idsSchema });
 export const deadlinesExportIcsPayloadSchema = noPayload;
+export const programsListPayloadSchema = noPayload;
+export const programsCreatePayloadSchema = z.strictObject({ program: programNewSchema });
+export const programsUpdatePayloadSchema = z.strictObject({
+  id: z.int().positive(),
+  patch: programPatchSchema,
+});
+export const programIdPayloadSchema = z.strictObject({ id: z.int().positive() });
+export const programsMarkReviewedPayloadSchema = z.strictObject({ alertId: z.int().positive() });
 export const devPayloadSchema = noPayload;
 export const scanRunPayloadSchema = z
   .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
@@ -137,6 +160,11 @@ export type PipelineImport = (ImportResult & { file: string }) | null;
 export type IcsExport = { file: string; count: number } | null;
 
 export type {
+  PageCheck,
+  ProgramItem,
+  ProgramNew,
+  ProgramPatch,
+  ProgramStatus,
   AddToPipelineResult,
   DeadlineEvent,
   DeadlinesView,
@@ -216,6 +244,18 @@ export interface RadarApi {
     undoDone(ids: number[]): Promise<number>;
     /** Saves upcoming deadlines as an .ics file (native save dialog); null when cancelled. */
     exportIcs(): Promise<IcsExport>;
+  };
+  programs: {
+    /** Watched programs, changed pages first. */
+    list(): Promise<ProgramItem[]>;
+    create(program: ProgramNew): Promise<ProgramItem>;
+    /** Edits make the program yours: the seed file no longer overwrites it. */
+    update(id: number, patch: ProgramPatch): Promise<ProgramItem>;
+    /** Only programs you added; seeded ones are marked Not applicable instead. */
+    remove(id: number): Promise<number>;
+    /** Fetches the program page now (robots.txt and rate limits still apply). */
+    check(id: number): Promise<PageCheck>;
+    markReviewed(alertId: number): Promise<void>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

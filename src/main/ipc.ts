@@ -26,6 +26,14 @@ import {
   undoDone,
 } from '../core/deadlines/list';
 import { markReminderDone, snoozeReminder } from '../core/reminders/store';
+import {
+  createProgram,
+  deleteProgram,
+  listPrograms,
+  markAlertReviewed,
+  updateProgram,
+} from '../core/programs/manage';
+import type { PageCheck } from '../core/watch/pages';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
@@ -51,6 +59,11 @@ import {
   deadlinesDonePayloadSchema,
   deadlinesUndoDonePayloadSchema,
   deadlinesExportIcsPayloadSchema,
+  programsListPayloadSchema,
+  programsCreatePayloadSchema,
+  programsUpdatePayloadSchema,
+  programIdPayloadSchema,
+  programsMarkReviewedPayloadSchema,
   scanRunPayloadSchema,
   scanStatusPayloadSchema,
   settingsGetAllPayloadSchema,
@@ -77,8 +90,10 @@ export interface IpcDeps {
   /** Native "open file" dialog for a CSV; resolves to the path, or null when cancelled. */
   pickCsvFile?: () => Promise<string | null>;
   readTextFile?: (path: string) => string;
-  /** Called after the pipeline changed (e.g. to plan follow-up reminders right away). */
-  onPipelineChanged?: () => void;
+  /** Called after something reminders depend on changed (pipeline, deadlines, programs). */
+  onRemindersChanged?: () => void;
+  /** Fetches a program's watched page now (shared fetch layer). */
+  checkProgramPage?: (programId: number) => Promise<PageCheck>;
   /** Native "save file" dialog; writes the text and resolves to the path, or null when cancelled. */
   saveTextFile?: (suggestedName: string, contents: string) => Promise<string | null>;
   now?: () => Date;
@@ -165,7 +180,7 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.pipelineRemove, pipelineRemovePayloadSchema, ({ ids }) => {
     const removed = removePipelineRows(db, ids);
-    deps.onPipelineChanged?.();
+    deps.onRemindersChanged?.();
     return removed;
   });
 
@@ -173,13 +188,13 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.pipelineCreate, pipelineCreatePayloadSchema, ({ row }) => {
     const created = createPipelineRow(db, row, getSetting(db, 'timezone'), now());
-    deps.onPipelineChanged?.();
+    deps.onRemindersChanged?.();
     return created;
   });
 
   handle(ipcMain, C.pipelineUpdate, pipelineUpdatePayloadSchema, ({ id, patch }) => {
     const updated = updatePipelineRow(db, id, patch, getSetting(db, 'timezone'), now());
-    deps.onPipelineChanged?.();
+    deps.onRemindersChanged?.();
     return updated;
   });
 
@@ -193,7 +208,7 @@ export function registerIpcHandlers(deps: IpcDeps): void {
       getSetting(db, 'timezone'),
       now(),
     );
-    deps.onPipelineChanged?.();
+    deps.onRemindersChanged?.();
     return { ...result, file };
   });
 
@@ -201,7 +216,7 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.deadlinesAdd, deadlinesAddPayloadSchema, ({ deadline }) => {
     const id = addManualDeadline(db, deadline, getSetting(db, 'timezone'), now());
-    deps.onPipelineChanged?.(); // plans its reminders right away
+    deps.onRemindersChanged?.(); // plans its reminders right away
     return id;
   });
 
@@ -234,6 +249,35 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     const file = await deps.saveTextFile('radar-deadlines.ics', toIcs(events, timeZone, at));
     return file ? { file, count: events.length } : null;
   });
+
+  handle(ipcMain, C.programsList, programsListPayloadSchema, () => listPrograms(db));
+
+  handle(ipcMain, C.programsCreate, programsCreatePayloadSchema, ({ program }) => {
+    const created = createProgram(db, program, getSetting(db, 'timezone'), now());
+    deps.onRemindersChanged?.();
+    return created;
+  });
+
+  handle(ipcMain, C.programsUpdate, programsUpdatePayloadSchema, ({ id, patch }) => {
+    const updated = updateProgram(db, id, patch, getSetting(db, 'timezone'), now());
+    deps.onRemindersChanged?.();
+    return updated;
+  });
+
+  handle(ipcMain, C.programsDelete, programIdPayloadSchema, ({ id }) => {
+    const removed = deleteProgram(db, id);
+    deps.onRemindersChanged?.();
+    return removed;
+  });
+
+  handle(ipcMain, C.programsCheck, programIdPayloadSchema, ({ id }) => {
+    if (!deps.checkProgramPage) throw new Error('Checking pages is not available');
+    return deps.checkProgramPage(id);
+  });
+
+  handle(ipcMain, C.programsMarkReviewed, programsMarkReviewedPayloadSchema, ({ alertId }) =>
+    markAlertReviewed(db, alertId, now()),
+  );
 
   handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));
 

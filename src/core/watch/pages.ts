@@ -159,7 +159,11 @@ export async function checkPage(
   const iso = opts.now.toISOString();
   let text: string;
   try {
-    const res = await opts.http.get(source.url!, { accept: 'text/html' });
+    // Always the same language, or a page that localizes by IP looks "changed" between fetches.
+    const res = await opts.http.get(source.url!, {
+      accept: 'text/html',
+      language: 'en-US,en;q=0.9',
+    });
     text = normalizePageText(res.body).slice(0, MAX_STORED);
   } catch (err) {
     const error = (err instanceof Error ? err.message : String(err)).split('\n')[0]!.slice(0, 300);

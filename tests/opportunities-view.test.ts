@@ -325,6 +325,7 @@ describe('detail helpers', () => {
     expect(monogram('Hugging Face')).toBe('HF');
     expect(monogram('Mistral AI')).toBe('M');
     expect(monogram('MBZUAI')).toBe('MB');
+    expect(monogram('Erasmus+ (via my school)')).toBe('EV');
     expect(monogram('Erasmus+ office')).toBe('E+');
     expect(monogram('InstaDeep')).toBe('ID');
     expect(monogram('DeepL')).toBe('D');

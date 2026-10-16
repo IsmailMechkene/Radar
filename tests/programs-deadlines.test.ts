@@ -219,7 +219,7 @@ describe('programs watchlist', () => {
       .all();
     expect(pages).toContainEqual({
       name: 'Google Summer of Code (program page)',
-      url: 'https://developers.google.com/open-source/gsoc/timeline',
+      url: 'https://developers.google.com/open-source/gsoc/timeline?hl=en',
     });
   });
 

@@ -36,7 +36,8 @@ import { registerIpcHandlers } from './ipc';
 import { applyAutostart, createLifecycle } from './lifecycle';
 import { createScanService } from './scan';
 import { createScheduler, type Scheduler } from './scheduler';
-import { watchPages } from '../core/watch/pages';
+import { checkPage, watchPages } from '../core/watch/pages';
+import { getSource } from '../core/db/sources';
 import { chooseWindowMaterial } from './window-material';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
@@ -340,6 +341,22 @@ function start(): void {
         return r.canceled ? null : (r.filePaths[0] ?? null);
       },
       readTextFile: (path) => readFileSync(path, 'utf8'),
+      checkProgramPage: async (programId) => {
+        const row = database
+          .prepare('SELECT source_id FROM programs WHERE id = ?')
+          .get(programId) as { source_id: number | null } | undefined;
+        const source = row?.source_id ? getSource(database, row.source_id) : undefined;
+        if (!source?.url || !source.enabled) throw new Error('This program has no page to watch');
+        const at = new Date();
+        const r = await checkPage(database, source, { http, now: at, force: true });
+        // The user is looking at the result: no desktop notification for this alert.
+        if (r.outcome === 'changed') {
+          database
+            .prepare('UPDATE alerts SET notified_at = ? WHERE id = ?')
+            .run(at.toISOString(), r.alertId);
+        }
+        return r;
+      },
       saveTextFile: async (suggestedName, contents) => {
         const win = BrowserWindow.getFocusedWindow();
         const options = {
@@ -354,7 +371,7 @@ function start(): void {
         writeFileSync(r.filePath, contents, 'utf8');
         return r.filePath;
       },
-      onPipelineChanged: () => {
+      onRemindersChanged: () => {
         try {
           syncReminders(database, new Date(), getSetting(database, 'timezone'));
         } catch (err) {

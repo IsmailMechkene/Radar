@@ -91,6 +91,21 @@ describe('watchPages', () => {
   const snapshots = () =>
     (t.db.prepare('SELECT COUNT(*) FROM page_snapshots').pluck().get() as number) ?? 0;
 
+  it('asks for English pages, so a page that localizes by IP does not look changed', async () => {
+    const langs: (string | undefined)[] = [];
+    const client = createHttpClient({
+      fetch: async (url, init) => {
+        if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
+        langs.push((init.headers as Record<string, string>)['Accept-Language']);
+        return new Response(V1);
+      },
+      now: () => clock,
+      sleep: async () => {},
+    });
+    await watchPages(t.db, { http: client, now: at('2026-10-16T08:00:00.000Z') });
+    expect(langs).toEqual(['en-US,en;q=0.9']);
+  });
+
   it('first fetch sets the baseline without an alert', async () => {
     const r = await watchPages(t.db, { http: http(), now: at('2026-10-16T08:00:00.000Z') });
     expect(r).toEqual([{ source: 'Uni program page', outcome: 'baseline' }]);

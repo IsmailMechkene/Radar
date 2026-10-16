@@ -385,7 +385,11 @@ const SUFFIXES = new Set(['ai', 'inc', 'inc.', 'ltd', 'llc', 'gmbh', 'sas', 'sa'
 
 /** "Hugging Face" -> "HF", "Mistral AI" -> "M", "MBZUAI" -> "MB", "InstaDeep" -> "ID", "Erasmus+ office" -> "E+". */
 export function monogram(org: string): string {
-  const words = org.split(/\s+/).filter((w) => w && !SUFFIXES.has(w.toLowerCase()));
+  // Words that start with a letter or digit only ("Erasmus+ (via my school)" -> "EV", not "E(").
+  const words = org
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^\p{L}\p{N}]+/u, ''))
+    .filter((w) => w && !SUFFIXES.has(w.toLowerCase()));
   if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
   const w = words[0] ?? org;
   if (/^[A-Z0-9]{3,}$/.test(w)) return w.slice(0, 2);

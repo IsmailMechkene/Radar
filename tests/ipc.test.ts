@@ -85,7 +85,7 @@ describe('IPC handlers', () => {
       onSettingChanged: (key) => changed.push(key),
       pickCsvFile: async () => csvPick,
       readTextFile: (path) => readFileSync(path, 'utf8'),
-      onPipelineChanged: () => void (pipelineChanges += 1),
+      onRemindersChanged: () => void (pipelineChanges += 1),
       now: () => NOW,
     });
     vi.spyOn(console, 'error').mockImplementation(() => {});

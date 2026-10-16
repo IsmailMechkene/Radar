@@ -81,12 +81,13 @@ export function syncSeedPrograms(
   timeZone: string,
   now: Date,
 ): ProgramSyncResult {
-  const find = db.prepare('SELECT id, deadline_status FROM programs WHERE name = ?');
+  const find = db.prepare('SELECT id, deadline_status, edited_at FROM programs WHERE name = ?');
   const insert = db.prepare(
     `INSERT INTO programs (name, org, url, typical_open, typical_deadline, last_cycle_deadline,
-       eligibility_json, deadline_status, notes, expected_open_at, expected_deadline_at, next_check_at)
+       eligibility_json, deadline_status, notes, expected_open_at, expected_deadline_at, next_check_at,
+       seeded)
      VALUES (@name, @org, @url, @typical_open, @typical_deadline, @last_cycle_deadline,
-       @eligibility_json, @deadline_status, @notes, @expected_open_at, @expected_deadline_at, @now)
+       @eligibility_json, @deadline_status, @notes, @expected_open_at, @expected_deadline_at, @now, 1)
      RETURNING id`,
   );
   const updateInfo = db.prepare(
@@ -104,7 +105,19 @@ export function syncSeedPrograms(
      VALUES ('page', ?, ?, '{}', 'public_html', ?, 1, ?) RETURNING id`,
   );
   const updateSource = db.prepare('UPDATE sources SET url = ?, enabled = ? WHERE id = ?');
+  const sourceUrl = db.prepare('SELECT url FROM sources WHERE id = ?');
+  const resetBaseline = (sourceId: number) => {
+    db.prepare('DELETE FROM page_snapshots WHERE source_id = ?').run(sourceId);
+    db.prepare('UPDATE sources SET last_ok_at = NULL, last_error = NULL WHERE id = ?').run(
+      sourceId,
+    );
+  };
   const link = db.prepare('UPDATE programs SET source_id = ? WHERE id = ?');
+  const markSeeded = db.prepare('UPDATE programs SET seeded = 1 WHERE id = ?');
+  const watching = db.prepare(
+    `SELECT 1 FROM programs p JOIN sources s ON s.id = p.source_id
+      WHERE p.id = ? AND s.url IS NOT NULL AND s.enabled = 1`,
+  );
 
   return db.transaction((): ProgramSyncResult => {
     const out = { inserted: 0, updated: 0, watched: 0 };
@@ -122,13 +135,20 @@ export function syncSeedPrograms(
         expected_open_at: toInstant(p.expected_open, 'start', timeZone),
         expected_deadline_at: toInstant(p.expected_deadline, 'end', timeZone),
       };
-      const existing = find.get(p.name) as { id: number; deadline_status: string } | undefined;
+      const existing = find.get(p.name) as
+        { id: number; deadline_status: string; edited_at: string | null } | undefined;
       let id: number;
       if (existing) {
         id = existing.id;
+        markSeeded.run(id);
+        out.updated += 1;
+        // Edited on the Programs page: the user's version wins over the seed file.
+        if (existing.edited_at) {
+          if (watching.get(id)) out.watched += 1;
+          continue;
+        }
         updateInfo.run({ ...row, id });
         if (existing.deadline_status !== 'confirmed') updateDates.run({ ...row, id });
-        out.updated += 1;
       } else {
         id = (insert.get({ ...row, now: now.toISOString() }) as { id: number }).id;
         out.inserted += 1;
@@ -136,7 +156,12 @@ export function syncSeedPrograms(
 
       const watchUrl = p.watch_url ?? p.url;
       const source = findSource.get(pageSourceName(p.name)) as { id: number } | undefined;
-      if (source) updateSource.run(watchUrl, watchUrl ? 1 : 0, source.id);
+      if (source) {
+        const before = sourceUrl.get(source.id) as { url: string | null };
+        // A different page: new baseline, never a diff between two unrelated pages.
+        if (before.url !== watchUrl) resetBaseline(source.id);
+        updateSource.run(watchUrl, watchUrl ? 1 : 0, source.id);
+      }
       let sourceId = source?.id ?? null;
       if (!source && watchUrl) {
         sourceId = (

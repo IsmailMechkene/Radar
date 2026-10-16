@@ -122,6 +122,15 @@ its reminders (Undo right after). **Export .ics** saves the upcoming dates as a 
 can import into Google Calendar or a phone calendar; each date has a reminder the day before, and
 importing again updates the events instead of duplicating them.
 
+## Programs
+
+The Programs page shows each watched program (IAESTE, UGRIP, KAUST VSRP, GSoC, Erasmus+, InstaDeep,
+Hugging Face, Entrelacs, and any you add with **Watch a program**): its typical window, the next
+cycle's dates, the last cycle and when its page is checked next. When an official page changes,
+the card turns amber and shows what changed; **Update deadline** lets you enter the new dates as
+confirmed, **Mark reviewed** dismisses it. **Check now** fetches the page right away. Once you edit
+a program, your version is kept even when the seed file changes.
+
 ## Pipeline
 
 The Pipeline page tracks outreach from Not started to Offer. **Add entry** creates a row for any

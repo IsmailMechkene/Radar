@@ -20,6 +20,7 @@ import { shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
 import { DeadlinesPage } from '../pages/deadlines/DeadlinesPage';
 import { PipelinePage } from '../pages/pipeline/PipelinePage';
+import { ProgramsPage } from '../pages/programs/ProgramsPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { useScan } from '../state/scan';
@@ -39,6 +40,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
   }
   if (route === 'pipeline') return <PipelinePage />;
   if (route === 'deadlines') return <DeadlinesPage />;
+  if (route === 'programs') return <ProgramsPage />;
   if (route === 'settings') return <SettingsPage isPackaged={info?.isPackaged ?? true} />;
   if (route === 'components') {
     return (

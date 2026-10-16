@@ -44,6 +44,14 @@ const api: RadarApi = {
     undoDone: (ids) => ipcRenderer.invoke(C.deadlinesUndoDone, { ids }),
     exportIcs: () => ipcRenderer.invoke(C.deadlinesExportIcs),
   },
+  programs: {
+    list: () => ipcRenderer.invoke(C.programsList),
+    create: (program) => ipcRenderer.invoke(C.programsCreate, { program }),
+    update: (id, patch) => ipcRenderer.invoke(C.programsUpdate, { id, patch }),
+    remove: (id) => ipcRenderer.invoke(C.programsDelete, { id }),
+    check: (id) => ipcRenderer.invoke(C.programsCheck, { id }),
+    markReviewed: (alertId) => ipcRenderer.invoke(C.programsMarkReviewed, { alertId }),
+  },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),
     status: () => ipcRenderer.invoke(C.scanStatus),
