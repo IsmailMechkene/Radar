@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "name": "Cohere",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/cohere",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Board found on cohere.com/careers (source spike 2026-10-16).",
+      "config": { "board": "cohere", "org": "Cohere" },
+      "status": "active"
+    },
+    {
+      "name": "DeepL",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/DeepL",
+      "tos_note": "Ashby public Job Postings API, no key. Board found on jobs.deepl.com (source spike 2026-10-16).",
+      "config": { "board": "DeepL", "org": "DeepL" },
+      "status": "active"
+    },
+    {
+      "name": "Mistral AI",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/mistral.ai",
+      "tos_note": "Ashby public Job Postings API, no key. Board found on mistral.ai/careers (source spike 2026-10-16).",
+      "config": { "board": "mistral.ai", "org": "Mistral AI" },
+      "status": "active"
+    },
+    {
+      "name": "Photoroom",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/photoroom",
+      "tos_note": "Ashby public Job Postings API, no key. Board linked from photoroom.com (source spike 2026-10-16).",
+      "config": { "board": "photoroom", "org": "Photoroom" },
+      "status": "active"
+    },
+    {
+      "name": "Weaviate",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/weaviate",
+      "tos_note": "Ashby public Job Postings API, no key. weaviate.io/company/careers embeds the Ashby board (source spike 2026-10-16).",
+      "config": { "board": "weaviate", "org": "Weaviate" },
+      "status": "active"
+    },
+    {
+      "name": "Arbeitnow internships",
+      "kind": "arbeitnow",
+      "access_method": "api",
+      "url": "https://www.arbeitnow.com",
+      "tos_note": "\"This is a free public API for jobs, please do not abuse. I would appreciate linking back to the site.\" No key; robots.txt allows all. Link back: this URL.",
+      "config": {
+        "jobTypes": ["internship", "praktikum", "werkstudent", "working student", "entry"],
+        "maxPages": 1
+      },
+      "status": "active",
+      "note": "Germany-heavy. Add \"visaSponsorship\": true to keep only jobs with visa sponsorship."
+    },
+    {
+      "name": "InstaDeep",
+      "kind": "careers_page",
+      "access_method": "public_html",
+      "url": "https://www.instadeep.com/careers/",
+      "tos_note": "Own WordPress site; robots.txt allows crawling with Crawl-delay: 3 (source spike 2026-10-16).",
+      "config": {},
+      "status": "pending",
+      "note": "No ATS detected: job pages at instadeep.com/job-offer/<id>, list loaded by script, no job route in /wp-json/. Needs the careers-page adapter (SPEC 5.5)."
+    },
+    {
+      "name": "Entrelacs",
+      "kind": "careers_page",
+      "access_method": "public_html",
+      "url": null,
+      "tos_note": "Not checked: no careers page found yet.",
+      "config": {},
+      "status": "pending",
+      "note": "ATS unknown. Only an archived University of Amsterdam listing for Entrelacs SAS (French LLM startup) was found. Find the careers page before adding an adapter."
+    }
+  ]
+}

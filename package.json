@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "shot": "electron-vite build && electron . --radar-shot"
+    "shot": "electron-vite build && electron . --radar-shot",
+    "scan:dry": "tsx src/cli.ts scan --dry"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
@@ -39,6 +40,7 @@
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "tailwindcss": "^4.3.3",
+    "tsx": "4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2",
     "vite": "^8.3.4",

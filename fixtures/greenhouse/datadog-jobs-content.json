@@ -1,0 +1,301 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/8181440/?gh_jid=8181440",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 3524308,
+      "location": {
+        "name": "Paris, France"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": "Data Science",
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Engineering - Dev Eng",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "EMEA",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": "Internship",
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": null,
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8181440,
+      "updated_at": "2026-09-29T13:18:57-04:00",
+      "requisition_id": "1075",
+      "title": "Applied Science Intern",
+      "company_name": "Datadog",
+      "first_published": "2026-09-08T10:09:29-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;As an Applied Science Intern, you will join a cross-functional team of engineers and applied scientists building AI-powered features within the Datadog platform. You will contribute to both existing and new products by improving machine learning models, developing new AI capabilities, and helping bring research into production. Working closely with engineering and product partners, you&#39;ll gain hands-on experience deploying AI systems at scale while strengthening your product mindset, collaboration, and communication skills. You&#39;ll also have opportunities to contribute to cutting-edge research that directly powers customer-facing features.&lt;/p&gt;\n&lt;p&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Design solutions for AI use cases by researching and benchmarking state-of-the-art models to identify the best approach&lt;/li&gt;\n&lt;li&gt;Build highly scalable product features using generative AI, machine learning algorithms, and statistical techniques&lt;/li&gt;\n&lt;li&gt;Contribute to the development, deployment, monitoring, and maintenance of production AI models, services, and infrastructure&lt;/li&gt;\n&lt;li&gt;Explore, analyze, and derive insights from the large-scale observability data flowing through Datadog systems&lt;/li&gt;\n&lt;li&gt;Participate in technical knowledge sharing by presenting recent academic research and investigating emerging model architectures to improve existing and future products&lt;/li&gt;\n&lt;li&gt…",
+      "departments": [
+        {
+          "id": 54548,
+          "name": "Engineering Interns",
+          "child_ids": [],
+          "parent_id": 9022
+        }
+      ],
+      "offices": [
+        {
+          "id": 8604,
+          "name": "Paris",
+          "location": "Paris, Paris, France",
+          "child_ids": [],
+          "parent_id": 78094
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/8129799/?gh_jid=8129799",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 3520389,
+      "location": {
+        "name": "Paris, France"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": "Enterprise Technology",
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Engineering - Enterprise Technology",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "EMEA",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": "Internship",
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": null,
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8129799,
+      "updated_at": "2026-09-29T14:05:42-04:00",
+      "requisition_id": "1071",
+      "title": "IT Support Technician Intern",
+      "company_name": "Datadog",
+      "first_published": "2026-09-08T09:55:53-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;The Enterprise IT Support team is responsible for the hardware and software that Datadog employees around the world use on a daily basis to successfully do their jobs.&lt;/p&gt;\n&lt;p&gt;As an Enterprise IT Support intern, you will combine theoretical learning at your school with practical, hands-on experience in our IT Support team. Over the course of your internship, you will progressively take on more responsibilities while helping ensure our ever-growing user base has everything they need to do their job. You’ll also gain exposure to security-adjacent tasks relevant to IT support operations.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Learn and assist in providing customer service and technical support for our employees&lt;/li&gt;\n&lt;li&gt;Shadow and support laptop deployment as part of onboarding and refresh cycles&lt;/li&gt;\n&lt;li&gt;Shadow and support laptop collection and account deactivation as part of employee offboarding cycles&lt;/li&gt;\n&lt;li&gt;Participate in new hire orientations to understand policies, best practices and services used within Datadog&lt;/li&gt;\n&lt;li&gt;Assist with general ticketing, account management, and basic troubleshooting under supervision&lt;/li&gt;\n&lt;li&gt;Help maintain hardware and software inventory&lt;/li&gt;\n&lt;li&gt;Contribute to documentation creation and maintenance&lt;/li&gt;\n&lt;li&gt;Observe and support unified communications setups i…",
+      "departments": [
+        {
+          "id": 54548,
+          "name": "Engineering Interns",
+          "child_ids": [],
+          "parent_id": 9022
+        }
+      ],
+      "offices": [
+        {
+          "id": 8604,
+          "name": "Paris",
+          "location": "Paris, Paris, France",
+          "child_ids": [],
+          "parent_id": 78094
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/8257324/?gh_jid=8257324",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3573058,
+      "location": {
+        "name": "New York, New York, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "General and Administrative - Finance",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "79000.0",
+            "min_value": "59000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8257324,
+      "updated_at": "2026-10-06T10:42:08-04:00",
+      "requisition_id": "R21943",
+      "title": "Accounts Payable Analyst",
+      "company_name": "Datadog",
+      "first_published": "2026-10-06T10:42:08-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;h2&gt;&lt;strong&gt;About the Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Datadog is looking for a full-time Accounts Payable Analyst to join our rapidly growing Finance team. Reporting to the Manager, Accounts Payable, you will own the accurate and timely processing of domestic and international vendor invoices and payments, and serve as a trusted liaison between our vendors and internal teams. You will work independently on routine issues, apply professional AP concepts and tools to solve problems, and build a deep understanding of our systems and processes. You will also play a hands-on role in month-end close, audit support, and employee expense review as a T&amp;amp;E approver.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You&#39;ll Do&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Review and process vendor invoices accurately and on time, across regions and currencies&lt;/li&gt;\n&lt;li&gt;Ensure proper supporting documentation is in place and maintained in accordance with company policy and accepted accounting practices&lt;/li&gt;\n&lt;li&gt;Support vendor payment and vendor onboarding processes&lt;/li&gt;\n&lt;li&gt;Research and resolve payment and invoice discrepancies, and reconcile vendor accounts to resolve variances&lt;/li&gt;\n&lt;li&gt;Act as a liaison for vendors and internal teams, resolving inquiries and issues&lt;/li&gt;\n&lt;li&gt;Support the month-end close process, including AP close and accruals&lt;/li&gt;\n&lt;li&gt;Approve T&amp;amp;E expense reports and confirm they adhere to company expense policy&lt;/li&gt;\n&lt;li&gt;Assist with internal and external audit requests, including preparing requested documentation&lt;/li&gt;\n&lt;li&gt;Take on ad hoc projects as the team&#39;s needs evolve&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;What You&#39;ll Bring&lt…",
+      "departments": [
+        {
+          "id": 72261,
+          "name": "Finance",
+          "child_ids": [],
+          "parent_id": 9025
+        }
+      ],
+      "offices": [
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [81327, 76746],
+          "parent_id": 73429
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    }
+  ],
+  "meta": {
+    "total": 3
+  }
+}
