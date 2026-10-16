@@ -7,6 +7,9 @@ const api: RadarApi = {
     get: (key) => ipcRenderer.invoke(IPC_CHANNELS.settingsGet, { key }),
     set: (key, value) => ipcRenderer.invoke(IPC_CHANNELS.settingsSet, { key, value }),
   },
+  app: {
+    getWindowInfo: () => ipcRenderer.invoke(IPC_CHANNELS.appGetWindowInfo),
+  },
 };
 
 contextBridge.exposeInMainWorld('radar', api);

@@ -1,0 +1,369 @@
+/*
+ * Radar design tokens. Source of truth: design/Radar Overview.html (Radar.dc.html, `TH` object and
+ * the "components" screen). Raw names (--bg, --sf, ...) match the design file exactly so values can
+ * be re-checked with `node scripts/extract-design.mjs`. See DESIGN.md before changing anything.
+ *
+ * Theme: <html data-theme="light|dark"> is set by the app (settings `theme`, system by default).
+ * Any element can pin a theme with data-theme (the Components page shows both side by side).
+ */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f5f7;
+  --sf: #ffffff;
+  --sf2: #fafafc;
+  --fl: rgba(0, 0, 0, 0.04);
+  --fl2: rgba(0, 0, 0, 0.075);
+  --ln: rgba(0, 0, 0, 0.1);
+  --ln2: rgba(0, 0, 0, 0.14);
+  --tx: #1d1d1f;
+  --tx2: #6e6e73;
+  --tx3: #86868b;
+  --ac: #0a84ff;
+  --act: #0066d6;
+  --acs: rgba(10, 132, 255, 0.1);
+  --gr: #1a7f37;
+  --grs: rgba(52, 199, 89, 0.15);
+  --grf: #34c759;
+  --am: #9a5800;
+  --ams: rgba(255, 159, 10, 0.16);
+  --amf: #ff9f0a;
+  --rd: #c4001a;
+  --rds: rgba(255, 59, 48, 0.11);
+  --rdf: #ff3b30;
+  --gy: #6e6e73;
+  --gys: rgba(120, 120, 128, 0.12);
+  --gyf: #aeaeb2;
+  --sb: rgba(234, 234, 239, 0.66);
+  --gl: rgba(255, 255, 255, 0.74);
+  --glb: rgba(255, 255, 255, 0.7);
+  --sh:
+    0 0.5px 1px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.04);
+  --sh2:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.1),
+    0 32px 64px rgba(0, 0, 0, 0.08);
+  --win:
+    0 0 0 0.5px rgba(0, 0, 0, 0.22), 0 24px 80px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --dim: rgba(0, 0, 0, 0.16);
+  --wall: #d7dce4;
+  --ctl: #ffffff;
+  --track: rgba(120, 120, 128, 0.18);
+  --blob1: oklch(0.82 0.07 250);
+  --blob2: oklch(0.86 0.06 40);
+  --shim: rgba(255, 255, 255, 0.75);
+}
+
+:root[data-theme='dark'],
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1c1c1e;
+  --sf: #2c2c2e;
+  --sf2: #242426;
+  --fl: rgba(255, 255, 255, 0.05);
+  --fl2: rgba(255, 255, 255, 0.09);
+  --ln: rgba(255, 255, 255, 0.09);
+  --ln2: rgba(255, 255, 255, 0.14);
+  --tx: #f5f5f7;
+  --tx2: #a1a1a6;
+  --tx3: #8a8a8f;
+  --ac: #0a84ff;
+  --act: #4da3ff;
+  --acs: rgba(10, 132, 255, 0.2);
+  --gr: #30d158;
+  --grs: rgba(48, 209, 88, 0.16);
+  --grf: #30d158;
+  --am: #ffb340;
+  --ams: rgba(255, 159, 10, 0.18);
+  --amf: #ff9f0a;
+  --rd: #ff6961;
+  --rds: rgba(255, 69, 58, 0.18);
+  --rdf: #ff453a;
+  --gy: #a1a1a6;
+  --gys: rgba(142, 142, 147, 0.18);
+  --gyf: #636366;
+  --sb: rgba(36, 36, 40, 0.62);
+  --gl: rgba(50, 50, 54, 0.74);
+  --glb: rgba(255, 255, 255, 0.08);
+  --sh: 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.22);
+  --sh2: 0 0 0 0.5px rgba(0, 0, 0, 0.5), 0 16px 48px rgba(0, 0, 0, 0.5);
+  --win:
+    0 0 0 0.5px rgba(0, 0, 0, 0.8), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1),
+    0 24px 80px rgba(0, 0, 0, 0.45);
+  --dim: rgba(0, 0, 0, 0.42);
+  --wall: #26292f;
+  --ctl: #636366;
+  --track: rgba(120, 120, 128, 0.34);
+  --blob1: oklch(0.42 0.08 250);
+  --blob2: oklch(0.38 0.06 40);
+  --shim: rgba(255, 255, 255, 0.06);
+}
+
+/* Theme-independent values used by the design. */
+:root {
+  --on-accent: #ffffff;
+  --knob: #ffffff;
+  --brand-from: #2d9bff;
+  --brand-to: #0a6cdb;
+  --brand-ring: rgba(255, 255, 255, 0.9);
+  /* Settings icon tiles (design Settings screen). */
+  --tile-red: #ff3b30;
+  --tile-sky: #2aabee;
+  --tile-indigo: #5e5ce6;
+  --tile-gray: #8e8e93;
+  --tile-blue: #0a84ff;
+  --tile-teal: #30b0c7;
+  --tile-green: #34c759;
+  /* Scan status dot colors (sidebar card, toolbar pill). */
+  --dot-ok: #34c759;
+  --dot-scanning: #0a84ff;
+  --dot-stale: #ff3b30;
+  --dot-idle: #aeaeb2;
+  --scrollbar-thumb: rgba(128, 128, 128, 0.35);
+
+  --hairline: 0.5px;
+  --ring-dot: 3px;
+  --border-brand: 1.5px;
+  --blur-sidebar: 40px;
+  --blur-glass: 30px;
+  --saturate-glass: 180%;
+
+  --sidebar-width: 240px;
+  --toolbar-height: 52px;
+  --drawer-width: 520px;
+  --drawer-width-narrow: 440px;
+  --content-max-settings: 680px;
+  --search-max: 420px;
+  --popover-width: 240px;
+}
+
+@theme {
+  /* Only design tokens: Tailwind's default palette, type scale, radii and shadows are removed. */
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --tracking-*: initial;
+  --font-*: initial;
+  --ease-*: initial;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--sf);
+  --color-surface-2: var(--sf2);
+  --color-fill: var(--fl);
+  --color-fill-2: var(--fl2);
+  --color-line: var(--ln);
+  --color-line-2: var(--ln2);
+  --color-fg: var(--tx);
+  --color-fg-2: var(--tx2);
+  --color-fg-3: var(--tx3);
+  --color-accent: var(--ac);
+  --color-accent-text: var(--act);
+  --color-accent-soft: var(--acs);
+  --color-green: var(--gr);
+  --color-green-soft: var(--grs);
+  --color-green-fill: var(--grf);
+  --color-amber: var(--am);
+  --color-amber-soft: var(--ams);
+  --color-amber-fill: var(--amf);
+  --color-red: var(--rd);
+  --color-red-soft: var(--rds);
+  --color-red-fill: var(--rdf);
+  --color-gray: var(--gy);
+  --color-gray-soft: var(--gys);
+  --color-gray-fill: var(--gyf);
+  --color-sidebar: var(--sb);
+  --color-glass: var(--gl);
+  --color-glass-border: var(--glb);
+  --color-control: var(--ctl);
+  --color-track: var(--track);
+  --color-dim: var(--dim);
+  --color-wall: var(--wall);
+  --color-on-accent: var(--on-accent);
+  --color-knob: var(--knob);
+  --color-tile-red: var(--tile-red);
+  --color-tile-sky: var(--tile-sky);
+  --color-tile-indigo: var(--tile-indigo);
+  --color-tile-gray: var(--tile-gray);
+  --color-tile-blue: var(--tile-blue);
+  --color-tile-teal: var(--tile-teal);
+  --color-tile-green: var(--tile-green);
+  --color-transparent: transparent;
+
+  --shadow-card: var(--sh);
+  --shadow-pop: var(--sh2);
+  --shadow-window: var(--win);
+  --shadow-control: 0 0.5px 1px rgba(0, 0, 0, 0.05);
+  --shadow-segment: 0 0.5px 2px rgba(0, 0, 0, 0.14);
+  --shadow-knob: 0 1px 3px rgba(0, 0, 0, 0.22);
+  --shadow-drawer: -24px 0 48px -16px rgba(0, 0, 0, 0.22);
+  --shadow-glass-card: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-brand: 0 1px 2px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+  --shadow-primary: 0 1px 2px rgba(10, 132, 255, 0.3);
+  --shadow-focus: 0 0 0 3px var(--acs);
+  --shadow-focus-strong: 0 0 0 3px color-mix(in srgb, var(--ac) 45%, transparent);
+}
+
+@theme {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Inter, 'Helvetica Neue',
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-large-title: 34px;
+  --text-large-title--line-height: 1.1;
+  --text-title-1: 30px;
+  --text-title-1--line-height: 1.1;
+  --text-title-2: 22px;
+  --text-title-2--line-height: 1.22;
+  --text-title-3: 17px;
+  --text-callout: 15px;
+  --text-headline: 14px;
+  --text-body: 13px;
+  --text-subhead: 12.5px;
+  --text-footnote: 12px;
+  --text-caption: 11.5px;
+  --text-caption-2: 11px;
+  --text-micro: 10.5px;
+
+  --tracking-large-title: -0.03em;
+  --tracking-title-1: -0.025em;
+  --tracking-title-2: -0.02em;
+  --tracking-brand: -0.015em;
+  --tracking-title-3: -0.01em;
+  --tracking-body: -0.003em;
+  --tracking-caps: 0.06em;
+  --tracking-eyebrow: 0.08em;
+
+  --radius-2xs: 5px;
+  --radius-xs: 6px;
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
+  --radius-full: 9999px;
+
+  --ease-out: ease-out;
+  --ease-spring: cubic-bezier(0.3, 1.4, 0.5, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-pop: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-lift: 220ms;
+  --duration-switch: 250ms;
+  --duration-drawer: 300ms;
+  --duration-ring: 600ms;
+
+  --animate-toast-in: toast-in 250ms ease-out both;
+  --animate-pop-in: pop-in 180ms var(--ease-pop) both;
+  --animate-drawer-in: drawer-in 300ms var(--ease-drawer) both;
+  --animate-fade-in: fade-in 200ms ease-out both;
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+  @keyframes drawer-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+/* Hairline (0.5 px) borders, the design's default border width. */
+@utility hairline {
+  border-style: solid;
+  border-width: var(--hairline);
+}
+@utility hairline-t {
+  border-top-style: solid;
+  border-top-width: var(--hairline);
+}
+@utility hairline-b {
+  border-bottom-style: solid;
+  border-bottom-width: var(--hairline);
+}
+@utility hairline-l {
+  border-left-style: solid;
+  border-left-width: var(--hairline);
+}
+@utility hairline-r {
+  border-right-style: solid;
+  border-right-width: var(--hairline);
+}
+
+/* Vibrancy: sidebar and glass surfaces (popovers, toasts, scan card). */
+@utility backdrop-sidebar {
+  backdrop-filter: blur(var(--blur-sidebar)) saturate(var(--saturate-glass));
+}
+@utility backdrop-glass {
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
+}
+
+/* Frameless window: the toolbar and sidebar header drag the window; controls opt out. */
+@utility app-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+@utility app-no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Visible focus ring for every interactive element (keyboard only). */
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    box-shadow: var(--shadow-focus-strong);
+  }
+}
+
+/* Shell: decorative color blobs behind the translucent sidebar (design values, 240 px column). */
+.sidebar-blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.sidebar-blob-1 {
+  width: 380px;
+  height: 380px;
+  left: -120px;
+  top: 20px;
+  background: radial-gradient(closest-side, var(--blob1), transparent);
+}
+.sidebar-blob-2 {
+  width: 360px;
+  height: 360px;
+  left: -10px;
+  top: 460px;
+  background: radial-gradient(closest-side, var(--blob2), transparent);
+}
+/* With a native backdrop (Mica, macOS vibrancy) the OS provides the color behind the sidebar. */
+[data-material='mica'] .sidebar-blobs,
+[data-material='vibrancy'] .sidebar-blobs {
+  display: none;
+}
+
+/* Scan status dot halo: 22% of the dot color (design `scanDot`). */
+.scan-dot {
+  box-shadow: 0 0 0 var(--ring-dot) color-mix(in srgb, currentColor 22%, transparent);
+  background: currentColor;
+}

@@ -6,6 +6,7 @@ export const IPC_CHANNELS = {
   settingsGetAll: 'settings:get-all',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
+  appGetWindowInfo: 'app:get-window-info',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -18,13 +19,25 @@ export const settingsSetPayloadSchema = z.strictObject({
   key: settingKeySchema,
   value: z.unknown(),
 });
+export const appGetWindowInfoPayloadSchema = z.undefined();
+
+export interface WindowInfo {
+  platform: string;
+  /** False when running from source (dev, shots); enables dev-only routes such as Components. */
+  isPackaged: boolean;
+  /** Native backdrop behind transparent areas of the page. 'none' means the page paints it. */
+  material: 'mica' | 'vibrancy' | 'none';
+}
 
 /** The API exposed to the renderer as `window.radar`. */
 export interface RadarApi {
   settings: {
     getAll(): Promise<Settings>;
     get<K extends SettingKey>(key: K): Promise<Settings[K]>;
-    /** Setting `autostart` also updates the OS login item. */
+    /** Setting `autostart` also updates the OS login item; `theme` updates the native chrome. */
     set<K extends SettingKey>(key: K, value: Settings[K]): Promise<Settings[K]>;
+  };
+  app: {
+    getWindowInfo(): Promise<WindowInfo>;
   };
 }

@@ -1,24 +1,80 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Tray } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  nativeTheme,
+  Tray,
+  type BrowserWindowConstructorOptions,
+} from 'electron';
+import { release, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
 import { getSetting, seedDefaultSettings } from '../core/settings/store';
+import type { WindowInfo } from '../shared/ipc';
+import { TITLE_BAR_OVERLAY, TOOLBAR_HEIGHT, type ThemePreference } from '../shared/theme';
 import { registerIpcHandlers } from './ipc';
 import { applyAutostart, createLifecycle } from './lifecycle';
+import { chooseWindowMaterial } from './window-material';
+
+// `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
+const SHOT_MODE = process.argv.includes('--radar-shot');
+if (SHOT_MODE) app.setPath('userData', join(tmpdir(), `radar-shot-${process.pid}`));
+
+// The native controls stop 1 px short of the toolbar so its bottom hairline stays visible.
+const OVERLAY_HEIGHT = TOOLBAR_HEIGHT - 1;
+
+const material = chooseWindowMaterial(process.platform, release());
+const windowInfo = (): WindowInfo => ({
+  platform: process.platform,
+  isPackaged: app.isPackaged,
+  material,
+});
 
 let tray: Tray | null = null;
 let db: Database.Database | null = null;
 
 const lifecycle = createLifecycle({ app, createWindow });
 
+function overlayColors() {
+  return TITLE_BAR_OVERLAY[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
+}
+
+function chromeOptions(): BrowserWindowConstructorOptions {
+  if (process.platform === 'darwin') {
+    // macOS: native traffic lights over a vibrant sidebar. Kept for later; untested on Windows.
+    return {
+      titleBarStyle: 'hiddenInset',
+      trafficLightPosition: { x: 20, y: 20 },
+      vibrancy: 'sidebar',
+      visualEffectState: 'active',
+      backgroundColor: '#00000000',
+    };
+  }
+  // Windows/Linux: no native title bar; the native min/max/close controls float over the toolbar.
+  return {
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { ...overlayColors(), height: OVERLAY_HEIGHT },
+    ...(material === 'mica'
+      ? { backgroundMaterial: 'mica', backgroundColor: '#00000000' }
+      : { backgroundColor: overlayColors().color }),
+  };
+}
+
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1440,
+    height: 900,
+    minWidth: 1100,
+    minHeight: 700,
     show: false,
     title: 'Radar',
     autoHideMenuBar: true,
+    ...chromeOptions(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -27,7 +83,11 @@ function createWindow(): BrowserWindow {
     },
   });
 
-  win.once('ready-to-show', () => win.show());
+  // Opens maximized (full work area), not at a fixed size.
+  win.once('ready-to-show', () => {
+    win.maximize();
+    win.show();
+  });
   win.on('close', (event) => lifecycle.handleWindowClose(win, event));
   win.on('closed', () => lifecycle.handleWindowClosed());
 
@@ -38,6 +98,21 @@ function createWindow(): BrowserWindow {
     void win.loadFile(join(__dirname, '../renderer/index.html'));
   }
   return win;
+}
+
+/** Keeps native chrome (controls overlay, window background) in step with the theme. */
+function syncNativeChrome(): void {
+  if (process.platform === 'darwin') return;
+  const colors = overlayColors();
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.setTitleBarOverlay({ ...colors, height: OVERLAY_HEIGHT });
+    if (material !== 'mica') win.setBackgroundColor(colors.color);
+  }
+}
+
+function applyTheme(theme: ThemePreference): void {
+  nativeTheme.themeSource = theme;
+  syncNativeChrome();
 }
 
 function createTray(): void {
@@ -70,14 +145,31 @@ function start(): void {
         (result.applied.length ? ` (applied ${result.applied.join(', ')})` : '') +
         (seeded.length ? `; seeded settings: ${seeded.join(', ')}` : ''),
     );
-    applyAutostart(app, getSetting(database, 'autostart'));
+    nativeTheme.themeSource = getSetting(database, 'theme');
+    if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
     registerIpcHandlers({
       ipcMain,
       db: database,
       applyAutostart: (enabled) => applyAutostart(app, enabled),
+      applyTheme,
+      windowInfo,
     });
   } catch (err) {
     fail(`Radar could not open its database (${dbPath})`, err);
+    return;
+  }
+
+  nativeTheme.on('updated', syncNativeChrome);
+  console.log(`[radar] window material: ${material}`);
+
+  if (SHOT_MODE) {
+    const win = lifecycle.showWindow();
+    void import('./shot')
+      .then(({ runShots }) => runShots(win as BrowserWindow))
+      .then(
+        () => lifecycle.quit(),
+        (err) => fail('Screenshot run failed', err),
+      );
     return;
   }
 

@@ -28,6 +28,8 @@ export const settingsSchema = z.strictObject({
   quietHours: z.strictObject({ enabled: z.boolean(), start: hhmm, end: hhmm }),
   autostart: z.boolean(),
   scanIntervalHours: z.int().min(1).max(168),
+  // Appearance. 'system' follows the OS light/dark setting.
+  theme: z.enum(['system', 'light', 'dark']),
 });
 
 export type Settings = z.output<typeof settingsSchema>;
@@ -49,4 +51,5 @@ export const DEFAULT_SETTINGS: Settings = {
   quietHours: { enabled: true, start: '22:00', end: '08:00' },
   autostart: false,
   scanIntervalHours: 6,
+  theme: 'system',
 };

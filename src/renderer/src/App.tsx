@@ -1,10 +1,28 @@
+import { useEffect, useState } from 'react';
+import type { WindowInfo } from '../../shared/ipc';
+import { ToastProvider } from '../components/Toast';
+import { AppShell } from './shell/AppShell';
+import { SettingsProvider } from './state/settings';
+
 export function App() {
+  const [info, setInfo] = useState<WindowInfo | null>(null);
+
+  useEffect(() => {
+    window.radar.app.getWindowInfo().then(
+      (i) => {
+        setInfo(i);
+        document.documentElement.dataset['platform'] = i.platform;
+        document.documentElement.dataset['material'] = i.material;
+      },
+      (err: unknown) => console.error('[app] window info unavailable', err),
+    );
+  }, []);
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-      <div className="text-center">
-        <h1 className="text-5xl font-semibold tracking-tight">Radar</h1>
-        <p className="mt-3 text-slate-400">Placeholder. Nothing to see yet.</p>
-      </div>
-    </main>
+    <ToastProvider>
+      <SettingsProvider>
+        <AppShell info={info} />
+      </SettingsProvider>
+    </ToastProvider>
   );
 }

@@ -8,3 +8,4 @@ out/
 *.sqlite
 .env
 .env.*
+shots/

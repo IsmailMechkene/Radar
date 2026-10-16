@@ -4,17 +4,22 @@ import { z } from 'zod';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
 import {
+  appGetWindowInfoPayloadSchema,
   IPC_CHANNELS,
   settingsGetAllPayloadSchema,
   settingsGetPayloadSchema,
   settingsSetPayloadSchema,
   type IpcChannel,
+  type WindowInfo,
 } from '../shared/ipc';
+import type { ThemePreference } from '../shared/theme';
 
 export interface IpcDeps {
   ipcMain: Pick<IpcMain, 'handle'>;
   db: Database.Database;
   applyAutostart: (enabled: boolean) => void;
+  applyTheme: (theme: ThemePreference) => void;
+  windowInfo: () => WindowInfo;
 }
 
 function describe(err: unknown): string {
@@ -45,7 +50,13 @@ function handle<S extends z.ZodType>(
   });
 }
 
-export function registerIpcHandlers({ ipcMain, db, applyAutostart }: IpcDeps): void {
+export function registerIpcHandlers({
+  ipcMain,
+  db,
+  applyAutostart,
+  applyTheme,
+  windowInfo,
+}: IpcDeps): void {
   handle(ipcMain, IPC_CHANNELS.settingsGetAll, settingsGetAllPayloadSchema, () =>
     getAllSettings(db),
   );
@@ -59,6 +70,10 @@ export function registerIpcHandlers({ ipcMain, db, applyAutostart }: IpcDeps): v
       // Apply to the OS first so the stored value never claims something that failed.
       applyAutostart(settingsSchema.shape.autostart.parse(value));
     }
-    return setSetting(db, key, value);
+    const stored = setSetting(db, key, value);
+    if (key === 'theme') applyTheme(settingsSchema.shape.theme.parse(stored));
+    return stored;
   });
+
+  handle(ipcMain, IPC_CHANNELS.appGetWindowInfo, appGetWindowInfoPayloadSchema, () => windowInfo());
 }

@@ -2,7 +2,9 @@
 
 A local-first desktop app that searches job boards, company career pages and student programs for internships and jobs abroad, scores the results with plain rules, and shows deadlines when they exist. Everything runs on your machine; data lives in one SQLite file.
 
-Status: early scaffold. The app opens a placeholder window and lives in the system tray.
+Status: early. The app has its window shell, navigation and a working Settings page; the other pages are placeholders. It lives in the system tray.
+
+UI work follows [DESIGN.md](DESIGN.md).
 
 ## Requirements
 
@@ -29,6 +31,7 @@ Closing the window keeps Radar running in the tray. Use the tray menu's **Open**
 npm test           # unit tests (run under plain Node, no Electron)
 npm run typecheck
 npm run lint
+npm run shot       # screenshots of the app next to the design, saved to shots/
 ```
 
 ## Build
