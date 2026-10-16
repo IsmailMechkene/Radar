@@ -21,6 +21,7 @@ import {
   type SortId,
   type ViewId,
 } from '../../lib/opportunities';
+import { useScan } from '../../state/scan';
 import { useSettings } from '../../state/settings';
 import { PageTitle } from '../PageTitle';
 import { BulkBar } from './BulkBar';
@@ -60,6 +61,13 @@ interface Props {
 export function OpportunitiesPage({ query, isPackaged }: Props) {
   const { settings, update } = useSettings();
   const api = useOpportunities();
+  const scan = useScan();
+
+  // A finished scan (Scan now, Ctrl+R) brings new rows: reload the list.
+  const { reload } = api;
+  useEffect(() => {
+    if (scan.version > 0) void reload();
+  }, [scan.version, reload]);
   const width = useWindowWidth();
   const wide = width >= WIDE_MIN;
 
@@ -235,13 +243,20 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
     items.length === 0 ? (
       <TableEmpty
         title="No opportunities yet"
-        message="Radar lists results here once sources are added and scanned. Nothing has been scanned yet."
+        message={
+          scan.view.canScan
+            ? 'Run a scan to fetch postings from your sources.'
+            : 'Radar lists results here once sources are added and scanned.'
+        }
         actions={
-          !isPackaged && (
-            <Button variant="primary" onClick={() => void api.loadSample()}>
-              Load sample data
-            </Button>
-          )
+          <>
+            {scan.view.canScan && (
+              <Button variant="primary" onClick={scan.scanNow}>
+                Scan now
+              </Button>
+            )}
+            {!isPackaged && <Button onClick={() => void api.loadSample()}>Load sample data</Button>}
+          </>
         }
       />
     ) : (

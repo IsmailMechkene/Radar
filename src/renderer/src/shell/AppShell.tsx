@@ -20,6 +20,7 @@ import { shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { useScan } from '../state/scan';
 import { useSettings } from '../state/settings';
 import { useAppliedTheme } from '../state/theme';
 import { navItem, ROUTE_TITLES } from './nav';
@@ -49,6 +50,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
 export function AppShell({ info }: { info: WindowInfo | null }) {
   const { settings, update } = useSettings();
   const resolved = useAppliedTheme(settings?.theme);
+  const { scanNow } = useScan();
   const [nav, dispatch] = useReducer(navReducer, undefined, () =>
     navInit(parseRoute(window.location.hash, true)),
   );
@@ -87,6 +89,10 @@ export function AppShell({ info }: { info: WindowInfo | null }) {
       if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         searchRef.current?.focus();
+      } else if (mod && e.key.toLowerCase() === 'r' && !e.shiftKey) {
+        // Ctrl/Cmd+R scans (design ⌘R); the app menu has no Reload accelerator.
+        e.preventDefault();
+        scanNow();
       } else if (mod && e.key === ',') {
         e.preventDefault();
         dispatch({ type: 'go', route: 'settings' });
@@ -98,7 +104,7 @@ export function AppShell({ info }: { info: WindowInfo | null }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [scanNow]);
 
   return (
     <OverlayProvider hosts={{ column: columnHost, window: rootHost }}>

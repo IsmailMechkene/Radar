@@ -16,11 +16,15 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
+import { createHttpClient } from '../core/http/client';
 import { getSetting, seedDefaultSettings } from '../core/settings/store';
-import type { WindowInfo } from '../shared/ipc';
+import { parseSeedSources } from '../core/sources/seeds';
+import { syncSeedSources } from '../core/sources/sync';
+import { IPC_EVENTS, type WindowInfo } from '../shared/ipc';
 import { TITLE_BAR_OVERLAY, TOOLBAR_HEIGHT, type ThemePreference } from '../shared/theme';
 import { registerIpcHandlers } from './ipc';
 import { applyAutostart, createLifecycle } from './lifecycle';
+import { createScanService } from './scan';
 import { chooseWindowMaterial } from './window-material';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
@@ -140,6 +144,40 @@ function createTray(): void {
   tray.on('click', () => lifecycle.showWindow());
 }
 
+/** Sends an event to every window (scan progress, scan finished). */
+function broadcast(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+  }
+}
+
+/**
+ * Keeps clipboard shortcuts (and DevTools in development) but drops the default View > Reload
+ * accelerator, so Ctrl/Cmd+R can mean "Scan now" as in the design.
+ */
+function installMenu(): void {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+      { role: 'editMenu' },
+      ...(app.isPackaged
+        ? []
+        : [{ label: 'Develop', submenu: [{ role: 'toggleDevTools' as const }] }]),
+    ]),
+  );
+}
+
+/** Loads seeds/sources.json into the database. A broken file is reported, never fatal. */
+function syncSeeds(database: Database.Database): void {
+  try {
+    const raw = JSON.parse(readFileSync(join(app.getAppPath(), 'seeds', 'sources.json'), 'utf8'));
+    const r = syncSeedSources(database, parseSeedSources(raw), new Date());
+    console.log(`[radar] sources synced from seeds: ${r.inserted} new, ${r.updated} updated`);
+  } catch (err) {
+    console.error('[radar] could not sync seeds/sources.json:', err);
+  }
+}
+
 function fail(title: string, err: unknown): void {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`[radar] ${title}:`, err);
@@ -160,6 +198,13 @@ function start(): void {
         (seeded.length ? `; seeded settings: ${seeded.join(', ')}` : ''),
     );
     nativeTheme.themeSource = getSetting(database, 'theme');
+    syncSeeds(database);
+    const scan = createScanService({
+      db: database,
+      http: createHttpClient(),
+      onProgress: (p) => broadcast(IPC_EVENTS.scanProgress, p),
+      onFinished: (summary) => broadcast(IPC_EVENTS.scanFinished, summary),
+    });
     if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
     registerIpcHandlers({
       ipcMain,
@@ -173,6 +218,7 @@ function start(): void {
         JSON.parse(
           readFileSync(join(app.getAppPath(), 'fixtures', 'sample-opportunities.json'), 'utf8'),
         ) as unknown,
+      scan,
     });
   } catch (err) {
     fail(`Radar could not open its database (${dbPath})`, err);
@@ -180,6 +226,7 @@ function start(): void {
   }
 
   nativeTheme.on('updated', syncNativeChrome);
+  installMenu();
   console.log(`[radar] window material: ${material}`);
 
   if (SHOT_MODE) {

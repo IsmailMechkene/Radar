@@ -36,11 +36,21 @@ npm run lint
 npm run shot       # screenshots of the app next to the design, saved to shots/
 ```
 
-## Sources (dry run)
+## Sources and scanning
 
 Configured sources live in [seeds/sources.json](seeds/sources.json): five Ashby job boards (Cohere,
 DeepL, Mistral AI, Photoroom, Weaviate) and Arbeitnow internships. InstaDeep and Entrelacs are listed
 as pending until the careers-page adapter exists. Research notes: [docs/source-spike.md](docs/source-spike.md).
+
+In the app, **Scan now** (bottom of the sidebar, or Ctrl+R) fetches every enabled source and stores
+new postings; postings that disappear from a source are marked closed. The same scan runs headless,
+for example from Windows Task Scheduler or cron, into the app's own database:
+
+```sh
+npm run scan                                   # every enabled source
+npm run scan -- --source "Mistral AI"          # only some sources
+npm run scan -- --db ./scratch.db              # another database file
+```
 
 Fetch one source live and print what Radar would store, without writing anything:
 

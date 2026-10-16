@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { WindowInfo } from '../../shared/ipc';
 import { ToastProvider } from '../components/Toast';
 import { AppShell } from './shell/AppShell';
+import { ScanProvider } from './state/scan';
 import { SettingsProvider } from './state/settings';
 
 export function App() {
@@ -21,7 +22,9 @@ export function App() {
   return (
     <ToastProvider>
       <SettingsProvider>
-        <AppShell info={info} />
+        <ScanProvider>
+          <AppShell info={info} />
+        </ScanProvider>
       </SettingsProvider>
     </ToastProvider>
   );

@@ -4,8 +4,19 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { migrate } from '../src/core/db/migrate';
 import { getSetting, seedDefaultSettings } from '../src/core/settings/store';
+import { createHttpClient, type FetchFn } from '../src/core/http/client';
+import { parseSeedSources } from '../src/core/sources/seeds';
+import { syncSeedSources } from '../src/core/sources/sync';
 import { registerIpcHandlers } from '../src/main/ipc';
-import { IPC_CHANNELS, type OpportunityListItem, type WindowInfo } from '../src/shared/ipc';
+import { createScanService } from '../src/main/scan';
+import {
+  IPC_CHANNELS,
+  type OpportunityListItem,
+  type ScanProgress,
+  type ScanStatus,
+  type ScanSummary,
+  type WindowInfo,
+} from '../src/shared/ipc';
 import type { ThemePreference } from '../src/shared/theme';
 import { tempDb } from './helpers';
 
@@ -23,6 +34,8 @@ describe('IPC handlers', () => {
   let applyTheme: Mock<(theme: ThemePreference) => void>;
   let openExternal: Mock<(url: string) => Promise<void>>;
   let info: WindowInfo;
+  let progress: ScanProgress[];
+  let finished: ScanSummary[];
 
   beforeEach(() => {
     t = tempDb();
@@ -33,6 +46,25 @@ describe('IPC handlers', () => {
     applyTheme = vi.fn<(theme: ThemePreference) => void>();
     openExternal = vi.fn<(url: string) => Promise<void>>(() => Promise.resolve());
     info = { platform: 'win32', isPackaged: false, material: 'none' };
+    progress = [];
+    finished = [];
+    // Only the Weaviate board answers (it serves the recorded Cohere payload); everything else,
+    // robots.txt included, is 404.
+    const weaviate = readFileSync(
+      join(__dirname, '../fixtures/ashby/cohere-job-board.json'),
+      'utf8',
+    );
+    const fetchFn: FetchFn = async (url) =>
+      url.endsWith('/job-board/weaviate')
+        ? new Response(weaviate)
+        : new Response('', { status: 404 });
+    const scan = createScanService({
+      db: t.db,
+      http: createHttpClient({ fetch: fetchFn, now: () => 0, sleep: async () => {} }),
+      now: () => NOW,
+      onProgress: (p) => progress.push(p),
+      onFinished: (r) => finished.push(r),
+    });
     registerIpcHandlers({
       ipcMain: { handle: (channel: string, fn: Handler) => void handlers.set(channel, fn) },
       db: t.db,
@@ -41,6 +73,7 @@ describe('IPC handlers', () => {
       windowInfo: () => info,
       openExternal,
       readSampleFixture: fixture,
+      scan,
       now: () => NOW,
     });
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -151,5 +184,37 @@ describe('IPC handlers', () => {
     await expect(invoke(IPC_CHANNELS.devClearSample)).rejects.toThrow(
       /only available in development/,
     );
+  });
+
+  it('runs a scan, reports progress and status, and refuses a second concurrent scan', async () => {
+    const seeds = JSON.parse(
+      readFileSync(join(__dirname, '../seeds/sources.json'), 'utf8'),
+    ) as unknown;
+    syncSeedSources(t.db, parseSeedSources(seeds), NOW);
+    const before = (await invoke(IPC_CHANNELS.scanStatus)) as ScanStatus;
+    expect(before).toMatchObject({
+      running: false,
+      sourceCount: 6,
+      lastRun: null,
+      lastSuccessAt: null,
+    });
+
+    const first = invoke(IPC_CHANNELS.scanRun, { sources: ['Weaviate'] });
+    await expect(invoke(IPC_CHANNELS.scanRun)).rejects.toThrow(/already running/);
+    const summary = (await first) as ScanSummary;
+    expect(summary).toMatchObject({ sourcesOk: 1, sourcesFailed: 0, newItems: 3 });
+    expect(progress).toHaveLength(1);
+    expect(finished).toHaveLength(1);
+
+    const after = (await invoke(IPC_CHANNELS.scanStatus)) as ScanStatus;
+    expect(after.running).toBe(false);
+    expect(after.lastRun).toMatchObject({ trigger: 'manual', sources_ok: 1, new_items: 3 });
+    expect(after.lastSuccessAt).toBe(NOW.toISOString());
+
+    // A failing source is recorded, not thrown.
+    const failed = (await invoke(IPC_CHANNELS.scanRun, { sources: ['Cohere'] })) as ScanSummary;
+    expect(failed).toMatchObject({ sourcesOk: 0, sourcesFailed: 1 });
+    expect(failed.errorSummary).toMatch(/Cohere: .*404/);
+    await expect(invoke(IPC_CHANNELS.scanRun, { sources: [] })).rejects.toThrow(/invalid payload/);
   });
 });

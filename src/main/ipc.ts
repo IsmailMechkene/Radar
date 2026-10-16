@@ -23,6 +23,8 @@ import {
   opportunitiesSetStarredPayloadSchema,
   pipelineAddPayloadSchema,
   pipelineRemovePayloadSchema,
+  scanRunPayloadSchema,
+  scanStatusPayloadSchema,
   settingsGetAllPayloadSchema,
   settingsGetPayloadSchema,
   settingsSetPayloadSchema,
@@ -30,6 +32,7 @@ import {
   type WindowInfo,
 } from '../shared/ipc';
 import type { ThemePreference } from '../shared/theme';
+import type { ScanService } from './scan';
 
 export interface IpcDeps {
   ipcMain: Pick<IpcMain, 'handle'>;
@@ -40,6 +43,7 @@ export interface IpcDeps {
   openExternal: (url: string) => Promise<void>;
   /** Reads the dev sample fixture (raw JSON, validated by the loader). */
   readSampleFixture: () => unknown;
+  scan: Pick<ScanService, 'run' | 'status'>;
   now?: () => Date;
 }
 
@@ -124,6 +128,10 @@ export function registerIpcHandlers(deps: IpcDeps): void {
   handle(ipcMain, C.pipelineRemove, pipelineRemovePayloadSchema, ({ ids }) =>
     removePipelineRows(db, ids),
   );
+
+  handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));
+
+  handle(ipcMain, C.scanStatus, scanStatusPayloadSchema, () => deps.scan.status());
 
   const devOnly = () => {
     if (windowInfo().isPackaged) throw new Error('Sample data is only available in development');

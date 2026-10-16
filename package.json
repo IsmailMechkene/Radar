@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "shot": "electron-vite build && electron . --radar-shot",
-    "scan:dry": "tsx src/cli.ts scan --dry"
+    "scan:dry": "tsx src/cli.ts scan --dry",
+    "scan": "tsx src/cli.ts scan"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",

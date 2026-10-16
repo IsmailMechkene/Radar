@@ -86,3 +86,15 @@ export function longAge(iso: string, now: Date): string {
   const m = Math.floor(days / 30);
   return m === 1 ? '1 month ago' : `${m} months ago`;
 }
+
+/** "just now", "14 min ago", "3 h ago", "1 day ago", "5 days ago". */
+export function ago(iso: string, now: Date): string {
+  const ms = Math.max(0, now.getTime() - new Date(iso).getTime());
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} h ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? '1 day ago' : `${d} days ago`;
+}

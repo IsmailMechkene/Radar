@@ -1,7 +1,9 @@
 // Single source of truth for IPC between main, preload and renderer. No Electron imports here.
 import { z } from 'zod';
 import type { AddToPipelineResult } from '../core/db/pipeline';
+import type { RunRow } from '../core/db/runs';
 import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas';
+import type { ScanSummary, SourceOutcome } from '../core/runner';
 import { settingKeySchema, type SettingKey, type Settings } from '../core/settings/schema';
 
 export const IPC_CHANNELS = {
@@ -19,6 +21,14 @@ export const IPC_CHANNELS = {
   pipelineRemove: 'pipeline:remove',
   devLoadSample: 'dev:load-sample',
   devClearSample: 'dev:clear-sample',
+  scanRun: 'scan:run',
+  scanStatus: 'scan:status',
+} as const;
+
+/** Events main sends to the renderer (no payload validation needed: main is trusted). */
+export const IPC_EVENTS = {
+  scanProgress: 'scan:progress',
+  scanFinished: 'scan:finished',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -56,6 +66,10 @@ export const opportunitiesIdsPayloadSchema = z.strictObject({ ids: idsSchema });
 export const pipelineAddPayloadSchema = z.strictObject({ opportunityIds: idsSchema });
 export const pipelineRemovePayloadSchema = z.strictObject({ ids: idsSchema });
 export const devPayloadSchema = noPayload;
+export const scanRunPayloadSchema = z
+  .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
+  .optional();
+export const scanStatusPayloadSchema = noPayload;
 
 export interface WindowInfo {
   platform: string;
@@ -65,7 +79,28 @@ export interface WindowInfo {
   material: 'mica' | 'vibrancy' | 'none';
 }
 
-export type { AddToPipelineResult, OpportunityDetail, OpportunityListItem };
+export type {
+  AddToPipelineResult,
+  OpportunityDetail,
+  OpportunityListItem,
+  ScanSummary,
+  SourceOutcome,
+};
+
+export interface ScanStatus {
+  running: boolean;
+  /** Enabled sources that have an adapter. */
+  sourceCount: number;
+  lastRun: RunRow | null;
+  /** Finish time of the latest run in which at least one source worked (heartbeat). */
+  lastSuccessAt: string | null;
+}
+
+export interface ScanProgress {
+  done: number;
+  total: number;
+  outcome: SourceOutcome;
+}
 
 /** The API exposed to the renderer as `window.radar`. */
 export interface RadarApi {
@@ -93,6 +128,15 @@ export interface RadarApi {
     add(opportunityIds: number[]): Promise<AddToPipelineResult>;
     /** Removes pipeline rows by id (Undo of `add`). */
     remove(ids: number[]): Promise<number>;
+  };
+  scan: {
+    /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */
+    run(sources?: string[]): Promise<ScanSummary>;
+    status(): Promise<ScanStatus>;
+    /** Subscribe to per-source progress; returns an unsubscribe function. */
+    onProgress(listener: (p: ScanProgress) => void): () => void;
+    /** Subscribe to finished scans (from any trigger); returns an unsubscribe function. */
+    onFinished(listener: (s: ScanSummary) => void): () => void;
   };
   /** Development builds only; rejects in packaged builds. */
   dev: {
