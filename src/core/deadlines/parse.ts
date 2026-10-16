@@ -501,6 +501,29 @@ export function parseDates(text: string, ctx: ParseContext): ParsedDate[] {
   return out;
 }
 
+/**
+ * A single calendar date written on its own (a spreadsheet cell: "2026-10-19", "19/10/2026",
+ * "Oct 19", "19 octobre"), with no cue needed. Numeric dates are read day-first when `language`
+ * makes that certain; otherwise an ambiguous one comes back with confidence low. Null when the
+ * text is not one whole date.
+ */
+export function readDate(
+  text: string,
+  ctx: ParseContext,
+): { date: string; confidence: Confidence } | null {
+  const t = text.trim();
+  const hits = findDates(t);
+  const hit = hits[0];
+  if (hits.length !== 1 || !hit || hit.to || hit.from.day === null) return null;
+  if (t.slice(0, hit.start).trim() !== '' || !/^[\s.,]*$/.test(t.slice(hit.end))) return null;
+  const r = resolveYear(hit.from, ctx);
+  const dayFirstSure = ctx.language === 'fr' || ctx.language === 'other';
+  let confidence = r.confidence;
+  if (hit.ambiguousOrder && !dayFirstSure) confidence = 'low';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return { date: `${r.year}-${pad(r.month)}-${pad(r.day!)}`, confidence };
+}
+
 /** Days from `now` to a parsed date on the user's calendar (negative when passed). */
 export function daysUntil(dateIso: string, now: Date, timeZone: string): number {
   return localDaysBetween(now, new Date(dateIso), timeZone);

@@ -1,6 +1,15 @@
 // Single source of truth for IPC between main, preload and renderer. No Electron imports here.
 import { z } from 'zod';
-import type { AddToPipelineResult } from '../core/db/pipeline';
+import {
+  pipelineNewSchema,
+  pipelinePatchSchema,
+  type AddToPipelineResult,
+  type PipelineItem,
+  type PipelineNew,
+  type PipelinePatch,
+  type PipelineStatus,
+} from '../core/db/pipeline';
+import type { ImportResult } from '../core/pipeline/import';
 import type { RunRow } from '../core/db/runs';
 import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas';
 import type { ScanSummary, SourceOutcome } from '../core/runner';
@@ -19,6 +28,10 @@ export const IPC_CHANNELS = {
   opportunitiesRestore: 'opportunities:restore',
   pipelineAdd: 'pipeline:add',
   pipelineRemove: 'pipeline:remove',
+  pipelineList: 'pipeline:list',
+  pipelineCreate: 'pipeline:create',
+  pipelineUpdate: 'pipeline:update',
+  pipelineImportCsv: 'pipeline:import-csv',
   devLoadSample: 'dev:load-sample',
   devClearSample: 'dev:clear-sample',
   scanRun: 'scan:run',
@@ -65,6 +78,13 @@ export const opportunitiesSetStarredPayloadSchema = z.strictObject({
 export const opportunitiesIdsPayloadSchema = z.strictObject({ ids: idsSchema });
 export const pipelineAddPayloadSchema = z.strictObject({ opportunityIds: idsSchema });
 export const pipelineRemovePayloadSchema = z.strictObject({ ids: idsSchema });
+export const pipelineListPayloadSchema = noPayload;
+export const pipelineCreatePayloadSchema = z.strictObject({ row: pipelineNewSchema });
+export const pipelineUpdatePayloadSchema = z.strictObject({
+  id: z.int().positive(),
+  patch: pipelinePatchSchema,
+});
+export const pipelineImportCsvPayloadSchema = noPayload;
 export const devPayloadSchema = noPayload;
 export const scanRunPayloadSchema = z
   .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
@@ -79,8 +99,16 @@ export interface WindowInfo {
   material: 'mica' | 'vibrancy' | 'none';
 }
 
+/** Result of "Import CSV": null when the file dialog was cancelled. */
+export type PipelineImport = (ImportResult & { file: string }) | null;
+
 export type {
   AddToPipelineResult,
+  ImportResult,
+  PipelineItem,
+  PipelineNew,
+  PipelinePatch,
+  PipelineStatus,
   OpportunityDetail,
   OpportunityListItem,
   ScanSummary,
@@ -126,8 +154,16 @@ export interface RadarApi {
   };
   pipeline: {
     add(opportunityIds: number[]): Promise<AddToPipelineResult>;
-    /** Removes pipeline rows by id (Undo of `add`). */
+    /** Removes pipeline rows by id (Undo of `add`, or delete). */
     remove(ids: number[]): Promise<number>;
+    /** Every row, by planned send date. */
+    list(): Promise<PipelineItem[]>;
+    /** A row not linked to a scanned posting. */
+    create(row: PipelineNew): Promise<PipelineItem>;
+    /** Marking Sent sets the sent date to now when empty; follow-ups follow the sent date. */
+    update(id: number, patch: PipelinePatch): Promise<PipelineItem>;
+    /** Asks for a CSV file (native dialog) and imports it; null when cancelled. */
+    importCsv(): Promise<PipelineImport>;
   };
   scan: {
     /** Scans every enabled source (or the named ones). Rejects if a scan is already running. */

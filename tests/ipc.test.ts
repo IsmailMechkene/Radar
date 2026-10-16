@@ -12,6 +12,8 @@ import { createScanService } from '../src/main/scan';
 import {
   IPC_CHANNELS,
   type OpportunityListItem,
+  type PipelineImport,
+  type PipelineItem,
   type ScanProgress,
   type ScanStatus,
   type ScanSummary,
@@ -37,6 +39,8 @@ describe('IPC handlers', () => {
   let changed: string[];
   let progress: ScanProgress[];
   let finished: ScanSummary[];
+  let pipelineChanges: number;
+  let csvPick: string | null;
 
   beforeEach(() => {
     t = tempDb();
@@ -50,6 +54,8 @@ describe('IPC handlers', () => {
     changed = [];
     progress = [];
     finished = [];
+    pipelineChanges = 0;
+    csvPick = null;
     // Only the Weaviate board answers (it serves the recorded Cohere payload); everything else,
     // robots.txt included, is 404.
     const weaviate = readFileSync(
@@ -77,6 +83,9 @@ describe('IPC handlers', () => {
       readSampleFixture: fixture,
       scan,
       onSettingChanged: (key) => changed.push(key),
+      pickCsvFile: async () => csvPick,
+      readTextFile: (path) => readFileSync(path, 'utf8'),
+      onPipelineChanged: () => void (pipelineChanges += 1),
       now: () => NOW,
     });
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -227,5 +236,37 @@ describe('IPC handlers', () => {
       invoke(IPC_CHANNELS.settingsSet, { key: 'scanIntervalHours', value: 0 }),
     ).rejects.toThrow();
     expect(changed).toEqual(['targetRegions']); // rejected values do not notify
+  });
+
+  it('lists, creates, updates (Sent starts follow-ups) and removes pipeline rows', async () => {
+    const created = (await invoke(IPC_CHANNELS.pipelineCreate, {
+      row: { org: 'Weaviate', role: 'Backend Intern', planned_send_date: '2026-10-21' },
+    })) as PipelineItem;
+    expect(created).toMatchObject({ org: 'Weaviate', status: 'not_started' });
+    const sent = (await invoke(IPC_CHANNELS.pipelineUpdate, {
+      id: created.id,
+      patch: { status: 'sent' },
+    })) as PipelineItem;
+    expect(sent.sent_at).toBe(NOW.toISOString());
+    expect(sent.followup1_at).toBe('2026-10-23T08:00:00.000Z'); // +7 days, 09:00 in Tunis
+    expect(((await invoke(IPC_CHANNELS.pipelineList)) as PipelineItem[]).map((r) => r.org)).toEqual(
+      ['Weaviate'],
+    );
+    await expect(
+      invoke(IPC_CHANNELS.pipelineUpdate, { id: created.id, patch: { status: 'waiting' } }),
+    ).rejects.toThrow(/invalid payload/);
+    await expect(invoke(IPC_CHANNELS.pipelineCreate, { row: { org: '' } })).rejects.toThrow(
+      /invalid payload/,
+    );
+    expect(await invoke(IPC_CHANNELS.pipelineRemove, { ids: [created.id] })).toBe(1);
+    expect(pipelineChanges).toBe(3); // create, update, remove
+  });
+
+  it('imports a CSV chosen in the dialog; a cancelled dialog imports nothing', async () => {
+    expect(await invoke(IPC_CHANNELS.pipelineImportCsv)).toBeNull();
+    csvPick = join(__dirname, '../fixtures/pipeline/outreach-tracker.csv');
+    const r = (await invoke(IPC_CHANNELS.pipelineImportCsv)) as PipelineImport;
+    expect(r).toMatchObject({ added: 13, skipped: 0, file: csvPick });
+    expect(pipelineChanges).toBe(1);
   });
 });

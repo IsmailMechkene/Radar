@@ -13,6 +13,7 @@ import {
   type BrowserWindowConstructorOptions,
 } from 'electron';
 import { readFileSync } from 'node:fs';
+import { syncReminders } from '../core/reminders/store';
 import { release, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -326,6 +327,26 @@ function start(): void {
           readFileSync(join(app.getAppPath(), 'fixtures', 'sample-opportunities.json'), 'utf8'),
         ) as unknown,
       scan,
+      pickCsvFile: async () => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = {
+          title: 'Import pipeline from CSV',
+          filters: [{ name: 'CSV', extensions: ['csv'] }],
+          properties: ['openFile' as const],
+        };
+        const r = win
+          ? await dialog.showOpenDialog(win, options)
+          : await dialog.showOpenDialog(options);
+        return r.canceled ? null : (r.filePaths[0] ?? null);
+      },
+      readTextFile: (path) => readFileSync(path, 'utf8'),
+      onPipelineChanged: () => {
+        try {
+          syncReminders(database, new Date(), getSetting(database, 'timezone'));
+        } catch (err) {
+          console.error('[radar] planning follow-ups failed:', err);
+        }
+      },
       onSettingChanged: (key) => {
         if (key === 'timezone') {
           // Local calendar days moved: expected program dates and parsed deadlines follow.

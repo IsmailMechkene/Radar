@@ -18,6 +18,7 @@ import {
 } from '../lib/router';
 import { shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
+import { PipelinePage } from '../pages/pipeline/PipelinePage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { useScan } from '../state/scan';
@@ -35,6 +36,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
   if (route === 'opportunities') {
     return <OpportunitiesPage query={query} isPackaged={info?.isPackaged ?? true} />;
   }
+  if (route === 'pipeline') return <PipelinePage />;
   if (route === 'settings') return <SettingsPage isPackaged={info?.isPackaged ?? true} />;
   if (route === 'components') {
     return (

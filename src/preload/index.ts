@@ -30,6 +30,10 @@ const api: RadarApi = {
   pipeline: {
     add: (opportunityIds) => ipcRenderer.invoke(C.pipelineAdd, { opportunityIds }),
     remove: (ids) => ipcRenderer.invoke(C.pipelineRemove, { ids }),
+    list: () => ipcRenderer.invoke(C.pipelineList),
+    create: (row) => ipcRenderer.invoke(C.pipelineCreate, { row }),
+    update: (id, patch) => ipcRenderer.invoke(C.pipelineUpdate, { id, patch }),
+    importCsv: () => ipcRenderer.invoke(C.pipelineImportCsv),
   },
   scan: {
     run: (sources) => ipcRenderer.invoke(C.scanRun, sources ? { sources } : undefined),

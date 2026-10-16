@@ -1,5 +1,10 @@
 import { Search } from 'lucide-react';
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import {
+  forwardRef,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { Icon } from './Icon';
 import { cn } from './lib/cn';
 
@@ -33,6 +38,28 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
           : size === 'sm'
             ? 'border border-transparent focus:border-accent focus:shadow-focus'
             : 'hairline border-line-2 focus:border focus:border-accent focus:shadow-focus',
+        className,
+      )}
+      {...rest}
+    />
+  );
+});
+
+/** Multi-line text field, styled like the 'md' TextInput (notes). */
+export const TextArea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }
+>(function TextArea({ invalid, className, ...rest }, ref) {
+  return (
+    <textarea
+      ref={ref}
+      aria-invalid={invalid || undefined}
+      className={cn(
+        'app-no-drag min-h-20 resize-y rounded-md bg-surface px-2.5 py-2 text-body text-fg outline-none placeholder:text-fg-3',
+        'transition-[box-shadow,border-color] duration-(--duration-base) ease-out',
+        invalid
+          ? 'border border-red-fill text-red'
+          : 'hairline border-line-2 focus:border focus:border-accent focus:shadow-focus',
         className,
       )}
       {...rest}

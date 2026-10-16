@@ -8,7 +8,14 @@ import {
   restoreOpportunities,
   setStarred,
 } from '../core/db/opportunities';
-import { addOpportunitiesToPipeline, removePipelineRows } from '../core/db/pipeline';
+import {
+  addOpportunitiesToPipeline,
+  createPipelineRow,
+  listPipeline,
+  removePipelineRows,
+  updatePipelineRow,
+} from '../core/db/pipeline';
+import { importPipelineCsv } from '../core/pipeline/import';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
 import { settingsSchema } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
@@ -23,6 +30,10 @@ import {
   opportunitiesSetStarredPayloadSchema,
   pipelineAddPayloadSchema,
   pipelineRemovePayloadSchema,
+  pipelineListPayloadSchema,
+  pipelineCreatePayloadSchema,
+  pipelineUpdatePayloadSchema,
+  pipelineImportCsvPayloadSchema,
   scanRunPayloadSchema,
   scanStatusPayloadSchema,
   settingsGetAllPayloadSchema,
@@ -46,6 +57,11 @@ export interface IpcDeps {
   scan: Pick<ScanService, 'run' | 'status'>;
   /** Called after a setting is stored (e.g. to re-score when a scoring setting changed). */
   onSettingChanged?: (key: string) => void;
+  /** Native "open file" dialog for a CSV; resolves to the path, or null when cancelled. */
+  pickCsvFile?: () => Promise<string | null>;
+  readTextFile?: (path: string) => string;
+  /** Called after the pipeline changed (e.g. to plan follow-up reminders right away). */
+  onPipelineChanged?: () => void;
   now?: () => Date;
 }
 
@@ -128,9 +144,39 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     addOpportunitiesToPipeline(db, opportunityIds, now()),
   );
 
-  handle(ipcMain, C.pipelineRemove, pipelineRemovePayloadSchema, ({ ids }) =>
-    removePipelineRows(db, ids),
-  );
+  handle(ipcMain, C.pipelineRemove, pipelineRemovePayloadSchema, ({ ids }) => {
+    const removed = removePipelineRows(db, ids);
+    deps.onPipelineChanged?.();
+    return removed;
+  });
+
+  handle(ipcMain, C.pipelineList, pipelineListPayloadSchema, () => listPipeline(db));
+
+  handle(ipcMain, C.pipelineCreate, pipelineCreatePayloadSchema, ({ row }) => {
+    const created = createPipelineRow(db, row, getSetting(db, 'timezone'), now());
+    deps.onPipelineChanged?.();
+    return created;
+  });
+
+  handle(ipcMain, C.pipelineUpdate, pipelineUpdatePayloadSchema, ({ id, patch }) => {
+    const updated = updatePipelineRow(db, id, patch, getSetting(db, 'timezone'), now());
+    deps.onPipelineChanged?.();
+    return updated;
+  });
+
+  handle(ipcMain, C.pipelineImportCsv, pipelineImportCsvPayloadSchema, async () => {
+    if (!deps.pickCsvFile || !deps.readTextFile) throw new Error('Import is not available');
+    const file = await deps.pickCsvFile();
+    if (!file) return null;
+    const result = importPipelineCsv(
+      db,
+      deps.readTextFile(file),
+      getSetting(db, 'timezone'),
+      now(),
+    );
+    deps.onPipelineChanged?.();
+    return { ...result, file };
+  });
 
   handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));
 

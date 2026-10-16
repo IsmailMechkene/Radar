@@ -112,6 +112,19 @@ npm run remind:dry -- --now 2026-10-19T09:00    # local time in your Settings ti
 npm run remind:dry -- --now 2026-11-17T09:00 --db ./scratch.db
 ```
 
+## Pipeline
+
+The Pipeline page tracks outreach from Not started to Offer. **Add entry** creates a row for any
+organization; **Add to pipeline** on an opportunity links the posting. Changing a row's status to
+**Sent** fills in today as the sent date and plans follow-up reminders 7 and 14 days later.
+
+**Import CSV** reads your outreach tracker exported from Google Sheets (File → Download → CSV) or
+Excel. The first row must name the columns; English and French names work in any order:
+Organization (required), Role, Status, Planned send date, Sent, Contact, Email or link, Notes.
+Dates are read day-first (19/10/2026, 2026-10-19, Oct 19, 19 octobre). Rows already in the
+pipeline (same organization and role) are skipped, so importing again is safe, and every row or
+value that could not be read is listed after the import.
+
 ## Build
 
 ```sh

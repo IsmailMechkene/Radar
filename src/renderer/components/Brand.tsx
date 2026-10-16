@@ -8,15 +8,17 @@ export function OrgAvatar({
 }: {
   initials: string;
   hue: number;
-  /** sm 32 px (strip cards), md 36 px (drawer header). */
-  size?: 'sm' | 'md';
+  /** xs 28 px (pipeline rows), sm 32 px (strip cards), md 36 px (drawer header). */
+  size?: 'xs' | 'sm' | 'md';
 }) {
   return (
     <div
       aria-hidden="true"
       className={cn(
-        'grid shrink-0 place-items-center rounded-md font-semibold text-on-accent',
-        size === 'sm' ? 'size-8 text-footnote' : 'size-9 text-body',
+        'grid shrink-0 place-items-center font-semibold text-on-accent',
+        size === 'xs' && 'size-7 rounded-sm text-micro',
+        size === 'sm' && 'size-8 rounded-md text-footnote',
+        size === 'md' && 'size-9 rounded-md text-body',
       )}
       style={{ background: `oklch(var(--monogram-l) var(--monogram-c) ${hue})` }}
     >

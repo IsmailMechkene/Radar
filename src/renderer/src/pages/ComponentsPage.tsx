@@ -28,7 +28,7 @@ import { Button } from '../../components/Button';
 import { Checkbox } from '../../components/Checkbox';
 import { Drawer, DrawerClose } from '../../components/Drawer';
 import { GroupedRow, GroupedSection } from '../../components/GroupedList';
-import { Kbd, SearchField, TextInput } from '../../components/Input';
+import { Kbd, SearchField, TextArea, TextInput } from '../../components/Input';
 import { FilterPill, Chip, MetaChip, Tag } from '../../components/Pill';
 import { Menu, type MenuItemDef } from '../../components/Popover';
 import { ScoreRing } from '../../components/ScoreRing';
@@ -405,6 +405,7 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
             />
             <Kbd>Ctrl K</Kbd>
           </div>
+          <TextArea aria-label="Notes" rows={2} defaultValue="Asked about the Go client project" />
         </Card>
       </div>
 
@@ -535,6 +536,7 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
         </div>
         <Card title="Avatars, sizes, rings">
           <div className="flex items-center gap-3">
+            <OrgAvatar initials="WE" hue={150} size="xs" />
             <OrgAvatar initials="HF" hue={75} />
             <OrgAvatar initials="ID" hue={265} size="md" />
             <BrandMark />
