@@ -82,7 +82,62 @@ function reminderStates(db: Database.Database, now: Date): Map<string, ReminderS
 
 const bool = z.union([z.literal(0), z.literal(1)]).transform((v) => v === 1);
 
-export function listDeadlines(db: Database.Database, now: Date): DeadlinesView {
+// Row schemas built once (building a zod object per row was most of the page's load time).
+const opportunityEventRow = z.object({
+  id: z.int(),
+  title: z.string(),
+  org: z.string(),
+  deadline_at: utcTimestampSchema,
+  deadline_status: z.string(),
+  url: z.string(),
+  deadline_text: z.string().nullable(),
+  tracked: bool,
+});
+const programEventRow = z.object({
+  id: z.int(),
+  name: z.string(),
+  org: z.string().nullable(),
+  url: z.string().nullable(),
+  status: z.string(),
+  deadline_status: z.string(),
+  expected_open_at: utcTimestampSchema.nullable(),
+  expected_deadline_at: utcTimestampSchema.nullable(),
+});
+const manualEventRow = z.object({
+  id: z.int(),
+  title: z.string(),
+  org: z.string().nullable(),
+  deadline_at: utcTimestampSchema,
+  url: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+const followupRow = z.object({
+  reminder_id: z.int(),
+  target_id: z.int(),
+  kind: z.enum(['followup_1', 'followup_2']),
+  due_at: utcTimestampSchema,
+  org: z.string(),
+  role: z.string().nullable(),
+});
+
+export interface DeadlineQuery {
+  /** Opportunity deadlines at or after this instant only (older ones are never shown). */
+  from?: Date;
+  /** ... and at or before this one. */
+  to?: Date;
+  /** Only starred or pipeline postings (the ones with reminders). */
+  trackedOnly?: boolean;
+}
+
+/**
+ * Deadlines and due follow-ups. The filters narrow the opportunity rows in SQL, so a large list
+ * of postings with dates is never all loaded for a count or a window.
+ */
+export function listDeadlines(
+  db: Database.Database,
+  now: Date,
+  q: DeadlineQuery = {},
+): DeadlinesView {
   const state = reminderStates(db, now);
   const of = (type: string, id: number): ReminderState =>
     state.get(`${type}:${id}`) ?? { done: false, snoozed_until: null };
@@ -90,26 +145,21 @@ export function listDeadlines(db: Database.Database, now: Date): DeadlinesView {
 
   const opportunities = db
     .prepare(
-      `SELECT o.id, o.title, o.org, o.deadline_at, o.deadline_status, o.url, o.deadline_text,
-              (o.starred = 1 OR EXISTS (SELECT 1 FROM pipeline p WHERE p.opportunity_id = o.id)) AS tracked
-         FROM opportunities o
-        WHERE o.deadline_at IS NOT NULL AND o.dismissed_at IS NULL AND o.closed_at IS NULL`,
+      `SELECT * FROM (
+         SELECT o.id, o.title, o.org, o.deadline_at, o.deadline_status, o.url, o.deadline_text,
+                (o.starred = 1 OR EXISTS (SELECT 1 FROM pipeline p WHERE p.opportunity_id = o.id)) AS tracked
+           FROM opportunities o
+          WHERE o.deadline_at IS NOT NULL AND o.dismissed_at IS NULL AND o.closed_at IS NULL
+            AND (@from IS NULL OR o.deadline_at >= @from)
+            AND (@to IS NULL OR o.deadline_at <= @to))
+        WHERE @tracked = 0 OR tracked = 1`,
     )
-    .all()
-    .map((r) =>
-      z
-        .object({
-          id: z.int(),
-          title: z.string(),
-          org: z.string(),
-          deadline_at: utcTimestampSchema,
-          deadline_status: z.string(),
-          url: z.string(),
-          deadline_text: z.string().nullable(),
-          tracked: bool,
-        })
-        .parse(r),
-    );
+    .all({
+      from: q.from?.toISOString() ?? null,
+      to: q.to?.toISOString() ?? null,
+      tracked: q.trackedOnly ? 1 : 0,
+    })
+    .map((r) => opportunityEventRow.parse(r));
   for (const o of opportunities) {
     events.push({
       key: `opportunity:${o.id}:deadline`,
@@ -134,20 +184,7 @@ export function listDeadlines(db: Database.Database, now: Date): DeadlinesView {
          FROM programs WHERE expected_open_at IS NOT NULL OR expected_deadline_at IS NOT NULL`,
     )
     .all()
-    .map((r) =>
-      z
-        .object({
-          id: z.int(),
-          name: z.string(),
-          org: z.string().nullable(),
-          url: z.string().nullable(),
-          status: z.string(),
-          deadline_status: z.string(),
-          expected_open_at: utcTimestampSchema.nullable(),
-          expected_deadline_at: utcTimestampSchema.nullable(),
-        })
-        .parse(r),
-    );
+    .map((r) => programEventRow.parse(r));
   for (const p of programs) {
     const base = {
       target_type: 'program' as const,
@@ -181,18 +218,7 @@ export function listDeadlines(db: Database.Database, now: Date): DeadlinesView {
   const manual = db
     .prepare('SELECT id, title, org, deadline_at, url, notes FROM manual_deadlines')
     .all()
-    .map((r) =>
-      z
-        .object({
-          id: z.int(),
-          title: z.string(),
-          org: z.string().nullable(),
-          deadline_at: utcTimestampSchema,
-          url: z.string().nullable(),
-          notes: z.string().nullable(),
-        })
-        .parse(r),
-    );
+    .map((r) => manualEventRow.parse(r));
   for (const m of manual) {
     events.push({
       key: `manual:${m.id}:deadline`,
@@ -225,18 +251,7 @@ export function listDeadlines(db: Database.Database, now: Date): DeadlinesView {
         ORDER BY due_at`,
     )
     .all({ now: now.toISOString() })
-    .map((r) =>
-      z
-        .object({
-          reminder_id: z.int(),
-          target_id: z.int(),
-          kind: z.enum(['followup_1', 'followup_2']),
-          due_at: utcTimestampSchema,
-          org: z.string(),
-          role: z.string().nullable(),
-        })
-        .parse(r),
-    )
+    .map((r) => followupRow.parse(r))
     .map((r) => ({
       ...r,
       key: `pipeline:${r.target_id}:${r.kind}`,

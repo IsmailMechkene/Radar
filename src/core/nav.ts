@@ -31,7 +31,13 @@ export function navCounts(
       .prepare(sql)
       .pluck()
       .get(...params) as number | undefined) ?? 0;
-  const deadlines = listDeadlines(db, opts.now);
+  // Due soon only looks at tracked items from a week back to two weeks ahead: ask for just those
+  // (one extra day each side for time zones; dueSoon applies the exact local-day window).
+  const deadlines = listDeadlines(db, opts.now, {
+    trackedOnly: true,
+    from: new Date(opts.now.getTime() - 8 * 86_400_000),
+    to: new Date(opts.now.getTime() + 16 * 86_400_000),
+  });
   return {
     newOpportunities: count(
       `SELECT COUNT(*) FROM opportunities

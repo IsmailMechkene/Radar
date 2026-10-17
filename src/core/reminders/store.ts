@@ -35,6 +35,30 @@ export type ReminderRow = z.output<typeof reminderRowSchema>;
 
 const bool = z.union([z.literal(0), z.literal(1)]).transform((v) => v === 1);
 
+const opportunityPlanRow = z.object({
+  id: z.int(),
+  deadline_at: utcTimestampSchema.nullable(),
+  deadline_status: z.string(),
+  starred: bool,
+  in_pipeline: bool,
+  dismissed: bool,
+  closed: bool,
+});
+const programPlanRow = z.object({
+  id: z.int(),
+  status: z.string(),
+  expected_open_at: utcTimestampSchema.nullable(),
+  expected_deadline_at: utcTimestampSchema.nullable(),
+});
+const pipelinePlanRow = z.object({
+  id: z.int(),
+  status: z.string(),
+  sent_at: utcTimestampSchema.nullable(),
+  followup1_at: utcTimestampSchema.nullable(),
+  followup2_at: utcTimestampSchema.nullable(),
+});
+const manualPlanRow = z.object({ id: z.int(), deadline_at: utcTimestampSchema });
+
 export function loadPlanningState(db: Database.Database): PlanningState {
   const opportunities = db
     .prepare(
@@ -42,55 +66,28 @@ export function loadPlanningState(db: Database.Database): PlanningState {
               EXISTS (SELECT 1 FROM pipeline p WHERE p.opportunity_id = o.id) AS in_pipeline,
               o.dismissed_at IS NOT NULL AS dismissed, o.closed_at IS NOT NULL AS closed
          FROM opportunities o
-        WHERE o.deadline_at IS NOT NULL`,
+        -- Only postings that can have reminders (plan.ts decides the same again); the rest of
+        -- a large list is never loaded.
+        WHERE o.deadline_at IS NOT NULL AND o.deadline_status = 'confirmed'
+          AND o.dismissed_at IS NULL AND o.closed_at IS NULL
+          AND (o.starred = 1 OR EXISTS (SELECT 1 FROM pipeline p WHERE p.opportunity_id = o.id))`,
     )
     .all()
-    .map((r) =>
-      z
-        .object({
-          id: z.int(),
-          deadline_at: utcTimestampSchema.nullable(),
-          deadline_status: z.string(),
-          starred: bool,
-          in_pipeline: bool,
-          dismissed: bool,
-          closed: bool,
-        })
-        .parse(r),
-    );
+    .map((r) => opportunityPlanRow.parse(r));
   const programs = db
     .prepare('SELECT id, status, expected_open_at, expected_deadline_at FROM programs')
     .all()
-    .map((r) =>
-      z
-        .object({
-          id: z.int(),
-          status: z.string(),
-          expected_open_at: utcTimestampSchema.nullable(),
-          expected_deadline_at: utcTimestampSchema.nullable(),
-        })
-        .parse(r),
-    );
+    .map((r) => programPlanRow.parse(r));
   const pipeline = db
     .prepare(
       'SELECT id, status, sent_at, followup1_at, followup2_at FROM pipeline WHERE sent_at IS NOT NULL',
     )
     .all()
-    .map((r) =>
-      z
-        .object({
-          id: z.int(),
-          status: z.string(),
-          sent_at: utcTimestampSchema.nullable(),
-          followup1_at: utcTimestampSchema.nullable(),
-          followup2_at: utcTimestampSchema.nullable(),
-        })
-        .parse(r),
-    );
+    .map((r) => pipelinePlanRow.parse(r));
   const manual = db
     .prepare('SELECT id, deadline_at FROM manual_deadlines')
     .all()
-    .map((r) => z.object({ id: z.int(), deadline_at: utcTimestampSchema }).parse(r));
+    .map((r) => manualPlanRow.parse(r));
   return { opportunities, programs, pipeline, manual };
 }
 

@@ -6,9 +6,11 @@ import {
   dismissOpportunities,
   listOpportunityItems,
   searchOpportunityIds,
+  setStarred,
   upsertOpportunity,
 } from '../src/core/db/opportunities';
 import { insertSource } from '../src/core/db/sources';
+import { listDeadlines } from '../src/core/deadlines/list';
 import { tempDb } from './helpers';
 
 const NOW = new Date('2026-10-16T08:00:00.000Z');
@@ -61,5 +63,62 @@ describe('opportunity list and search', () => {
     expect(searchOpportunityIds(t.db, 'rust tokyo')).toEqual([]);
     expect(searchOpportunityIds(t.db, 'board backend')).toEqual([go]); // source name
     expect(searchOpportunityIds(t.db, '   ')).toEqual([]);
+  });
+});
+
+describe('deadline queries', () => {
+  let t: ReturnType<typeof tempDb>;
+  beforeEach(() => {
+    t = tempDb();
+    migrate(t.db);
+  });
+  afterEach(() => t.cleanup());
+
+  const DAY = 86_400_000;
+  function posting(title: string, inDays: number, starred = false) {
+    const src = insertSource(t.db, { kind: 'ashby', name: title, access_method: 'api' }, NOW);
+    const id = upsertOpportunity(
+      t.db,
+      {
+        dedupe_key: title,
+        source_id: src.id,
+        org: 'Acme',
+        title,
+        opportunity_type: 'internship',
+        url: `https://acme.test/${title}`,
+      },
+      NOW,
+    ).opportunity.id;
+    t.db
+      .prepare(
+        "UPDATE opportunities SET deadline_at = ?, deadline_status = 'confirmed' WHERE id = ?",
+      )
+      .run(new Date(NOW.getTime() + inDays * DAY).toISOString(), id);
+    if (starred) setStarred(t.db, [id], true);
+    return id;
+  }
+  const titles = (q: Parameters<typeof listDeadlines>[2]) =>
+    listDeadlines(t.db, NOW, q).events.map((e) => e.title);
+
+  it('the window and the tracked filter are applied in SQL', () => {
+    posting('long gone', -60);
+    posting('last week', -7, true);
+    posting('soon', 3);
+    posting('soon starred', 5, true);
+    posting('far', 90, true);
+    expect(titles({})).toEqual(['long gone', 'last week', 'soon', 'soon starred', 'far']);
+    expect(titles({ from: new Date(NOW.getTime() - 31 * DAY) })).toEqual([
+      'last week',
+      'soon',
+      'soon starred',
+      'far',
+    ]);
+    expect(
+      titles({
+        trackedOnly: true,
+        from: new Date(NOW.getTime() - 8 * DAY),
+        to: new Date(NOW.getTime() + 16 * DAY),
+      }),
+    ).toEqual(['last week', 'soon starred']);
   });
 });

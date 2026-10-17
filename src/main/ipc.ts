@@ -383,7 +383,11 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     return { ...result, file };
   });
 
-  handle(ipcMain, C.deadlinesList, deadlinesListPayloadSchema, () => listDeadlines(db, now()));
+  // The page shows deadlines from 30 days back; older ones are not loaded.
+  handle(ipcMain, C.deadlinesList, deadlinesListPayloadSchema, () => {
+    const at = now();
+    return listDeadlines(db, at, { from: new Date(at.getTime() - 31 * 86_400_000) });
+  });
 
   handle(ipcMain, C.deadlinesAdd, deadlinesAddPayloadSchema, ({ deadline }) => {
     const id = addManualDeadline(db, deadline, getSetting(db, 'timezone'), now());
@@ -416,7 +420,9 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     const timeZone = getSetting(db, 'timezone');
     // Upcoming only, from a day back so a deadline that ends tonight is included.
     const from = at.getTime() - 86_400_000;
-    const events = listDeadlines(db, at).events.filter((e) => new Date(e.at).getTime() >= from);
+    const events = listDeadlines(db, at, { from: new Date(from) }).events.filter(
+      (e) => new Date(e.at).getTime() >= from,
+    );
     const file = await deps.saveTextFile('radar-deadlines.ics', toIcs(events, timeZone, at), {
       name: 'Calendar',
       extensions: ['ics'],
