@@ -46,14 +46,58 @@ export function decodeEntities(s: string): string {
  * Plain text from HTML: block elements become line breaks, list items get a bullet, tags are
  * dropped, entities decoded, whitespace collapsed. Never used to render; display is always text.
  */
+/**
+ * Removes whole elements (<script>…</script>) in one linear pass: a regex with a lazy body
+ * re-scans to the end from every opening tag when the closing one is missing, which makes a
+ * hostile page cost quadratic time. An unclosed element in `dropUnclosed` swallows the rest
+ * (script or style text is never content); others lose only their opening tag.
+ */
+export function stripElements(
+  html: string,
+  names: readonly string[],
+  dropUnclosed: readonly string[] = [],
+): string {
+  const lower = html.toLowerCase();
+  // Where each element's last closing tag is: an opening tag after it has no close (no search).
+  const lastClose = new Map(names.map((n) => [n, lower.lastIndexOf(`</${n}`)]));
+  let out = '';
+  let i = 0;
+  while (i < html.length) {
+    const lt = lower.indexOf('<', i);
+    if (lt < 0) {
+      out += html.slice(i);
+      break;
+    }
+    const name = names.find(
+      (n) => lower.startsWith(n, lt + 1) && !/[a-z0-9-]/.test(lower[lt + 1 + n.length] ?? ''),
+    );
+    if (!name) {
+      out += html.slice(i, lt + 1);
+      i = lt + 1;
+      continue;
+    }
+    out += html.slice(i, lt);
+    const close = lastClose.get(name)! > lt ? lower.indexOf(`</${name}`, lt) : -1;
+    if (close < 0) {
+      if (dropUnclosed.includes(name)) break;
+      const end = lower.indexOf('>', lt);
+      i = end < 0 ? html.length : end + 1;
+      continue;
+    }
+    const end = lower.indexOf('>', close);
+    i = end < 0 ? html.length : end + 1;
+  }
+  return out;
+}
+
 export function htmlToText(html: string): string {
-  const text = html
-    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
+  // Tag patterns stop at the next "<" so an unclosed tag never scans the rest of the page.
+  const text = stripElements(html, ['script', 'style'], ['script', 'style'])
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '\n• ')
-    .replace(/<\/(p|div|h[1-6]|ul|ol|tr|section|article|blockquote)>/gi, '\n')
-    .replace(/<(p|div|h[1-6]|ul|ol|tr|section|article|blockquote)[^>]*>/gi, '\n')
-    .replace(/<[^>]+>/g, '');
+    .replace(/<li\b[^<>]*>/gi, '\n• ')
+    .replace(/<\/(p|div|h[1-6]|ul|ol|tr|section|article|blockquote)\s*>/gi, '\n')
+    .replace(/<(p|div|h[1-6]|ul|ol|tr|section|article|blockquote)\b[^<>]*>/gi, '\n')
+    .replace(/<[^<>]+>/g, '');
   return decodeEntities(text)
     .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+/g, ' ')

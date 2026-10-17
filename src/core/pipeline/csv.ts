@@ -30,10 +30,14 @@ export function parseCsv(input: string): CsvResult {
   let row: string[] = [];
   let field = '';
   let quoted = false;
+  // Nothing but spaces in the field so far (a quote here opens a quoted field). A flag, not
+  // field.trim(), so a long field never makes each character cost its length.
+  let blank = true;
   let i = 0;
   const endField = () => {
     row.push(field);
     field = '';
+    blank = true;
   };
   const endRow = () => {
     endField();
@@ -53,15 +57,19 @@ export function parseCsv(input: string): CsvResult {
       i++;
       continue;
     }
-    if (ch === '"' && field.trim() === '') {
+    if (ch === '"' && blank) {
       field = '';
       quoted = true;
+      blank = false;
     } else if (ch === delimiter) endField();
     else if (ch === '\r' && text[i + 1] === '\n') {
       endRow();
       i++;
     } else if (ch === '\n' || ch === '\r') endRow();
-    else field += ch;
+    else {
+      field += ch;
+      if (ch !== ' ' && ch !== '\t') blank = false;
+    }
     i++;
   }
   if (quoted) problems.push('The file ends inside a quoted field; the last row may be incomplete.');

@@ -306,9 +306,11 @@ function findDates(sentence: string): DateHit[] {
   }
   // Longest first at each position, then keep non-overlapping hits from left to right.
   hits.sort((a, b) => a.start - b.start || b.end - a.end);
+  // Kept hits are disjoint and sorted, and no later hit starts earlier: only the last can overlap.
   const kept: DateHit[] = [];
   for (const h of hits) {
-    if (kept.every((k) => h.start >= k.end || h.end <= k.start)) kept.push(h);
+    const last = kept[kept.length - 1];
+    if (!last || h.start >= last.end) kept.push(h);
   }
   return kept.filter((h) => !h.invalid);
 }
@@ -321,6 +323,8 @@ interface CueHit {
 
 function findCues(sentence: string): CueHit[] {
   const hits: CueHit[] = [];
+  // Characters already claimed by a cue: earlier kinds win, checked in linear time.
+  const taken = new Uint8Array(sentence.length);
   for (const [kind, re] of CUES) {
     for (const m of sentence.matchAll(re)) {
       const start = m.index;
@@ -328,7 +332,8 @@ function findCues(sentence: string): CueHit[] {
       // Word boundaries (accent-aware), checked here so every pattern stays readable.
       if (/[\p{L}\p{N}]/u.test(sentence[start - 1] ?? '')) continue;
       if (/[\p{L}\p{N}]/u.test(sentence[end] ?? '')) continue;
-      if (hits.some((h) => start < h.end && end > h.start)) continue; // earlier kinds win
+      if (taken.subarray(start, end).includes(1)) continue;
+      taken.fill(1, start, end);
       hits.push({ kind, start, end });
     }
   }
@@ -347,7 +352,9 @@ export function splitSentences(text: string): string[] {
   const out: string[] = [];
   for (const p of pieces) {
     const prev = out[out.length - 1];
-    if (prev !== undefined && ABBREV_END.test(prev)) out[out.length - 1] = `${prev} ${p}`;
+    // Only the end matters (the longest abbreviation is a few letters); never re-scan the whole.
+    if (prev !== undefined && ABBREV_END.test(prev.slice(-16)))
+      out[out.length - 1] = `${prev} ${p}`;
     else out.push(p);
   }
   return out.map((s) => s.trim()).filter(Boolean);
@@ -422,10 +429,15 @@ function emit(
   out.push({ kind, date, sentence: base.sentence, confidence, match: base.match, note });
 }
 
+/** Longest sentence read for dates (characters). */
+const MAX_SENTENCE = 1000;
+
 /** Every deadline, opening date and rolling mention in `text`, in reading order. */
 export function parseDates(text: string, ctx: ParseContext): ParsedDate[] {
   const out: ParsedDate[] = [];
-  for (const raw of splitSentences(text)) {
+  for (const whole of splitSentences(text)) {
+    // A deadline sentence is short; a huge run-on "sentence" is read only up to this length.
+    const raw = whole.slice(0, MAX_SENTENCE);
     const sentence = raw.slice(0, 300);
     const cues = findCues(raw);
     if (cues.length === 0) continue;
@@ -443,8 +455,11 @@ export function parseDates(text: string, ctx: ParseContext): ParsedDate[] {
     }
     const dayFirstSure = ctx.language === 'fr' || ctx.language === 'other' || FRENCH_HINT.test(raw);
 
+    // Both lists are in reading order: walk the cues forward as the dates advance.
+    let next = 0;
     for (const hit of findDates(raw)) {
-      const cue = [...cues].reverse().find((c) => c.end <= hit.start);
+      while (next < cues.length && cues[next]!.end <= hit.start) next++;
+      const cue = cues[next - 1];
       if (!cue || hit.start - cue.end > 80) continue;
       // Another date between the cue and this one belongs to the cue; this one only counts if
       // it is joined to it ("March 31 or April 15" is rare; ranges are one hit).
@@ -512,6 +527,7 @@ export function readDate(
   ctx: ParseContext,
 ): { date: string; confidence: Confidence } | null {
   const t = text.trim();
+  if (t.length > 60) return null; // a date cell is short; anything longer is not one date
   const hits = findDates(t);
   const hit = hits[0];
   if (hits.length !== 1 || !hit || hit.to || hit.from.day === null) return null;

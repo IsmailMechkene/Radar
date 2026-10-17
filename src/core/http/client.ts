@@ -77,6 +77,8 @@ export interface HttpClientOptions {
   backoffBaseMs?: number;
   /** Upper bound for any single wait (Retry-After included). */
   maxWaitMs?: number;
+  /** Largest response body read, in bytes (default MAX_BODY_BYTES). */
+  maxBodyBytes?: number;
 }
 
 export interface GetOptions {
@@ -86,6 +88,37 @@ export interface GetOptions {
 }
 
 const RETRYABLE = (status: number) => status === 429 || status >= 500;
+const REDIRECT = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+/** Largest body read (a job board or careers page is far smaller); bigger is an error. */
+export const MAX_BODY_BYTES = 10 * 1024 * 1024;
+/** RFC 9309 2.5: crawlers may stop reading robots.txt after 500 KiB. */
+const ROBOTS_MAX_BYTES = 512 * 1024;
+
+/** Reads a response body as UTF-8 text, refusing to hold more than `max` bytes in memory. */
+async function readBody(res: Response, max: number, url: string): Promise<string> {
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) {
+    await res.body?.cancel();
+    throw new HttpError(url, res.status, `GET ${url}: response is larger than ${max} bytes`);
+  }
+  if (!res.body) return '';
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      throw new HttpError(url, res.status, `GET ${url}: response is larger than ${max} bytes`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
 
 /** Retry-After as seconds or an HTTP date; null if absent or unparsable. */
 export function parseRetryAfter(value: string | null, nowMs: number): number | null {
@@ -107,6 +140,7 @@ export function createHttpClient(opts: HttpClientOptions = {}) {
   const maxRetries = opts.maxRetries ?? 3;
   const backoffBaseMs = opts.backoffBaseMs ?? 1000;
   const maxWaitMs = opts.maxWaitMs ?? 60_000;
+  const maxBodyBytes = opts.maxBodyBytes ?? MAX_BODY_BYTES;
 
   const nextSlot = new Map<string, number>();
   const robotsByOrigin = new Map<string, Promise<Robots>>();
@@ -123,7 +157,7 @@ export function createHttpClient(opts: HttpClientOptions = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      return await doFetch(url, { headers, redirect: 'follow', signal: controller.signal });
+      return await doFetch(url, { headers, redirect: 'manual', signal: controller.signal });
     } catch (err) {
       const reason = controller.signal.aborted ? `timed out after ${timeoutMs} ms` : String(err);
       throw new HttpError(url, null, `GET ${url} failed: ${reason}`, { cause: err });
@@ -165,12 +199,26 @@ export function createHttpClient(opts: HttpClientOptions = {}) {
     if (!p) {
       p = (async () => {
         try {
-          const res = await request(`${origin}/robots.txt`, host, minIntervalMs, {
+          // RFC 9309 2.3.1.2: follow at least five redirects (http -> https, www, ...).
+          let at = `${origin}/robots.txt`;
+          let res = await request(at, host, minIntervalMs, {
             'User-Agent': userAgent,
             Accept: 'text/plain',
           });
+          for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+            const location = res.headers.get('location');
+            if (!REDIRECT.has(res.status) || !location) break;
+            await res.body?.cancel();
+            const next = new URL(location, at);
+            if (next.protocol !== 'https:' && next.protocol !== 'http:') break;
+            at = next.toString();
+            res = await request(at, next.host, minIntervalMs, {
+              'User-Agent': userAgent,
+              Accept: 'text/plain',
+            });
+          }
           if (res.status >= 200 && res.status < 300)
-            return parseRobots(await res.text(), ROBOTS_TOKEN);
+            return parseRobots(await readBody(res, ROBOTS_MAX_BYTES, origin), ROBOTS_TOKEN);
           // RFC 9309 2.3.1.3: 4xx means no restrictions; 5xx means assume complete disallow.
           return res.status >= 400 && res.status < 500 ? ALLOW_ALL : DISALLOW_ALL;
         } catch {
@@ -190,22 +238,36 @@ export function createHttpClient(opts: HttpClientOptions = {}) {
      * forbids the path, HttpError for network failures, timeouts and non-2xx answers.
      */
     async get(url: string, options: GetOptions = {}): Promise<HttpResponse> {
-      const u = new URL(url);
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') {
-        throw new HttpError(url, null, `Unsupported protocol in ${url}`);
-      }
-      const robots = await robotsFor(u.origin, u.host);
-      if (!robots.isAllowed(`${u.pathname}${u.search}`)) throw new RobotsDisallowedError(url);
-      const intervalMs = Math.max(minIntervalMs, (robots.crawlDelaySeconds ?? 0) * 1000);
-
-      const headers: Record<string, string> = { 'User-Agent': userAgent };
-      if (options.accept) headers['Accept'] = options.accept;
-      if (options.language) headers['Accept-Language'] = options.language;
       const cached = cache.get(url);
-      if (cached?.etag) headers['If-None-Match'] = cached.etag;
-      if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
+      // Redirects are followed here, one hop at a time, so every host on the way gets its own
+      // robots.txt check and rate limit (fetch's own following would skip both).
+      let current = url;
+      let res: Response | null = null;
+      for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+        const u = new URL(current);
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+          throw new HttpError(url, null, `Unsupported protocol in ${current}`);
+        }
+        const robots = await robotsFor(u.origin, u.host);
+        if (!robots.isAllowed(`${u.pathname}${u.search}`)) throw new RobotsDisallowedError(current);
+        const intervalMs = Math.max(minIntervalMs, (robots.crawlDelaySeconds ?? 0) * 1000);
 
-      const res = await request(url, u.host, intervalMs, headers);
+        const headers: Record<string, string> = { 'User-Agent': userAgent };
+        if (options.accept) headers['Accept'] = options.accept;
+        if (options.language) headers['Accept-Language'] = options.language;
+        if (hop === 0 && cached?.etag) headers['If-None-Match'] = cached.etag;
+        if (hop === 0 && cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
+
+        res = await request(current, u.host, intervalMs, headers);
+        const location = res.headers.get('location');
+        if (!REDIRECT.has(res.status) || !location) break;
+        if (hop === MAX_REDIRECTS) {
+          throw new HttpError(url, res.status, `GET ${url}: more than ${MAX_REDIRECTS} redirects`);
+        }
+        await res.body?.cancel();
+        current = new URL(location, current).toString();
+      }
+      if (!res) throw new HttpError(url, null, `GET ${url} failed`);
       if (res.status === 304 && cached) {
         return {
           url,
@@ -218,7 +280,7 @@ export function createHttpClient(opts: HttpClientOptions = {}) {
       if (res.status < 200 || res.status >= 300) {
         throw new HttpError(url, res.status, `GET ${url} answered ${res.status}`);
       }
-      const body = await res.text();
+      const body = await readBody(res, maxBodyBytes, url);
       const contentType = res.headers.get('content-type');
       const etag = res.headers.get('etag');
       const lastModified = res.headers.get('last-modified');

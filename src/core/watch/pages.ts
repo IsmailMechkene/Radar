@@ -6,19 +6,31 @@
 import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-import { htmlToText } from '../adapters/normalize';
+import { htmlToText, stripElements } from '../adapters/normalize';
 import { sourceRowSchema, utcTimestampSchema, type SourceRow } from '../db/schemas';
 import type { HttpClient } from '../http/client';
 import { PAGE_KIND } from '../sources/seeds';
 
 // ---------- normalization ----------
 
-const DROP_ELEMENTS =
-  /<(script|style|noscript|svg|template|iframe|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const DROP_ELEMENTS = [
+  'script',
+  'style',
+  'noscript',
+  'svg',
+  'template',
+  'iframe',
+  'nav',
+  'header',
+  'footer',
+];
+const DROP_UNCLOSED = ['script', 'style', 'noscript', 'template'];
 // Innermost element whose id or class names a cookie/consent banner (repeated for nesting).
+// Attribute parts stop at the next "<" or ">" so a page of unclosed tags stays linear.
 const BANNER_ELEMENT =
-  /<(div|section|aside|dialog|p)\b[^>]*\b(?:id|class)\s*=\s*["'][^"']*(?:cookie|consent|gdpr|onetrust)[^"']*["'][^>]*>(?:(?!<\1\b)[\s\S])*?<\/\1>/gi;
-const COMMENT = /<!--[\s\S]*?-->/g;
+  /<(div|section|aside|dialog|p)\b[^<>]*?\b(?:id|class)\s*=\s*["'][^"'<>]*(?:cookie|consent|gdpr|onetrust)[^"'<>]*["'][^<>]*>(?:(?!<\1\b)[\s\S])*?<\/\1>/gi;
+// An unclosed comment runs to the end, as in browsers (and in one pass).
+const COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 
 /** Whole lines that are noise: banners, "last updated" stamps, copyright, view counters. */
 const NOISE_LINE = new RegExp(
@@ -31,7 +43,8 @@ const NOISE_LINE = new RegExp(
     String.raw`^\s*(?:dernière\s+)?mise\s+à\s+jour\b`,
     String.raw`^\s*mis\s+à\s+jour\b`,
     String.raw`^\s*(?:©|\(c\)|copyright)`,
-    String.raw`\b\d[\d,.\s]*\s+(?:views|vues)\b`,
+    // Digits, then optional thousands groups ("1,234", "1 234"): one way to match, no backtracking.
+    String.raw`\b\d+(?:[,. ]\d{3})*\s+(?:views|vues)\b`,
   ].join('|'),
   'iu',
 );
@@ -45,7 +58,7 @@ const TIMESTAMPS = [
 ];
 
 export function normalizePageText(html: string): string {
-  let h = html.replace(COMMENT, '').replace(DROP_ELEMENTS, '');
+  let h = stripElements(html.replace(COMMENT, ''), DROP_ELEMENTS, DROP_UNCLOSED);
   for (let i = 0; i < 5; i++) {
     const next = h.replace(BANNER_ELEMENT, '');
     if (next === h) break;
