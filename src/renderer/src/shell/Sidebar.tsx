@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { BrandMark } from '../../components/Brand';
+import { cn } from '../../components/lib/cn';
 import { SidebarItem } from '../../components/SidebarItem';
 import { routeHref, type Route } from '../lib/router';
 import { shortcutLabel } from '../lib/settings-helpers';
@@ -8,9 +9,9 @@ import { navBadges } from '../lib/nav-badges';
 import { NAV_PRIMARY, NAV_SECONDARY, type NavItem } from './nav';
 import { ScanCard } from './ScanStatus';
 
-function Brand() {
+function Brand({ className }: { className: string }) {
   return (
-    <div className="flex items-center gap-2.5 px-5 pt-0.5 pb-4.5">
+    <div className={cn('flex items-center gap-2.5 px-5', className)}>
       <BrandMark />
       <div className="text-callout font-semibold tracking-brand">Radar</div>
     </div>
@@ -24,7 +25,7 @@ interface SidebarProps {
   counts: NavCounts | null;
 }
 
-/** 240 px translucent sidebar: drag strip, brand, two nav groups, scan status card. */
+/** 240 px translucent sidebar: title strip, brand, two nav groups, scan status card. */
 export function Sidebar({ route, onNavigate, platform, counts }: SidebarProps) {
   const navRef = useRef<HTMLElement>(null);
   const badges = navBadges(counts);
@@ -64,10 +65,22 @@ export function Sidebar({ route, onNavigate, platform, counts }: SidebarProps) {
 
   return (
     <aside className="relative z-2 flex h-full w-(--sidebar-width) shrink-0 flex-col bg-sidebar backdrop-sidebar hairline-r border-line">
-      {/* Drag strip where macOS draws traffic lights; on Windows it only moves the window. */}
-      <div className="app-drag h-(--toolbar-height) shrink-0" />
-      <Brand />
-      <nav ref={navRef} aria-label="Main" className="flex flex-col gap-px px-2.5">
+      {platform === 'darwin' ? (
+        <>
+          {/* macOS draws its traffic lights in this drag strip; the brand sits below it. */}
+          <div className="app-drag h-(--toolbar-height) shrink-0" />
+          <Brand className="pt-0.5 pb-4.5" />
+        </>
+      ) : (
+        // Windows/Linux: the window controls are on the right, so the brand takes the title strip,
+        // in line with the toolbar (same height and bottom hairline). It stays a drag region.
+        <Brand className="app-drag h-(--toolbar-height) shrink-0 hairline-b border-line" />
+      )}
+      <nav
+        ref={navRef}
+        aria-label="Main"
+        className={cn('flex flex-col gap-px px-2.5', platform !== 'darwin' && 'pt-3')}
+      >
         {NAV_PRIMARY.map(item)}
         <div role="separator" className="mx-2.5 my-3 hairline-t border-line" />
         {NAV_SECONDARY.map(item)}

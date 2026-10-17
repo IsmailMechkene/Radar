@@ -156,7 +156,7 @@ over 250 ms), and switching postings with the drawer open swaps the content in p
 ## 5. Layout
 
 - **Window:** opens **maximized** (full work area; 1920 × 1040 on a 1080p screen with a taskbar). Minimum 1100 × 700.
-- **Sidebar:** 240 px (`--sidebar-width`), full height, translucent (`bg-sidebar backdrop-sidebar`) with two color blobs behind it, hairline on the right.
+- **Sidebar:** 240 px (`--sidebar-width`), full height, translucent (`bg-sidebar backdrop-sidebar`) with two color blobs behind it, hairline on the right. Top: on macOS an empty 52 px drag strip for the traffic lights, then the brand row; on Windows/Linux the brand sits in that 52 px strip itself (in line with the toolbar, same bottom hairline, still draggable) and the nav starts 12 px below it.
   Top 52 px is a drag strip, then brand row (`px-5 pt-0.5 pb-4.5`), nav (`px-2.5`, 1 px gaps, separator `mx-2.5 my-3`), scan card pinned to the bottom (`p-3`).
 - **Toolbar:** 52 px (`--toolbar-height`), `pl-5`, gap 10 px, hairline bottom; it is the window drag region. Order: back/forward, page title (min 110 px),
   search (flex, max 420 px, pushed right), status pill, theme button. On Windows the right padding grows by the native-controls width.
