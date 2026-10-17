@@ -15,6 +15,13 @@
     height: 100%;
   }
 
+  /* The window never scrolls as a whole. overflow: hidden still lets the browser scroll it to
+     reveal a focused element, which shifted the whole app sideways while a drawer slid in from
+     off-screen; clip leaves nothing to scroll. */
+  #root {
+    overflow: clip;
+  }
+
   body {
     margin: 0;
     background: var(--bg);

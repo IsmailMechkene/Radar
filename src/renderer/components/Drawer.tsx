@@ -22,7 +22,8 @@ export function Drawer({ open, onClose, label, wide = true, children }: DrawerPr
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
+    // preventScroll: the drawer starts off-screen (sliding in), and focusing it must not scroll.
+    ref.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
