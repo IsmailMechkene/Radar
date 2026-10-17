@@ -12,6 +12,11 @@ export interface Ctx {
   timeZone: string;
   /** Items first seen after this instant count as new. */
   newSince: string;
+  /**
+   * Ids matching the search (main-process search, descriptions included). Null while it is on
+   * its way: then title, org, location and source are matched here.
+   */
+  searchIds?: ReadonlySet<number> | null;
 }
 
 // ---------- deadline chip (design `chip()`) ----------
@@ -174,11 +179,19 @@ export function matchesDeadline(item: Item, w: DeadlineWindow, ctx: Ctx): boolea
   return inWindow(daysUntilDeadline(item, ctx), Number(w));
 }
 
-/** Every word of the query must appear in title, org, location, source or description. */
-export function matchesQuery(item: Item, query: string): boolean {
+/**
+ * Every word of the query must appear in title, org, location, source or description. The list
+ * has no descriptions; `searchIds` (from the main process) covers them when present.
+ */
+export function matchesQuery(
+  item: Item,
+  query: string,
+  searchIds?: ReadonlySet<number> | null,
+): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  const hay = [item.title, item.org, item.location, item.source_name, item.description]
+  if (searchIds) return searchIds.has(item.id);
+  const hay = [item.title, item.org, item.location, item.source_name]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
@@ -208,7 +221,7 @@ export function applyFilters(
       (except === 'sources' || !f.sources.length || f.sources.includes(i.source_name)) &&
       (except === 'deadline' || !f.deadline || matchesDeadline(i, f.deadline, ctx)) &&
       (except === 'newOnly' || !f.newOnly || isNew(i, ctx)) &&
-      matchesQuery(i, query),
+      matchesQuery(i, query, ctx.searchIds),
   );
 }
 

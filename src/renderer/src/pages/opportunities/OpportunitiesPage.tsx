@@ -97,13 +97,30 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
     void update('opportunitiesSeenAt', now.toISOString(), { toast: false });
   }, [visit, update, now]);
 
+  // Descriptions are not in the list (they were most of its size): the main process searches
+  // them and answers with ids. Debounced; asked again when the list reloads.
+  const [search, setSearch] = useState<{ query: string; ids: ReadonlySet<number> } | null>(null);
+  const trimmed = query.trim();
+  useEffect(() => {
+    if (!trimmed) return;
+    const timer = setTimeout(() => {
+      window.radar.opportunities.search(trimmed).then(
+        (ids) => setSearch({ query: trimmed, ids: new Set(ids) }),
+        (err: unknown) => console.error('[opportunities] search failed; matching titles only', err),
+      );
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [trimmed, api.items]);
+  const searchIds = search && search.query === trimmed ? search.ids : null;
+
   const ctx: Ctx = useMemo(
     () => ({
       now,
       timeZone: settings?.timezone ?? 'UTC',
       newSince: visit?.since ?? newSinceFor(null, now),
+      searchIds,
     }),
-    [now, settings?.timezone, visit],
+    [now, settings?.timezone, visit, searchIds],
   );
 
   const items = useMemo(() => api.items ?? [], [api.items]);

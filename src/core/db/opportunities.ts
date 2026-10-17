@@ -105,7 +105,7 @@ export function listOpportunityItems(db: Database.Database): OpportunityListItem
   return db
     .prepare(
       `SELECT o.id, o.org, o.title, o.location, o.remote_type, o.opportunity_type, o.url, o.apply_url,
-              o.description, o.posted_at, o.deadline_at, o.deadline_status, o.score, o.verdict,
+              o.posted_at, o.deadline_at, o.deadline_status, o.score, o.verdict,
               o.score_breakdown_json, o.starred, o.first_seen_at,
               s.name AS source_name, s.kind AS source_kind, s.access_method AS source_access_method,
               (SELECT COUNT(*) FROM opportunity_sources os WHERE os.opportunity_id = o.id) AS source_count
@@ -116,6 +116,30 @@ export function listOpportunityItems(db: Database.Database): OpportunityListItem
     )
     .all()
     .map((row) => opportunityListItemSchema.parse(row));
+}
+
+/**
+ * Ids of open postings where every word of `query` appears in the title, organization,
+ * location, source name or description (case-insensitive, Unicode). Runs here so the list sent
+ * to the page can leave out the descriptions (most of its size).
+ */
+export function searchOpportunityIds(db: Database.Database, query: string): number[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const rows = db
+    .prepare(
+      `SELECT o.id, o.title, o.org, o.location, s.name, o.description
+         FROM opportunities o JOIN sources s ON s.id = o.source_id
+        WHERE o.dismissed_at IS NULL AND o.closed_at IS NULL`,
+    )
+    .raw()
+    .iterate() as Iterable<[number, string, string, string | null, string, string | null]>;
+  const ids: number[] = [];
+  for (const [id, ...fields] of rows) {
+    const hay = fields.filter(Boolean).join(' ').toLowerCase();
+    if (words.every((w) => hay.includes(w))) ids.push(id);
+  }
+  return ids;
 }
 
 export function getOpportunityDetail(

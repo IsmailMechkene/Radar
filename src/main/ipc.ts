@@ -6,6 +6,7 @@ import {
   dismissOpportunities,
   getOpportunityDetail,
   listOpportunityItems,
+  searchOpportunityIds,
   restoreOpportunities,
   setStarred,
 } from '../core/db/opportunities';
@@ -78,6 +79,7 @@ import {
   devPayloadSchema,
   IPC_CHANNELS as C,
   opportunitiesGetPayloadSchema,
+  opportunitiesSearchPayloadSchema,
   opportunitiesIdsPayloadSchema,
   opportunitiesListPayloadSchema,
   opportunitiesSetStarredPayloadSchema,
@@ -319,6 +321,10 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.opportunitiesList, opportunitiesListPayloadSchema, () =>
     listOpportunityItems(db),
+  );
+
+  handle(ipcMain, C.opportunitiesSearch, opportunitiesSearchPayloadSchema, ({ query }) =>
+    searchOpportunityIds(db, query),
   );
 
   handle(ipcMain, C.opportunitiesGet, opportunitiesGetPayloadSchema, ({ id }) => {

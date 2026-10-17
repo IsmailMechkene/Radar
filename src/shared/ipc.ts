@@ -73,6 +73,7 @@ export const IPC_CHANNELS = {
   outreachDeleteTemplate: 'outreach:delete-template',
   opportunitiesList: 'opportunities:list',
   opportunitiesGet: 'opportunities:get',
+  opportunitiesSearch: 'opportunities:search',
   opportunitiesSetStarred: 'opportunities:set-starred',
   opportunitiesDismiss: 'opportunities:dismiss',
   opportunitiesRestore: 'opportunities:restore',
@@ -165,6 +166,7 @@ export const outreachDeleteTemplatePayloadSchema = z.strictObject({ id: z.int().
 export const dataNoPayloadSchema = noPayload;
 export const opportunitiesListPayloadSchema = noPayload;
 export const opportunitiesGetPayloadSchema = z.strictObject({ id: z.int().positive() });
+export const opportunitiesSearchPayloadSchema = z.strictObject({ query: z.string().max(200) });
 export const opportunitiesSetStarredPayloadSchema = z.strictObject({
   ids: idsSchema,
   starred: z.boolean(),
@@ -328,6 +330,8 @@ export interface RadarApi {
   opportunities: {
     /** Open opportunities (not dismissed, not closed), best score first. */
     list(): Promise<OpportunityListItem[]>;
+    /** Ids matching every word in title, org, location, source or description. */
+    search(query: string): Promise<number[]>;
     /** Full detail for the drawer; rejects if the id does not exist. */
     get(id: number): Promise<OpportunityDetail>;
     setStarred(ids: number[], starred: boolean): Promise<number>;

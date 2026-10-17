@@ -46,7 +46,6 @@ function item(over: Partial<OpportunityListItem> = {}): OpportunityListItem {
     opportunity_type: 'internship',
     url: 'https://example.com/x',
     apply_url: null,
-    description: 'Python and PyTorch',
     posted_at: '2026-10-14T08:00:00.000Z',
     deadline_at: null,
     deadline_status: 'unknown',
@@ -157,7 +156,6 @@ describe('views, filters, search and sort', () => {
       score: 22,
       verdict: 'skip',
       remote_type: 'remote',
-      description: 'Go and Rust',
     }),
     item({
       title: 'Data Intern',
@@ -200,9 +198,14 @@ describe('views, filters, search and sort', () => {
   });
 
   it('search matches every word across title, org, location and description', () => {
-    expect(applyFilters(items, 'all', NO_FILTERS, 'rust', ctx).map((i) => i.title)).toEqual([
+    // Descriptions are searched in the main process; its ids decide once they arrive.
+    const senior = items.find((i) => i.title === 'Senior Engineer')!;
+    const withIds = { ...ctx, searchIds: new Set([senior.id]) };
+    expect(applyFilters(items, 'all', NO_FILTERS, 'rust', withIds).map((i) => i.title)).toEqual([
       'Senior Engineer',
     ]);
+    // Until then, title, org, location and source are matched locally.
+    expect(applyFilters(items, 'all', NO_FILTERS, 'rust', ctx)).toHaveLength(0);
     expect(applyFilters(items, 'all', NO_FILTERS, 'intern berlin', ctx)).toHaveLength(1);
     expect(applyFilters(items, 'all', NO_FILTERS, 'intern tokyo', ctx)).toHaveLength(0);
   });

@@ -26,6 +26,7 @@ const api: RadarApi = {
   opportunities: {
     list: () => ipcRenderer.invoke(C.opportunitiesList),
     get: (id) => ipcRenderer.invoke(C.opportunitiesGet, { id }),
+    search: (query) => ipcRenderer.invoke(C.opportunitiesSearch, { query }),
     setStarred: (ids, starred) => ipcRenderer.invoke(C.opportunitiesSetStarred, { ids, starred }),
     dismiss: (ids) => ipcRenderer.invoke(C.opportunitiesDismiss, { ids }),
     restore: (ids) => ipcRenderer.invoke(C.opportunitiesRestore, { ids }),

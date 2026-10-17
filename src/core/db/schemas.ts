@@ -146,7 +146,6 @@ export const opportunityListItemSchema = z
     opportunity_type: opportunityTypeSchema,
     url: z.string(),
     apply_url: z.string().nullable(),
-    description: z.string().nullable(),
     posted_at: utcTimestampSchema.nullable(),
     deadline_at: utcTimestampSchema.nullable(),
     deadline_status: deadlineStatusSchema,
