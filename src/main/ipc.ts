@@ -161,7 +161,15 @@ export interface IpcDeps {
   /** Shows a folder in the file manager. */
   openFolder?: (path: string) => Promise<void>;
   now?: () => Date;
+  /**
+   * Accepts only messages from Radar's own page (the URL of the sending frame). Without it,
+   * every sender is accepted (tests).
+   */
+  isTrustedSender?: (senderUrl: string | undefined) => boolean;
 }
+
+/** Set by registerIpcHandlers; checked by every handler. */
+let trustedSender: IpcDeps['isTrustedSender'] | undefined;
 
 function describe(err: unknown): string {
   if (err instanceof z.ZodError) return z.prettifyError(err);
@@ -174,7 +182,12 @@ function handle<S extends z.ZodType>(
   schema: S,
   fn: (payload: z.output<S>) => unknown,
 ): void {
-  ipcMain.handle(channel, async (_event, payload: unknown) => {
+  ipcMain.handle(channel, async (event, payload: unknown) => {
+    const sender = (event as { senderFrame?: { url?: string } | null }).senderFrame?.url;
+    if (trustedSender && !trustedSender(sender)) {
+      console.error(`[ipc] ${channel}: refused a message from ${sender ?? 'an unknown frame'}`);
+      throw new Error(`${channel}: not allowed from this page`);
+    }
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
       const message = `${channel}: invalid payload\n${z.prettifyError(parsed.error)}`;
@@ -192,6 +205,7 @@ function handle<S extends z.ZodType>(
 }
 
 export function registerIpcHandlers(deps: IpcDeps): void {
+  trustedSender = deps.isTrustedSender;
   const { ipcMain, db, applyAutostart, applyTheme, windowInfo } = deps;
   const now = deps.now ?? (() => new Date());
 

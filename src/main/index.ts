@@ -9,6 +9,7 @@ import {
   Notification,
   clipboard,
   powerMonitor,
+  session,
   shell,
   Tray,
   type BrowserWindowConstructorOptions,
@@ -16,6 +17,7 @@ import {
 import { readFileSync, writeFileSync } from 'node:fs';
 import { syncReminders } from '../core/reminders/store';
 import { release, tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
@@ -99,6 +101,14 @@ function chromeOptions(): BrowserWindowConstructorOptions {
   };
 }
 
+/** Radar's own page: the dev server in development, the bundled file otherwise. */
+function isAppUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  const devUrl = process.env['ELECTRON_RENDERER_URL'];
+  if (!app.isPackaged && devUrl && url.startsWith(devUrl)) return true;
+  return url.startsWith(pathToFileURL(join(__dirname, '../renderer/')).toString());
+}
+
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1440,
@@ -126,9 +136,10 @@ function createWindow(): BrowserWindow {
   // External links go through window.radar.app.openExternal (http/https only).
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
-    const devUrl = process.env['ELECTRON_RENDERER_URL'];
-    if (!(devUrl && url.startsWith(devUrl)) && !url.startsWith('file://')) event.preventDefault();
+    if (!isAppUrl(url)) event.preventDefault();
   });
+  // No <webview> may be attached (the app never uses one).
+  win.webContents.on('will-attach-webview', (event) => event.preventDefault());
   win.on('close', (event) => lifecycle.handleWindowClose(win, event));
   win.on('closed', () => lifecycle.handleWindowClosed());
 
@@ -325,6 +336,11 @@ function fail(title: string, err: unknown): void {
 }
 
 function start(): void {
+  // The app asks for no browser permissions (camera, geolocation, ...): refuse them all.
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
+    callback(false),
+  );
+  session.defaultSession.setPermissionCheckHandler(() => false);
   const dbPath = resolveDbPath(app.getPath('userData'));
   try {
     const database = openDatabase(dbPath);
@@ -383,6 +399,7 @@ function start(): void {
           readFileSync(join(app.getAppPath(), 'fixtures', 'sample-opportunities.json'), 'utf8'),
         ) as unknown,
       scan,
+      isTrustedSender: isAppUrl,
       pickCsvFile: async () => {
         const win = BrowserWindow.getFocusedWindow();
         const options = {
