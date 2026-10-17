@@ -40,6 +40,26 @@ export function fold(s: string): string {
   return s.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[’‘]/g, "'").toLowerCase();
 }
 
+/**
+ * The original text behind `folded[index, index + length)`. fold() usually keeps the length, but
+ * NFKD expands some characters ("…" -> "...", "ﬁ" -> "fi"), which shifts every later position; then
+ * each original character is folded on its own to map positions back.
+ */
+export function originalSpan(text: string, folded: string, index: number, length: number): string {
+  if (folded.length === text.length) return text.slice(index, index + length);
+  let f = 0;
+  let start = -1;
+  for (let i = 0; i < text.length;) {
+    const ch = String.fromCodePoint(text.codePointAt(i)!);
+    const next = f + fold(ch).length;
+    if (start < 0 && next > index) start = i;
+    if (start >= 0 && next >= index + length) return text.slice(start, i + ch.length);
+    f = next;
+    i += ch.length;
+  }
+  return start < 0 ? '' : text.slice(start);
+}
+
 interface Matcher {
   /** First match in `text` (original casing), or null. */
   find(text: string): string | null;
@@ -51,10 +71,10 @@ function matcher(terms: readonly string[]): Matcher {
   const folded = terms.map(fold);
   const any = wordRegExp(folded);
   const each = folded.map((t) => wordRegExp([t]));
-  // fold() keeps string length for Latin text, so match positions map back to the original.
   const pick = (text: string, re: RegExp): string | null => {
-    const m = re.exec(fold(text));
-    return m ? text.slice(m.index, m.index + m[0].length) : null;
+    const folded = fold(text);
+    const m = re.exec(folded);
+    return m ? originalSpan(text, folded, m.index, m[0].length) : null;
   };
   return {
     find: (text) => pick(text, any),
@@ -101,7 +121,7 @@ function languageRequirement(text: string, spoken: readonly string[]): string | 
   );
   const folded = fold(text);
   const m = re.exec(folded);
-  return m ? text.slice(m.index, m.index + m[0].length).trim() : null;
+  return m ? originalSpan(text, folded, m.index, m[0].length).trim() : null;
 }
 
 /** "GPA 3.5/4", "CGPA of 3.5 out of 4", "top 20% of class". Quoted, never converted. */
@@ -385,10 +405,16 @@ export function scoreOpportunity(
       summary.push('work authorization unclear');
     }
   }
-  const gpaMatch = GPA_RE.exec(fold(o.description ?? ''));
+  const description = o.description ?? '';
+  const foldedDescription = fold(description);
+  const gpaMatch = GPA_RE.exec(foldedDescription);
   if (gpaMatch) {
-    const d = o.description ?? '';
-    const gpa = d.slice(gpaMatch.index, gpaMatch.index + gpaMatch[0].length).trim();
+    const gpa = originalSpan(
+      description,
+      foldedDescription,
+      gpaMatch.index,
+      gpaMatch[0].length,
+    ).trim();
     ambiguous = true;
     notes.push(`GPA requirement: ${quote(gpa)} requested. Your ${profile.gradeRaw} is unverified`);
     summary.push('GPA requirement flagged');

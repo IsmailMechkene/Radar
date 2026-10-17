@@ -8,6 +8,7 @@ import { loadSampleData } from '../src/core/dev/sample';
 import {
   compileRules,
   fold,
+  originalSpan,
   scoreOpportunity,
   type ScoringInput,
   type ScoringProfile,
@@ -144,6 +145,20 @@ describe('scoring details', () => {
       title: 'Internal Tools Specialist',
     };
     expect(scoreOpportunity(internal, compiled, profile, NOW).breakdown.signals[0]!.points).toBe(0);
+  });
+
+  it('quotes matched terms from the original text when fold changes the length', () => {
+    // "…" folds to "...": positions after it used to shift ("Python" came out as "thon").
+    const text = 'We scale… fast. ﬁne-tuning. Strong Python and PyTorch skills.';
+    const folded = fold(text);
+    const at = folded.indexOf('python');
+    expect(originalSpan(text, folded, at, 'python'.length)).toBe('Python');
+    expect(originalSpan(text, folded, folded.indexOf('fine'), 4)).toBe('ﬁne');
+    expect(originalSpan('Plain Python', 'plain python', 6, 6)).toBe('Python');
+    const o = { ...input(byId('ml-intern-paris-visa')), description: text };
+    expect(scoreOpportunity(o, compiled, profile, NOW).breakdown.summary).toContain(
+      'Python + PyTorch',
+    );
   });
 
   it('a deadline more than 14 days away adds points; a near one does not', () => {
