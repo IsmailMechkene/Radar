@@ -149,6 +149,10 @@ Weights: 400 regular, 500 medium (secondary buttons, chips), 600 semibold (title
 
 `prefers-reduced-motion` shortens every animation and transition to 1 ms, and the score ring skips counting.
 
+Opening a drawer moves nothing but the drawer: the page behind it stays put, the drawer's content is
+static when it arrives (no count-up ring in the drawer; its skeleton only shows when loading takes
+over 250 ms), and switching postings with the drawer open swaps the content in place.
+
 ## 5. Layout
 
 - **Window:** opens **maximized** (full work area; 1920 × 1040 on a 1080p screen with a taskbar). Minimum 1100 × 700.

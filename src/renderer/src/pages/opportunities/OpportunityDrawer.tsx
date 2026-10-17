@@ -69,7 +69,7 @@ function ScoreCard({ d }: { d: OpportunityDetail }) {
   return (
     <Card className="p-4.5">
       <div className="flex items-center gap-4.5">
-        <ScoreRing score={d.score} size="hero" animate />
+        <ScoreRing score={d.score} size="hero" />
         <div className="min-w-0 flex-1">
           <div className="text-caption-2 font-semibold tracking-caps text-fg-3 uppercase">
             Score breakdown
@@ -290,6 +290,8 @@ function SourcesCard({
   );
 }
 
+const SKELETON_DELAY_MS = 250;
+
 function DrawerSkeleton() {
   return (
     <div className="relative flex flex-col gap-3 overflow-hidden px-6 pt-5" aria-busy="true">
@@ -353,6 +355,18 @@ export function OpportunityDrawer({
 
   const d = detail && detail.id === id ? detail : null;
 
+  // Only the drawer itself moves while it opens: the details load in a few milliseconds, so the
+  // panel stays empty for that moment instead of flashing a skeleton that is swapped out mid-slide.
+  // The skeleton appears only when loading is actually slow.
+  const [slowId, setSlowId] = useState<number | null>(null);
+  const loading = id !== null && !d && !error;
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setSlowId(id), SKELETON_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [loading, id]);
+  const slow = slowId === id;
+
   return (
     <Drawer
       open={id !== null}
@@ -368,7 +382,7 @@ export function OpportunityDrawer({
           <Banner title="This opportunity could not be loaded." description={error} />
         </div>
       ) : !d ? (
-        <DrawerSkeleton />
+        slow && <DrawerSkeleton />
       ) : (
         <>
           <div className="hairline-b border-line px-6 pt-5 pb-4">
