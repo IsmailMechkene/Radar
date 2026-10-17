@@ -1,6 +1,9 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from './lib/cn';
 
+/** Row height in px (h-14); windowed lists rely on every row having exactly this height. */
+export const TABLE_ROW_HEIGHT = 56;
+
 interface TableRowProps extends HTMLAttributes<HTMLDivElement> {
   /** CSS grid-template-columns for the row's cells. */
   columns: string;

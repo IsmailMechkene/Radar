@@ -1,11 +1,13 @@
 import { ArrowDownUp, RotateCw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Banner } from '../../../components/Banner';
 import { Button } from '../../../components/Button';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { OptionMenu } from '../../../components/OptionMenu';
 import { Popover } from '../../../components/Popover';
+import { TABLE_ROW_HEIGHT } from '../../../components/TableRow';
 import { useToastLift } from '../../../components/Toast';
+import { useWindowedRows } from '../../../components/lib/useWindowedRows';
 import type { OpportunityListItem } from '../../../../shared/ipc';
 import { formatWeekday } from '../../lib/dates';
 import {
@@ -81,8 +83,6 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [confirmIds, setConfirmIds] = useState<number[] | null>(null);
   const [now] = useState(() => new Date());
-  const rows = useRef(new Map<number, HTMLDivElement>());
-
   // "New since your last visit": the previous visit is captured once per session (before the
   // marker is advanced below), so the strip keeps showing what was new when the session began.
   const seenAt = settings ? settings.opportunitiesSeenAt : undefined;
@@ -129,6 +129,9 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
     () => sortItems(applyFilters(items, view, filters, query, ctx), sort),
     [items, view, filters, query, ctx, sort],
   );
+  // Only the rows near the viewport are rendered (the list can hold thousands of postings).
+  const windowed = useWindowedRows(visible.length, TABLE_ROW_HEIGHT);
+  const { scrollToIndex } = windowed;
   const counts = useMemo(
     () => viewCounts(items, filters, query, ctx),
     [items, filters, query, ctx],
@@ -155,11 +158,6 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
   const open = useCallback((id: number) => {
     setOpenId(id);
     setCursorId(id);
-  }, []);
-
-  const rowRef = useCallback((id: number, el: HTMLDivElement | null) => {
-    if (el) rows.current.set(id, el);
-    else rows.current.delete(id);
   }, []);
 
   const { setStarred } = api;
@@ -201,9 +199,9 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
       const next = visible[Math.max(0, Math.min(visible.length - 1, i < 0 ? 0 : i + delta))]!;
       setCursorId(next.id);
       if (openId !== null) setOpenId(next.id);
-      rows.current.get(next.id)?.scrollIntoView({ block: 'nearest' });
+      scrollToIndex(visible.indexOf(next));
     },
-    [visible, cursorId, openId],
+    [visible, cursorId, openId, scrollToIndex],
   );
 
   // Keyboard: j/k move, Enter opens, s stars, x dismisses, Space selects, Esc closes/clears.
@@ -404,7 +402,7 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
             checked={checked}
             openId={openId}
             cursorId={cursorId}
-            rowRef={rowRef}
+            rows={windowed}
             onOpen={open}
             onCheck={toggleCheck}
             onStar={starRow}

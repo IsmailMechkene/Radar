@@ -1,5 +1,5 @@
 import { Radar, Star } from 'lucide-react';
-import { memo, useCallback, type ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import type { OpportunityListItem } from '../../../../shared/ipc';
 import { Badge, VerdictBadge } from '../../../components/Badge';
 import { Checkbox } from '../../../components/Checkbox';
@@ -29,6 +29,7 @@ const CHIP_TONE: Record<DeadlineTone, 'red' | 'amber' | 'neutral' | 'outline'> =
 };
 
 function Header({ wide }: { wide: boolean }) {
+  // aria-rowindex 1: rows below are numbered from 2 even when only some are rendered.
   // Labels may overflow their column ("SCORE" is wider than the 32 px ring), as in the design.
   const cell = (label: string) => (
     <span role="columnheader" className="whitespace-nowrap">
@@ -38,6 +39,7 @@ function Header({ wide }: { wide: boolean }) {
   return (
     <div
       role="row"
+      aria-rowindex={1}
       className="grid h-8.5 items-center gap-x-3 px-4 text-caption-2 font-semibold tracking-header text-fg-3 uppercase"
       style={{ gridTemplateColumns: wide ? COLUMNS.wide : COLUMNS.narrow }}
     >
@@ -66,7 +68,8 @@ interface RowProps {
   checked: boolean;
   open: boolean;
   cursor: boolean;
-  rowRef: (id: number, el: HTMLDivElement | null) => void;
+  /** 1-based position in the table (header = 1), for screen readers in a windowed list. */
+  rowIndex: number;
   onOpen: (id: number) => void;
   onCheck: (id: number) => void;
   onStar: (item: Item) => void;
@@ -82,13 +85,12 @@ const Row = memo(function Row({
   checked,
   open,
   cursor,
-  rowRef,
+  rowIndex,
   onOpen: openId,
   onCheck: checkId,
   onStar: star,
   onCursor,
 }: RowProps) {
-  const ref = useCallback((el: HTMLDivElement | null) => rowRef(item.id, el), [rowRef, item.id]);
   const onOpen = () => openId(item.id);
   const onCheck = () => checkId(item.id);
   const onStar = () => star(item);
@@ -97,7 +99,7 @@ const Row = memo(function Row({
   const SourceIcon = sourceIcon(item.source_access_method, item.opportunity_type);
   return (
     <TableRow
-      ref={ref}
+      aria-rowindex={rowIndex}
       inset="sm"
       columns={wide ? COLUMNS.wide : COLUMNS.narrow}
       selected={checked || open}
@@ -176,8 +178,15 @@ interface TableProps {
   checked: ReadonlySet<number>;
   openId: number | null;
   cursorId: number | null;
+  /** Windowing (useWindowedRows): only rows [start, end) are rendered. */
+  rows: {
+    attach: (el: HTMLDivElement | null) => void;
+    start: number;
+    end: number;
+    paddingTop: number;
+    paddingBottom: number;
+  };
   /** These must be stable (useCallback) or every row re-renders. */
-  rowRef: (id: number, el: HTMLDivElement | null) => void;
   onOpen: (id: number) => void;
   onCheck: (id: number) => void;
   onStar: (item: Item) => void;
@@ -186,32 +195,38 @@ interface TableProps {
   empty?: ReactNode;
 }
 
-/** The results table: 34 px header, 56 px rows in a radius-14 card. */
+/**
+ * The results table: 34 px header, 56 px rows in a radius-14 card. Windowed: only the rows near
+ * the viewport are in the DOM, padding of the exact height stands in for the others.
+ */
 export function OpportunityTable(p: TableProps) {
+  const { attach, start, end, paddingTop, paddingBottom } = p.rows;
   return (
     <div
       role="table"
       aria-label="Opportunities"
-      aria-rowcount={p.items.length}
+      aria-rowcount={p.items.length + 1}
       className="overflow-hidden rounded-2xl bg-surface hairline border-line shadow-card"
     >
       <Header wide={p.wide} />
-      {p.items.map((item) => (
-        <Row
-          key={item.id}
-          item={item}
-          ctx={p.ctx}
-          wide={p.wide}
-          checked={p.checked.has(item.id)}
-          open={p.openId === item.id}
-          cursor={p.cursorId === item.id}
-          rowRef={p.rowRef}
-          onOpen={p.onOpen}
-          onCheck={p.onCheck}
-          onStar={p.onStar}
-          onCursor={p.onCursor}
-        />
-      ))}
+      <div ref={attach} role="rowgroup" style={{ paddingTop, paddingBottom }}>
+        {p.items.slice(start, end).map((item, k) => (
+          <Row
+            key={item.id}
+            item={item}
+            ctx={p.ctx}
+            wide={p.wide}
+            checked={p.checked.has(item.id)}
+            open={p.openId === item.id}
+            cursor={p.cursorId === item.id}
+            rowIndex={start + k + 2}
+            onOpen={p.onOpen}
+            onCheck={p.onCheck}
+            onStar={p.onStar}
+            onCursor={p.onCursor}
+          />
+        ))}
+      </div>
       {p.items.length === 0 && p.empty}
     </div>
   );
