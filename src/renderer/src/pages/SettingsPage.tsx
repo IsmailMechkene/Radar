@@ -1,4 +1,5 @@
 import {
+  BellRing,
   Briefcase,
   CircleDashed,
   Globe,
@@ -35,6 +36,13 @@ import {
 import { useSettings } from '../state/settings';
 import { DataSection } from './DataSection';
 import { PageTitle } from './PageTitle';
+
+const MATCH_ALERT_OPTIONS: { value: Settings['matchAlerts']; label: string }[] = [
+  { value: 'apply', label: 'Strong matches (Apply)' },
+  { value: 'apply_maybe', label: 'Apply and Maybe' },
+  { value: 'daily', label: 'Daily summary at 09:00' },
+  { value: 'off', label: 'Off' },
+];
 
 /** Text field that saves on Enter or blur, not on every keystroke. */
 function CommitInput({
@@ -263,6 +271,19 @@ export function SettingsPage({ isPackaged }: { isPackaged: boolean }) {
       </GroupedSection>
 
       <GroupedSection title="Notifications">
+        <GroupedRow
+          icon={BellRing}
+          tile="red"
+          title="New-match alerts"
+          description="After a scan, one notification for new postings you should look at"
+        >
+          <Select
+            label="New-match alerts"
+            value={settings.matchAlerts}
+            options={MATCH_ALERT_OPTIONS}
+            onChange={(v) => void set('matchAlerts', v)}
+          />
+        </GroupedRow>
         <GroupedRow
           icon={Moon}
           tile="indigo"

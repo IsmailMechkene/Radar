@@ -121,6 +121,8 @@ export interface Filters {
   sources: string[];
   deadline: DeadlineWindow | null;
   newOnly: boolean;
+  /** Exactly these postings (opened from a new-match alert). */
+  matches: number[] | null;
 }
 
 export const NO_FILTERS: Filters = {
@@ -131,6 +133,7 @@ export const NO_FILTERS: Filters = {
   sources: [],
   deadline: null,
   newOnly: false,
+  matches: null,
 };
 
 export function activeFilterCount(f: Filters): number {
@@ -141,7 +144,8 @@ export function activeFilterCount(f: Filters): number {
     (f.locations.length ? 1 : 0) +
     (f.sources.length ? 1 : 0) +
     (f.deadline ? 1 : 0) +
-    (f.newOnly ? 1 : 0)
+    (f.newOnly ? 1 : 0) +
+    (f.matches ? 1 : 0)
   );
 }
 
@@ -221,6 +225,7 @@ export function applyFilters(
       (except === 'sources' || !f.sources.length || f.sources.includes(i.source_name)) &&
       (except === 'deadline' || !f.deadline || matchesDeadline(i, f.deadline, ctx)) &&
       (except === 'newOnly' || !f.newOnly || isNew(i, ctx)) &&
+      (except === 'matches' || !f.matches || f.matches.includes(i.id)) &&
       matchesQuery(i, query, ctx.searchIds),
   );
 }
@@ -315,6 +320,7 @@ export function describeEmpty(view: ViewId, f: Filters, query: string): string {
   if (f.locations.length) parts.push(`in ${f.locations.join(', ')}`);
   if (f.sources.length) parts.push(`from ${f.sources.join(', ')}`);
   if (f.newOnly) parts.push('new since your last visit');
+  if (f.matches) parts.push('from the new-match alert');
   if (query.trim()) parts.push(`matching “${query.trim()}”`);
   return `${parts.join(' ')}.`;
 }

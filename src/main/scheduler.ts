@@ -23,6 +23,8 @@ export interface SchedulerDeps {
   /** Makes today's backup when it is missing (SPEC section 8: daily, keep 14). */
   dailyBackup?: () => Promise<void>;
   notify: (notice: Notice) => void;
+  /** Sends new-match alerts that are due (held by quiet hours or the daily summary until then). */
+  deliverMatches?: () => { deferred: number };
   setTimeout?: (fn: () => void, ms: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
   setInterval?: (fn: () => void, ms: number) => unknown;
@@ -90,9 +92,15 @@ export function createScheduler(deps: SchedulerDeps) {
         console.error('[scheduler] notification failed:', err);
       }
     }
+    let matchesHeld = 0;
+    try {
+      matchesHeld = deps.deliverMatches?.().deferred ?? 0;
+    } catch (err) {
+      console.error('[scheduler] match alerts failed:', err);
+    }
     result.notices = fired.notices.length;
-    result.deferred = fired.deferred;
-    if (fired.deferred > 0 && quietTimer === null) {
+    result.deferred = fired.deferred + matchesHeld;
+    if (result.deferred > 0 && quietTimer === null) {
       const end = quietEndsAt(at, quietHours, timeZone);
       if (end) {
         quietTimer = setT(

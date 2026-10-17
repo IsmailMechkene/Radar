@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
+import { dueMatchAlerts, type MatchAlert } from '../core/alerts/matches';
 import { extractDeadlinesAsync } from '../core/deadlines/postings';
 import { createHttpClient } from '../core/http/client';
 import { parseSeedPrograms, syncSeedPrograms } from '../core/programs/seeds';
@@ -337,6 +338,47 @@ function showNotice(notice: Notice): void {
   n.show();
 }
 
+/** Tells the page to open these matches, once it is loaded (a window can be created first). */
+function openMatches(alert: MatchAlert): void {
+  const win = lifecycle.showWindow();
+  const send = () => broadcast(IPC_EVENTS.matchAlert, { ...alert, open: true });
+  if (win.webContents.isLoading())
+    win.webContents.once('did-finish-load', () => setTimeout(send, 300));
+  else send();
+}
+
+/**
+ * New-match alerts that are due (after scans and on every scheduler tick). A focused window gets a
+ * toast; otherwise a native notification, which opens the matches when clicked.
+ */
+function deliverMatchAlerts(database: Database.Database): { deferred: number } {
+  try {
+    const r = dueMatchAlerts(database, new Date());
+    if (r.alert) {
+      const alert = r.alert;
+      console.log(`[radar] match alert: ${alert.title}`);
+      const focused = BrowserWindow.getAllWindows().some((w) => w.isVisible() && w.isFocused());
+      if (focused) broadcast(IPC_EVENTS.matchAlert, { ...alert, open: false });
+      else if (!Notification.isSupported()) {
+        console.warn(`[radar] notifications unsupported; not shown: ${alert.title}`);
+      } else {
+        const n = new Notification({ title: alert.title, body: alert.body });
+        liveNotifications.add(n);
+        n.on('click', () => {
+          openMatches(alert);
+          liveNotifications.delete(n);
+        });
+        n.on('close', () => liveNotifications.delete(n));
+        n.show();
+      }
+    }
+    return { deferred: r.deferred };
+  } catch (err) {
+    console.error('[radar] match alerts failed:', err);
+    return { deferred: 0 };
+  }
+}
+
 /** Backups go here until a folder is chosen in Settings. */
 function defaultBackupFolder(): string {
   return join(app.getPath('userData'), 'Backups');
@@ -396,7 +438,10 @@ function start(): void {
         await refreshDeadlines(database, 'after scan');
         await rescoreQuietly(database, 'after scan');
       },
-      onFinished: (summary) => broadcast(IPC_EVENTS.scanFinished, summary),
+      onFinished: (summary) => {
+        broadcast(IPC_EVENTS.scanFinished, summary);
+        deliverMatchAlerts(database);
+      },
     });
     if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
     scheduler = createScheduler({
@@ -407,6 +452,7 @@ function start(): void {
       },
       dailyBackup: () => dailyBackup(database),
       notify: showNotice,
+      deliverMatches: () => deliverMatchAlerts(database),
     });
     registerIpcHandlers({
       ipcMain,

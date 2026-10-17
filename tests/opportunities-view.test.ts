@@ -190,6 +190,12 @@ describe('views, filters, search and sort', () => {
     expect(
       applyFilters(items, 'all', { ...NO_FILTERS, locations: ['Berlin'] }, '', ctx),
     ).toHaveLength(1);
+    // A new-match alert shows exactly its postings.
+    const alerted = [items[0]!.id, items[2]!.id];
+    expect(
+      applyFilters(items, 'all', { ...NO_FILTERS, matches: alerted }, '', ctx).map((i) => i.id),
+    ).toEqual(alerted);
+    expect(activeFilterCount({ ...NO_FILTERS, matches: alerted })).toBe(1);
     expect(applyFilters(items, 'all', { ...NO_FILTERS, sources: ['Lever'] }, '', ctx)).toHaveLength(
       1,
     );

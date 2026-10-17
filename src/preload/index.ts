@@ -21,6 +21,7 @@ const api: RadarApi = {
     openExternal: (url) => ipcRenderer.invoke(C.appOpenExternal, { url }),
     navCounts: (newSince) => ipcRenderer.invoke(C.appNavCounts, { newSince }),
     setChromeTheme: (theme) => ipcRenderer.invoke(C.appChromeTheme, { theme }),
+    onMatchAlert: (listener) => subscribe(E.matchAlert, listener),
     copyText: (text) => ipcRenderer.invoke(C.appCopyText, { text }),
     openMail: (to, subject, body) => ipcRenderer.invoke(C.appOpenMail, { to, subject, body }),
   },

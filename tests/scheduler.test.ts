@@ -120,6 +120,33 @@ describe('scheduler', () => {
     expect(notices.map((n) => n.kind)).toEqual(['deadline_t30']);
   });
 
+  it('delivers new-match alerts on each tick; held ones count as deferred and set the quiet timer', async () => {
+    let calls = 0;
+    let held = 2;
+    const s = createScheduler({
+      db: t.db,
+      now: () => now,
+      scan: { run: async () => {}, status: () => ({ running: false }) },
+      watchPages: async () => {},
+      notify: (n) => notices.push(n),
+      deliverMatches: () => {
+        calls += 1;
+        return { deferred: held };
+      },
+      setTimeout: (fn, ms) => timers.push({ fn, ms }),
+      setInterval: () => 0,
+    });
+    now = new Date('2026-11-15T22:30:00.000Z'); // 23:30 in Tunis: quiet
+    const r = await s.tick('startup');
+    expect(calls).toBe(1);
+    expect(r.deferred).toBe(1 + 2); // the reminder and two matches
+    expect(timers).toHaveLength(1);
+    held = 0;
+    now = new Date('2026-11-16T07:00:01.000Z');
+    await s.tick('quiet-end');
+    expect(calls).toBe(2);
+  });
+
   it('makes the daily backup on a tick; a failing backup does not stop reminders', async () => {
     let backups = 0;
     const s = createScheduler({

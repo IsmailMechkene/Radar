@@ -81,6 +81,19 @@ npm run rescore                                # re-score the app database
 npm run rescore -- --db ./scratch.db           # another database file
 ```
 
+## New-match alerts
+
+After each scan (Scan now or the background schedule), Radar sends one Windows notification for
+the new postings worth a look, for example "3 new strong matches" with the best three and their
+scores. Clicking it opens Opportunities showing exactly those postings. If Radar's window is in
+front, a short message with **Show** appears instead. **Settings → Notifications → New-match
+alerts** chooses Apply only (the default), Apply and Maybe, a daily summary at 09:00, or off.
+
+Each posting is considered once: closed, dismissed, already-in-pipeline and program postings never
+alert, and a later re-score or another source finding the same posting does not alert again.
+Quiet hours hold alerts until they end. Alerts need Radar running (it keeps running in the tray
+when you close the window; turn on **Launch at login** to have it always on).
+
 ## Deadlines, programs and reminders
 
 After every scan, Radar reads each posting's deadline from its text (English and French:

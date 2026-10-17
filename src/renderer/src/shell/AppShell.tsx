@@ -1,4 +1,6 @@
 import { ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react';
+import { useToast } from '../../components/Toast';
+import { requestMatches } from '../state/match-alerts';
 import { lazy, Suspense, useEffect, useReducer, useRef, useState } from 'react';
 import { SearchField } from '../../components/Input';
 import { OverlayProvider } from '../../components/Overlay';
@@ -76,6 +78,23 @@ export function AppShell({ info }: { info: WindowInfo | null }) {
   const [query, setQuery] = useState('');
   const [rootHost, setRootHost] = useState<HTMLDivElement | null>(null);
   const [columnHost, setColumnHost] = useState<HTMLDivElement | null>(null);
+
+  // New-match alerts from scans: a clicked notification opens the matches; with the window in
+  // focus a toast offers to.
+  const toast = useToast();
+  useEffect(
+    () =>
+      window.radar.app.onMatchAlert((e) => {
+        const show = () => {
+          dispatch({ type: 'go', route: 'opportunities' });
+          setQuery('');
+          requestMatches(e.ids);
+        };
+        if (e.open) show();
+        else toast({ message: e.title, action: { label: 'Show', onAction: show } });
+      }),
+    [toast],
+  );
 
   // Packaged builds have no dev routes.
   useEffect(() => {

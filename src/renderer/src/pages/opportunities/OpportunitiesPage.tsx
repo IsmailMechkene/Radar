@@ -24,6 +24,7 @@ import {
   type SortId,
   type ViewId,
 } from '../../lib/opportunities';
+import { takeRequestedMatches, useRequestedMatches } from '../../state/match-alerts';
 import { useScan } from '../../state/scan';
 import { useSettings } from '../../state/settings';
 import { PageTitle } from '../PageTitle';
@@ -76,6 +77,20 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
 
   const [view, setView] = useState<ViewId>('all');
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+
+  // A new-match alert asked for exactly these postings: show them, nothing else filtered.
+  // Applied while rendering (React's pattern for state that follows an input); the store is told
+  // in an effect, so each request is applied once.
+  const requested = useRequestedMatches();
+  const [appliedRequest, setAppliedRequest] = useState<number[] | null>(null);
+  if (requested && requested !== appliedRequest) {
+    setAppliedRequest(requested);
+    setView('all');
+    setFilters({ ...NO_FILTERS, matches: requested });
+  }
+  useEffect(() => {
+    if (requested) takeRequestedMatches();
+  }, [requested]);
   const [sort, setSort] = useState<SortId>('score');
   const [sortOpen, setSortOpen] = useState(false);
   const [rawChecked, setChecked] = useState<Set<number>>(new Set());

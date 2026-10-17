@@ -304,6 +304,14 @@ export const FilterBar = memo(function FilterBar({
           onClear={() => set({ newOnly: false })}
         />
       )}
+      {f.matches && (
+        <FilterPill
+          label={`${f.matches.length} new match${f.matches.length === 1 ? '' : 'es'}`}
+          active
+          onClick={() => set({ matches: null })}
+          onClear={() => set({ matches: null })}
+        />
+      )}
       {anyActive && (
         <button
           type="button"

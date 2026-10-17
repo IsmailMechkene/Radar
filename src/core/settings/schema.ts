@@ -26,6 +26,10 @@ export const settingsSchema = z.strictObject({
   // Raw grade text as the user wrote it; never converted to another scale.
   grade: z.strictObject({ raw: z.string().trim().min(1), unverified: z.boolean() }),
   quietHours: z.strictObject({ enabled: z.boolean(), start: hhmm, end: hhmm }),
+  // New-match alerts after scans: Apply verdicts, Apply and Maybe, one summary a day, or none.
+  matchAlerts: z.enum(['apply', 'apply_maybe', 'daily', 'off']),
+  // Internal: when the last daily summary went out (one per local day). Not shown in Settings.
+  matchDigestAt: z.iso.datetime().nullable(),
   autostart: z.boolean(),
   scanIntervalHours: z.int().min(1).max(168),
   // Appearance. 'system' follows the OS light/dark setting.
@@ -57,6 +61,8 @@ export const DEFAULT_SETTINGS: Settings = {
   remotePreference: 'onsite_preferred',
   grade: { raw: '15/20', unverified: true },
   quietHours: { enabled: true, start: '22:00', end: '08:00' },
+  matchAlerts: 'apply',
+  matchDigestAt: null,
   autostart: false,
   scanIntervalHours: 6,
   theme: 'system',

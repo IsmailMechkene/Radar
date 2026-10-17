@@ -118,7 +118,17 @@ export const IPC_CHANNELS = {
 export const IPC_EVENTS = {
   scanProgress: 'scan:progress',
   scanFinished: 'scan:finished',
+  matchAlert: 'app:match-alert',
 } as const;
+
+/** New strong matches found by a scan (main -> page). */
+export interface MatchAlertEvent {
+  ids: number[];
+  title: string;
+  body: string;
+  /** The notification was clicked: open the matches. Otherwise the window had focus: show a toast. */
+  open: boolean;
+}
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
 
@@ -327,6 +337,8 @@ export interface RadarApi {
     openExternal(url: string): Promise<void>;
     /** Sidebar counts (same rules as each page). */
     navCounts(newSince: string): Promise<NavCounts>;
+    /** New-match alerts from scans; returns the unsubscribe function. */
+    onMatchAlert(listener: (e: MatchAlertEvent) => void): () => void;
     /** Recolors the native window controls once the page shows `theme` (so they never lead). */
     setChromeTheme(theme: ResolvedTheme): Promise<void>;
     copyText(text: string): Promise<void>;
