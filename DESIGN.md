@@ -149,6 +149,10 @@ Weights: 400 regular, 500 medium (secondary buttons, chips), 600 semibold (title
 
 `prefers-reduced-motion` shortens every animation and transition to 1 ms, and the score ring skips counting.
 
+Switching light/dark changes everything in the same frame: transitions are off for that frame
+(`data-theme-switching` on `<html>`, set in `useAppliedTheme`), and table rows use
+`content-visibility: auto` so off-screen rows are not restyled.
+
 Opening a drawer moves nothing but the drawer: the page behind it stays put, the drawer's content is
 static when it arrives (no count-up ring in the drawer; its skeleton only shows when loading takes
 over 250 ms), and switching postings with the drawer open swaps the content in place.

@@ -29,6 +29,9 @@ export const TableRow = forwardRef<HTMLDivElement, TableRowProps>(function Table
       style={{ gridTemplateColumns: columns, ...style }}
       className={cn(
         'grid h-14 items-center gap-x-3 hairline-t border-line outline-none',
+        // Off-screen rows skip style, layout and paint (a long list made theme switches and the
+        // drawer stall); the reserved size equals the row height, so scrolling never jumps.
+        '[content-visibility:auto] [contain-intrinsic-size:auto_--spacing(14)]',
         inset === 'sm' ? 'px-4' : 'px-5.5',
         'transition-colors duration-(--duration-fast) ease-out',
         selected ? 'bg-accent-soft' : hovered ? 'bg-fill' : 'hover:bg-fill',
