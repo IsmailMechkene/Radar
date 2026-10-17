@@ -29,6 +29,7 @@ import {
 import type { PageCheck } from '../core/watch/pages';
 import type { NavCounts } from '../core/nav';
 import type { RescoreResult } from '../core/rules/rescore';
+import type { ResolvedTheme } from './theme';
 import type { Rules } from '../core/rules/schema';
 import type { PreviewItem } from '../core/rules/store';
 import {
@@ -58,6 +59,7 @@ export const IPC_CHANNELS = {
   appGetWindowInfo: 'app:get-window-info',
   appOpenExternal: 'app:open-external',
   appNavCounts: 'app:nav-counts',
+  appChromeTheme: 'app:chrome-theme',
   dataBackupInfo: 'data:backup-info',
   dataBackupNow: 'data:backup-now',
   dataChooseBackupFolder: 'data:choose-backup-folder',
@@ -145,6 +147,8 @@ export const appOpenExternalPayloadSchema = z.strictObject({
 });
 /** "New since" for the Opportunities count: the last visit (or 3 days ago on the first). */
 export const appNavCountsPayloadSchema = z.strictObject({ newSince: z.iso.datetime() });
+/** The theme the page has just painted; the native window controls follow it. */
+export const appChromeThemePayloadSchema = z.strictObject({ theme: z.enum(['light', 'dark']) });
 export const appCopyTextPayloadSchema = z.strictObject({ text: z.string().max(50_000) });
 /** A draft for the default mail app (mailto:). Nothing is sent. */
 export const appOpenMailPayloadSchema = z.strictObject({
@@ -323,6 +327,8 @@ export interface RadarApi {
     openExternal(url: string): Promise<void>;
     /** Sidebar counts (same rules as each page). */
     navCounts(newSince: string): Promise<NavCounts>;
+    /** Recolors the native window controls once the page shows `theme` (so they never lead). */
+    setChromeTheme(theme: ResolvedTheme): Promise<void>;
     copyText(text: string): Promise<void>;
     /** Opens a draft in the default mail app (mailto:). Radar never sends email. */
     openMail(to: string, subject: string, body: string): Promise<void>;

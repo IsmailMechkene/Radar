@@ -68,6 +68,7 @@ import {
   appGetWindowInfoPayloadSchema,
   appOpenExternalPayloadSchema,
   appNavCountsPayloadSchema,
+  appChromeThemePayloadSchema,
   dataNoPayloadSchema,
   appCopyTextPayloadSchema,
   appOpenMailPayloadSchema,
@@ -117,7 +118,7 @@ import {
   type IpcChannel,
   type WindowInfo,
 } from '../shared/ipc';
-import type { ThemePreference } from '../shared/theme';
+import type { ResolvedTheme, ThemePreference } from '../shared/theme';
 import type { ScanService } from './scan';
 
 export interface IpcDeps {
@@ -125,6 +126,8 @@ export interface IpcDeps {
   db: Database.Database;
   applyAutostart: (enabled: boolean) => void;
   applyTheme: (theme: ThemePreference) => void;
+  /** Native window controls and background in the theme the page now shows. */
+  setChromeTheme?: (theme: ResolvedTheme) => void;
   windowInfo: () => WindowInfo;
   openExternal: (url: string) => Promise<void>;
   /** System clipboard (main process). */
@@ -234,6 +237,10 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   handle(ipcMain, C.appNavCounts, appNavCountsPayloadSchema, ({ newSince }) =>
     navCounts(db, { now: now(), timeZone: getSetting(db, 'timezone'), newSince }),
+  );
+
+  handle(ipcMain, C.appChromeTheme, appChromeThemePayloadSchema, ({ theme }) =>
+    deps.setChromeTheme?.(theme),
   );
 
   handle(ipcMain, C.appCopyText, appCopyTextPayloadSchema, ({ text }) => {

@@ -37,7 +37,12 @@ import { getAllSettings, getSetting, seedDefaultSettings } from '../core/setting
 import { parseSeedSources } from '../core/sources/seeds';
 import { syncSeedSources } from '../core/sources/sync';
 import { IPC_EVENTS, type WindowInfo } from '../shared/ipc';
-import { TITLE_BAR_OVERLAY, TOOLBAR_HEIGHT, type ThemePreference } from '../shared/theme';
+import {
+  TITLE_BAR_OVERLAY,
+  TOOLBAR_HEIGHT,
+  type ResolvedTheme,
+  type ThemePreference,
+} from '../shared/theme';
 import { registerIpcHandlers } from './ipc';
 import { applyAutostart, createLifecycle } from './lifecycle';
 import { createScanService } from './scan';
@@ -152,19 +157,23 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-/** Keeps native chrome (controls overlay, window background) in step with the theme. */
-function syncNativeChrome(): void {
+/**
+ * Native chrome (controls overlay, window background) in a theme. The page calls this (IPC
+ * app:chrome-theme) once it has painted that theme: native controls repaint instantly while the
+ * page needs a frame or more, so driving them from main made them change first.
+ */
+function syncNativeChrome(theme: ResolvedTheme): void {
   if (process.platform === 'darwin') return;
-  const colors = overlayColors();
+  const colors = TITLE_BAR_OVERLAY[theme];
   for (const win of BrowserWindow.getAllWindows()) {
     win.setTitleBarOverlay({ ...colors, height: OVERLAY_HEIGHT });
     if (material !== 'mica') win.setBackgroundColor(colors.color);
   }
 }
 
+/** Native menus and dialogs follow the setting; the window controls follow the page (above). */
 function applyTheme(theme: ThemePreference): void {
   nativeTheme.themeSource = theme;
-  syncNativeChrome();
 }
 
 function createTray(): void {
@@ -404,6 +413,7 @@ function start(): void {
       db: database,
       applyAutostart: (enabled) => applyAutostart(app, enabled),
       applyTheme,
+      setChromeTheme: syncNativeChrome,
       windowInfo,
       openExternal: (url) => shell.openExternal(url),
       copyText: (text) => clipboard.writeText(text),
@@ -510,7 +520,6 @@ function start(): void {
     return;
   }
 
-  nativeTheme.on('updated', syncNativeChrome);
   installMenu();
   console.log(`[radar] window material: ${material}`);
 

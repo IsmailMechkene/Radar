@@ -34,6 +34,15 @@ export function useAppliedTheme(pref: ThemePreference | undefined): ResolvedThem
     switchWithoutTransitions(root, () => {
       root.dataset['theme'] = resolved;
     });
+    // The native window controls follow once this frame is on screen (two frames later), so
+    // they never change before the page does.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        window.radar.app.setChromeTheme(resolved).catch((err: unknown) => {
+          console.error('[theme] window controls not updated', err);
+        });
+      }),
+    );
   }, [resolved]);
   return resolved;
 }

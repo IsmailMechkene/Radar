@@ -20,7 +20,7 @@ import {
   type ScanSummary,
   type WindowInfo,
 } from '../src/shared/ipc';
-import type { ThemePreference } from '../src/shared/theme';
+import type { ResolvedTheme, ThemePreference } from '../src/shared/theme';
 import { tempDb } from './helpers';
 
 type Handler = (event: IpcMainInvokeEvent, payload?: unknown) => Promise<unknown>;
@@ -35,6 +35,7 @@ describe('IPC handlers', () => {
   let handlers: Map<string, Handler>;
   let applyAutostart: Mock<(enabled: boolean) => void>;
   let applyTheme: Mock<(theme: ThemePreference) => void>;
+  let setChromeTheme: Mock<(theme: ResolvedTheme) => void>;
   let openExternal: Mock<(url: string) => Promise<void>>;
   let info: WindowInfo;
   let changed: string[];
@@ -53,6 +54,7 @@ describe('IPC handlers', () => {
     handlers = new Map();
     applyAutostart = vi.fn<(enabled: boolean) => void>();
     applyTheme = vi.fn<(theme: ThemePreference) => void>();
+    setChromeTheme = vi.fn<(theme: ResolvedTheme) => void>();
     openExternal = vi.fn<(url: string) => Promise<void>>(() => Promise.resolve());
     info = { platform: 'win32', isPackaged: false, material: 'none' };
     changed = [];
@@ -85,6 +87,7 @@ describe('IPC handlers', () => {
       db: t.db,
       applyAutostart,
       applyTheme,
+      setChromeTheme,
       windowInfo: () => info,
       openExternal,
       readSampleFixture: fixture,
@@ -152,6 +155,19 @@ describe('IPC handlers', () => {
     ).rejects.toThrow();
     expect(applyTheme).toHaveBeenCalledOnce();
     expect(await invoke(IPC_CHANNELS.appGetWindowInfo)).toEqual(info);
+  });
+
+  it('recolors the window controls only when the page reports its painted theme', async () => {
+    await invoke(IPC_CHANNELS.settingsSet, { key: 'theme', value: 'dark' });
+    expect(setChromeTheme).not.toHaveBeenCalled();
+    await invoke(IPC_CHANNELS.appChromeTheme, { theme: 'dark' });
+    expect(setChromeTheme).toHaveBeenCalledWith('dark');
+    for (const theme of ['system', 'sepia', undefined]) {
+      await expect(invoke(IPC_CHANNELS.appChromeTheme, { theme })).rejects.toThrow(
+        /invalid payload/,
+      );
+    }
+    expect(setChromeTheme).toHaveBeenCalledOnce();
   });
 
   it('opens only http(s) links', async () => {
