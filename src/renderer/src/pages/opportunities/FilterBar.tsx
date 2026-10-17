@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { memo, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { OpportunityListItem } from '../../../../shared/ipc';
 import { MenuAction, OptionMenu, type OptionItem } from '../../../components/OptionMenu';
 import { FilterPill } from '../../../components/Pill';
@@ -100,8 +100,12 @@ interface FilterBarProps {
   onChange: (f: Filters) => void;
 }
 
-/** Filter pills with menus, "Clear all" and the result count. */
-export function FilterBar({
+/**
+ * Filter pills with menus, "Clear all" and the result count. Memoized, and the option counts
+ * (each filter's list with the other filters applied) are computed once per change of the inputs:
+ * with thousands of postings they cost far more than the rest of the page.
+ */
+export const FilterBar = memo(function FilterBar({
   items,
   view,
   filters: f,
@@ -113,7 +117,6 @@ export function FilterBar({
   const [open, setOpen] = useState<MenuId | null>(null);
   const close = () => setOpen(null);
   const set = (patch: Partial<Filters>) => onChange({ ...f, ...patch });
-  const base = (key: keyof Filters) => applyFilters(items, view, f, query, ctx, key);
 
   function pill(
     id: MenuId,
@@ -138,37 +141,50 @@ export function FilterBar({
     );
   }
 
-  const verdictOptions: OptionItem<Verdict>[] = (Object.keys(VERDICT_LABELS) as Verdict[]).map(
-    (v) => ({
-      value: v,
-      label: VERDICT_LABELS[v],
-      count: base('verdicts').filter((i) => i.verdict === v).length,
-    }),
-  );
-  const scoreOptions: OptionItem<string>[] = SCORE_FLOORS.map((n) => ({
-    value: String(n),
-    label: `Score ≥ ${n}`,
-    count: base('minScore').filter((i) => (i.score ?? -1) >= n).length,
-  }));
-  const remoteOptions: OptionItem<RemoteType>[] = (Object.keys(REMOTE_LABELS) as RemoteType[]).map(
-    (r) => ({
-      value: r,
-      label: REMOTE_LABELS[r],
-      count: base('remote').filter((i) => i.remote_type === r).length,
-    }),
-  );
-  const locationOptions: OptionItem<string>[] = valueCounts(
-    base('locations').map((i) => i.location),
-  ).map(({ value, count }) => ({ value, label: value, count }));
-  const deadlineBase = base('deadline');
-  const deadlineOptions: OptionItem<DeadlineWindow>[] = DEADLINE_WINDOWS.map((w) => ({
-    value: w.id,
-    label: w.label,
-    count: deadlineBase.filter((i) => matchesDeadline(i, w.id, ctx)).length,
-  }));
-  const sourceOptions: OptionItem<string>[] = valueCounts(
-    base('sources').map((i) => i.source_name),
-  ).map(({ value, count }) => ({ value, label: value, count }));
+  const {
+    verdictOptions,
+    scoreOptions,
+    remoteOptions,
+    locationOptions,
+    deadlineOptions,
+    sourceOptions,
+  } = useMemo(() => {
+    const base = (key: keyof Filters) => applyFilters(items, view, f, query, ctx, key);
+    const byVerdict = base('verdicts');
+    const byScore = base('minScore');
+    const byRemote = base('remote');
+    const byDeadline = base('deadline');
+    return {
+      verdictOptions: (Object.keys(VERDICT_LABELS) as Verdict[]).map((v): OptionItem<Verdict> => ({
+        value: v,
+        label: VERDICT_LABELS[v],
+        count: byVerdict.filter((i) => i.verdict === v).length,
+      })),
+      scoreOptions: SCORE_FLOORS.map((n): OptionItem<string> => ({
+        value: String(n),
+        label: `Score ≥ ${n}`,
+        count: byScore.filter((i) => (i.score ?? -1) >= n).length,
+      })),
+      remoteOptions: (Object.keys(REMOTE_LABELS) as RemoteType[]).map(
+        (r): OptionItem<RemoteType> => ({
+          value: r,
+          label: REMOTE_LABELS[r],
+          count: byRemote.filter((i) => i.remote_type === r).length,
+        }),
+      ),
+      locationOptions: valueCounts(base('locations').map((i) => i.location)).map(
+        ({ value, count }): OptionItem<string> => ({ value, label: value, count }),
+      ),
+      deadlineOptions: DEADLINE_WINDOWS.map((w): OptionItem<DeadlineWindow> => ({
+        value: w.id,
+        label: w.label,
+        count: byDeadline.filter((i) => matchesDeadline(i, w.id, ctx)).length,
+      })),
+      sourceOptions: valueCounts(base('sources').map((i) => i.source_name)).map(
+        ({ value, count }): OptionItem<string> => ({ value, label: value, count }),
+      ),
+    };
+  }, [items, view, f, query, ctx]);
 
   const anyActive = activeFilterCount(f) > 0;
   const deadlineLabel = DEADLINE_WINDOWS.find((w) => w.id === f.deadline)?.label;
@@ -302,4 +318,4 @@ export function FilterBar({
       </div>
     </div>
   );
-}
+});

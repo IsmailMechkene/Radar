@@ -16,7 +16,15 @@ function dtf(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTime
   return f;
 }
 
+// Calendar days of the same instants are asked for again and again (a list compares every
+// posting's deadline with "now"), so results are cached; the cache is dropped when it grows large.
+const partsCache = new Map<string, { y: number; m: number; d: number }>();
+
 function partsIn(date: Date, timeZone: string): { y: number; m: number; d: number } {
+  const key = `${timeZone}|${date.getTime()}`;
+  const hit = partsCache.get(key);
+  if (hit) return hit;
+  if (partsCache.size > 10_000) partsCache.clear();
   const parts = dtf('en-US', {
     timeZone,
     year: 'numeric',
@@ -24,7 +32,9 @@ function partsIn(date: Date, timeZone: string): { y: number; m: number; d: numbe
     day: 'numeric',
   }).formatToParts(date);
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  return { y: get('year'), m: get('month'), d: get('day') };
+  const result = { y: get('year'), m: get('month'), d: get('day') };
+  partsCache.set(key, result);
+  return result;
 }
 
 /** Whole calendar days from `from` to `to` as seen in `timeZone` (negative if `to` is earlier). */
