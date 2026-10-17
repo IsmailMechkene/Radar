@@ -8,6 +8,15 @@ import { Drawer, DrawerClose } from '../../../components/Drawer';
 import { Icon } from '../../../components/Icon';
 import { TextInput } from '../../../components/Input';
 import { SegmentedControl } from '../../../components/SegmentedControl';
+import { Select } from '../../../components/Select';
+import {
+  BOARD_LABELS,
+  BOARD_LINK_HINT,
+  BOARD_PLATFORMS,
+  boardPageUrl,
+  detectBoard,
+  type BoardPlatform,
+} from '../../../../core/sources/boards';
 import { Shimmer, Skeleton } from '../../../components/Skeleton';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -205,9 +214,14 @@ function Field({
   );
 }
 
-type Kind = 'ashby' | 'page';
+type Kind = 'board' | 'page';
 
-/** "Add source": an Ashby job board or a web page to watch, with a test fetch before adding. */
+const PLATFORM_OPTIONS = BOARD_PLATFORMS.map((p) => ({ value: p, label: BOARD_LABELS[p] }));
+
+/**
+ * "Add source": a job board (Ashby, Greenhouse or Lever; a pasted link picks the platform) or a
+ * web page to watch, with a test fetch before adding.
+ */
 export function AddSourceSheet({
   open,
   onClose,
@@ -221,7 +235,8 @@ export function AddSourceSheet({
   onTest: (s: NewSource) => Promise<TestResult | null>;
   onOpenLink: (url: string) => void;
 }) {
-  const [kind, setKind] = useState<Kind>('ashby');
+  const [kind, setKind] = useState<Kind>('board');
+  const [platform, setPlatform] = useState<BoardPlatform>('ashby');
   const [board, setBoard] = useState('');
   const [org, setOrg] = useState('');
   const [name, setName] = useState('');
@@ -230,9 +245,9 @@ export function AddSourceSheet({
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const source: NewSource =
-    kind === 'ashby' ? { type: 'ashby', board, org } : { type: 'page', name, url };
+    kind === 'board' ? { type: platform, board, org } : { type: 'page', name, url };
   const ready =
-    kind === 'ashby'
+    kind === 'board'
       ? board.trim() !== '' && org.trim() !== ''
       : name.trim() !== '' && /^https?:\/\/\S+\.\S+/i.test(url.trim());
 
@@ -275,26 +290,45 @@ export function AddSourceSheet({
               setPreview(null);
             }}
             segments={[
-              { value: 'ashby', label: 'Ashby job board' },
+              { value: 'board', label: 'Job board' },
               { value: 'page', label: 'Web page to watch' },
             ]}
           />
-          {kind === 'ashby' ? (
+          {kind === 'board' ? (
             <>
               <Field
                 label="Board link or name"
-                hint="From the company's careers page, e.g. jobs.ashbyhq.com/photoroom"
+                hint={`From the company's careers page, e.g. ${BOARD_LINK_HINT[platform]}. A pasted link picks the platform.`}
               >
                 {(id) => (
                   <TextInput
                     id={id}
                     autoFocus
                     value={board}
-                    placeholder="https://jobs.ashbyhq.com/…"
-                    onChange={(e) => setBoard(e.target.value)}
+                    placeholder={`${boardPageUrl(platform, '')}…`}
+                    onChange={(e) => {
+                      setBoard(e.target.value);
+                      const found = detectBoard(e.target.value);
+                      if (found && found.platform !== platform) {
+                        setPlatform(found.platform);
+                        setPreview(null);
+                      }
+                    }}
                   />
                 )}
               </Field>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-subhead text-fg-2">Platform</span>
+                <Select
+                  label="Platform"
+                  value={platform}
+                  options={PLATFORM_OPTIONS}
+                  onChange={(p) => {
+                    setPlatform(p);
+                    setPreview(null);
+                  }}
+                />
+              </div>
               <Field label="Company name">
                 {(id) => <TextInput id={id} value={org} onChange={(e) => setOrg(e.target.value)} />}
               </Field>

@@ -4,6 +4,15 @@
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { ashbyConfigSchema } from '../adapters/ashby';
+import { greenhouseConfigSchema } from '../adapters/greenhouse';
+import { leverConfigSchema } from '../adapters/lever';
+import {
+  BOARD_LABELS,
+  BOARD_LINK_HINT,
+  boardFrom,
+  boardPageUrl,
+  type BoardPlatform,
+} from './boards';
 import { ADAPTERS } from '../adapters/registry';
 import type { AdapterSource } from '../adapters/types';
 import { insertSource } from '../db/sources';
@@ -102,10 +111,7 @@ export function setSourcePaused(db: Database.Database, id: number, paused: boole
 
 /** "https://jobs.ashbyhq.com/mistral.ai/…" or "mistral.ai" -> "mistral.ai". */
 export function ashbyBoardFrom(input: string): string | null {
-  const t = input.trim();
-  const m = /^(?:https?:\/\/)?jobs\.ashbyhq\.com\/([^/?#\s]+)/i.exec(t);
-  if (m) return decodeURIComponent(m[1]!);
-  return /^[^\s/?#:]+$/.test(t) ? t : null;
+  return boardFrom('ashby', input);
 }
 
 const webUrl = z
@@ -113,13 +119,18 @@ const webUrl = z
   .trim()
   .refine((s) => /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(s), 'must be an http(s) link');
 
-export const newSourceSchema = z.discriminatedUnion('type', [
+const boardSource = <T extends BoardPlatform>(type: T) =>
   z.strictObject({
-    type: z.literal('ashby'),
-    /** Board name or its jobs.ashbyhq.com link. */
+    type: z.literal(type),
+    /** Board name or its link (jobs.ashbyhq.com/…, job-boards.greenhouse.io/…, jobs.lever.co/…). */
     board: z.string().trim().min(1),
     org: z.string().trim().min(1).max(200),
-  }),
+  });
+
+export const newSourceSchema = z.discriminatedUnion('type', [
+  boardSource('ashby'),
+  boardSource('greenhouse'),
+  boardSource('lever'),
   z.strictObject({
     type: z.literal('page'),
     name: z.string().trim().min(1).max(200),
@@ -132,11 +143,28 @@ export type NewSource = z.input<typeof newSourceSchema>;
 export function adapterSourceFor(input: NewSource): AdapterSource {
   const s = newSourceSchema.parse(input);
   if (s.type === 'page') return { kind: PAGE_KIND, name: s.name, url: s.url, config: {} };
-  const board = ashbyBoardFrom(s.board);
-  if (!board) throw new Error('Paste the board link (jobs.ashbyhq.com/<board>) or its name');
-  const config = ashbyConfigSchema.parse({ board, org: s.org });
-  return { kind: 'ashby', name: s.org, url: `https://jobs.ashbyhq.com/${board}`, config };
+  const board = boardFrom(s.type, s.board);
+  if (!board) {
+    throw new Error(
+      `Paste the ${BOARD_LABELS[s.type]} board link (${BOARD_LINK_HINT[s.type]}) or its name`,
+    );
+  }
+  const config =
+    s.type === 'lever'
+      ? leverConfigSchema.parse({ site: board, org: s.org })
+      : s.type === 'greenhouse'
+        ? greenhouseConfigSchema.parse({ board, org: s.org })
+        : ashbyConfigSchema.parse({ board, org: s.org });
+  return { kind: s.type, name: s.org, url: boardPageUrl(s.type, board), config };
 }
+
+const BOARD_TOS: Record<BoardPlatform, string> = {
+  ashby: 'Added by you: Ashby public Job Postings API, no key.',
+  greenhouse:
+    'Added by you: Greenhouse Job Board API, no key ("Job Board data is publicly available").',
+  lever:
+    'Added by you: Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored.',
+};
 
 export function addSource(db: Database.Database, input: NewSource, now: Date): SourceItem {
   const src = adapterSourceFor(input);
@@ -154,7 +182,7 @@ export function addSource(db: Database.Database, input: NewSource, now: Date): S
       tos_note:
         src.kind === PAGE_KIND
           ? 'Added by you: page fetched about once a day through the shared fetch layer (robots.txt, 1 request/s per host).'
-          : 'Added by you: Ashby public Job Postings API, no key.',
+          : BOARD_TOS[src.kind as BoardPlatform],
     },
     now,
   );

@@ -8,6 +8,12 @@ import {
   parseArbeitnow,
 } from '../src/core/adapters/arbeitnow';
 import { ashbyAdapter, ashbyBoardUrl, parseAshby } from '../src/core/adapters/ashby';
+import {
+  greenhouseAdapter,
+  greenhouseBoardUrl,
+  parseGreenhouse,
+} from '../src/core/adapters/greenhouse';
+import { leverAdapter, leverPostingsUrl, parseLever } from '../src/core/adapters/lever';
 import { getAdapter } from '../src/core/adapters/registry';
 import { rawItemSchema } from '../src/core/adapters/types';
 import { createHttpClient, type FetchFn } from '../src/core/http/client';
@@ -172,10 +178,128 @@ describe('Arbeitnow adapter', () => {
   });
 });
 
+describe('Greenhouse adapter', () => {
+  const datadog = fixture('greenhouse/datadog-jobs-content.json');
+  const config = { board: 'datadog', org: 'Datadog' };
+
+  it('parses every job: plain text from escaped HTML, typed from custom fields', () => {
+    const { items, errors } = parseGreenhouse(datadog, config);
+    expect(errors).toEqual([]);
+    expect(items).toHaveLength(3);
+    for (const item of items) expect(rawItemSchema.safeParse(item).success).toBe(true);
+    expect(items.map((i) => [i.title, i.opportunity_type])).toEqual([
+      ['Applied Science Intern', 'internship'],
+      ['IT Support Technician Intern', 'internship'],
+      ['Accounts Payable Analyst', 'fulltime'],
+    ]);
+    const first = items[0]!;
+    expect(first).toMatchObject({
+      external_id: '8181440',
+      org: 'Datadog',
+      location: 'Paris, France',
+      url: 'https://careers.datadoghq.com/detail/8181440/?gh_jid=8181440',
+      posted_at: '2026-09-08T14:09:29.000Z',
+      language: 'en',
+    });
+    expect(first.description).toMatch(/^As an Applied Science Intern/);
+    // No markup survives, escaped or not (the recorded fixture cuts each description at 1,800
+    // characters, mid-tag, so only whole tags are checked).
+    expect(first.description).not.toMatch(/<\/?(?:p|li|ul|strong|div)>|&lt;\/?(?:p|li|ul)&gt;/i);
+  });
+
+  it('turns a published application deadline into a sentence for the deadline parser', () => {
+    const jobs = datadog['jobs'] as Record<string, unknown>[];
+    const payload = { jobs: [{ ...jobs[0], application_deadline: '2026-11-30T23:59:00-05:00' }] };
+    expect(parseGreenhouse(payload, config).items[0]!.deadline_text).toBe(
+      'Application deadline: 2026-11-30',
+    );
+  });
+
+  it('skips a malformed job without failing the batch; no jobs array fails the source', () => {
+    const jobs = datadog['jobs'] as Record<string, unknown>[];
+    const payload = {
+      jobs: [{ ...jobs[0], absolute_url: 'javascript:alert(1)' }, { ...jobs[1], id: 'x' }, jobs[2]],
+    };
+    const { items, errors } = parseGreenhouse(payload, config);
+    expect(items.map((i) => i.external_id)).toEqual(['8257324']);
+    expect(errors.map((e) => e.index)).toEqual([0, 1]);
+    expect(errors[0]!.externalId).toBe('8181440');
+    expect(() => parseGreenhouse({ nope: 1 }, config)).toThrow();
+  });
+
+  it('fetches the board through the polite client', async () => {
+    const url = greenhouseBoardUrl('datadog');
+    expect(url).toBe('https://boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true');
+    const { http, requested } = fakeHttp({ [url]: datadog });
+    const result = await greenhouseAdapter.fetchItems(
+      { name: 'Datadog', kind: 'greenhouse', url: null, config },
+      { http },
+    );
+    expect(result.items).toHaveLength(3);
+    expect(requested).toEqual(['https://boards-api.greenhouse.io/robots.txt', url]);
+  });
+});
+
+describe('Lever adapter', () => {
+  const palantir = fixture('lever/palantir-postings.json') as unknown as Record<string, unknown>[];
+  const config = { site: 'palantir', org: 'Palantir' };
+
+  it('parses every posting: workplace type, all locations, sections in the description', () => {
+    const { items, errors } = parseLever(palantir, config);
+    expect(errors).toEqual([]);
+    expect(items).toHaveLength(3);
+    for (const item of items) expect(rawItemSchema.safeParse(item).success).toBe(true);
+    const first = items[0]!;
+    expect(first).toMatchObject({
+      external_id: '6ed76ce8-4156-4b60-b120-403538bd66cd',
+      org: 'Palantir',
+      title: 'Administrative Business Partner',
+      location: 'Singapore, Singapore',
+      remote_type: 'hybrid',
+      opportunity_type: 'fulltime',
+      url: 'https://jobs.lever.co/palantir/6ed76ce8-4156-4b60-b120-403538bd66cd',
+      apply_url: 'https://jobs.lever.co/palantir/6ed76ce8-4156-4b60-b120-403538bd66cd/apply',
+      posted_at: '2026-08-11T17:38:11.368Z',
+    });
+    expect(first.description).toMatch(/A World-Changing Company/);
+    expect(first.description).toMatch(/What We Require/); // list sections are kept
+    expect(first.description).not.toMatch(/<[a-z]/i);
+  });
+
+  it('an "Intern" commitment makes an internship', () => {
+    const intern = { ...palantir[0], categories: { commitment: 'Intern', location: 'Paris' } };
+    expect(parseLever([intern], config).items[0]!.opportunity_type).toBe('internship');
+  });
+
+  it('skips a malformed posting without failing the batch; a non-array fails the source', () => {
+    const { items, errors } = parseLever(
+      [{ ...palantir[0], text: undefined }, palantir[1], 'nope'],
+      config,
+    );
+    expect(items).toHaveLength(1);
+    expect(errors.map((e) => e.index)).toEqual([0, 2]);
+    expect(() => parseLever({ postings: [] }, config)).toThrow();
+  });
+
+  it('fetches the site through the polite client', async () => {
+    const url = leverPostingsUrl('palantir');
+    expect(url).toBe('https://api.lever.co/v0/postings/palantir?mode=json');
+    const { http, requested } = fakeHttp({ [url]: palantir });
+    const result = await leverAdapter.fetchItems(
+      { name: 'Palantir', kind: 'lever', url: null, config },
+      { http },
+    );
+    expect(result.items).toHaveLength(3);
+    expect(requested).toEqual(['https://api.lever.co/robots.txt', url]);
+  });
+});
+
 describe('registry', () => {
   it('maps kinds to adapters and rejects unknown kinds', () => {
     expect(getAdapter('ashby')).toBe(ashbyAdapter);
     expect(getAdapter('arbeitnow')).toBe(arbeitnowAdapter);
+    expect(getAdapter('greenhouse')).toBe(greenhouseAdapter);
+    expect(getAdapter('lever')).toBe(leverAdapter);
     expect(() => getAdapter('remotive')).toThrow(/No adapter for kind "remotive"/);
   });
 });

@@ -388,7 +388,7 @@ export interface RadarApi {
     list(): Promise<SourceItem[]>;
     /** Pausing survives app restarts; a paused source is skipped by scans and page checks. */
     setPaused(id: number, paused: boolean): Promise<void>;
-    /** An Ashby job board or a web page to watch. */
+    /** An Ashby, Greenhouse or Lever job board, or a web page to watch. */
     add(source: NewSource): Promise<SourceItem>;
     /** Only sources you added that never found anything. */
     remove(id: number): Promise<number>;

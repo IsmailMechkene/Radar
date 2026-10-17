@@ -138,8 +138,10 @@ The Sources page lists every board, feed and page Radar fetches, grouped by type
 (green healthy, amber nothing found last time, red broken after a failure or 3 empty runs), when it
 last worked, how many open postings it lists and the last error. The switch pauses a source (kept
 across restarts). **Test fetch** fetches it the way a scan would and shows what came back without
-saving anything. **Add source** adds an Ashby job board (paste its jobs.ashbyhq.com link) or a web
-page to watch for changes, with a preview before adding.
+saving anything. **Add source** adds a company's job board on Ashby, Greenhouse or Lever (paste its
+link, e.g. jobs.ashbyhq.com/photoroom, job-boards.greenhouse.io/datadog or jobs.lever.co/palantir,
+and the platform is picked for you) or a web page to watch for changes, with a preview before
+adding. All three use the platforms' public job-board APIs, without a key.
 
 ## Outreach
 

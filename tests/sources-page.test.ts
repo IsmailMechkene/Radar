@@ -1,3 +1,4 @@
+import { boardFrom, detectBoard } from '../src/core/sources/boards';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -115,6 +116,61 @@ describe('sources page data', () => {
     expect(() =>
       addSource(t.db, { type: 'ashby', board: 'https://example.com/jobs', org: 'X' }, NOW),
     ).toThrow(/board link/);
+  });
+
+  it('adds Greenhouse and Lever boards from their links or names', () => {
+    const gh = addSource(
+      t.db,
+      {
+        type: 'greenhouse',
+        board: 'https://job-boards.greenhouse.io/datadog/jobs/123',
+        org: 'Datadog',
+      },
+      NOW,
+    );
+    expect(gh).toMatchObject({
+      kind: 'greenhouse',
+      name: 'Datadog',
+      url: 'https://job-boards.greenhouse.io/datadog',
+      access_method: 'api',
+      added_by_user: true,
+      config: { board: 'datadog', org: 'Datadog' },
+    });
+    const lever = addSource(t.db, { type: 'lever', board: 'palantir', org: 'Palantir' }, NOW);
+    expect(lever).toMatchObject({
+      kind: 'lever',
+      url: 'https://jobs.lever.co/palantir',
+      config: { site: 'palantir', org: 'Palantir' },
+    });
+    expect(scannableSources(t.db).map((s) => s.name)).toEqual(
+      expect.arrayContaining(['Datadog', 'Palantir']),
+    );
+    // A link of another site is not a board name.
+    expect(() =>
+      addSource(t.db, { type: 'lever', board: 'https://jobs.ashbyhq.com/x', org: 'X' }, NOW),
+    ).toThrow(/jobs\.lever\.co/);
+  });
+
+  it('recognizes board links of every platform', () => {
+    expect(detectBoard('https://jobs.ashbyhq.com/Photoroom/abc')).toEqual({
+      platform: 'ashby',
+      board: 'Photoroom',
+    });
+    expect(detectBoard('boards.greenhouse.io/stripe')).toEqual({
+      platform: 'greenhouse',
+      board: 'stripe',
+    });
+    expect(detectBoard('https://job-boards.greenhouse.io/embed/job_board?for=datadog&b=1')).toEqual(
+      { platform: 'greenhouse', board: 'datadog' },
+    );
+    expect(detectBoard('https://jobs.lever.co/palantir/6ed76ce8?lever-via=x')).toEqual({
+      platform: 'lever',
+      board: 'palantir',
+    });
+    expect(detectBoard('datadog')).toBeNull();
+    expect(detectBoard('https://www.linkedin.com/jobs/view/1')).toBeNull();
+    expect(boardFrom('greenhouse', ' datadog ')).toBe('datadog');
+    expect(boardFrom('greenhouse', 'https://jobs.lever.co/x')).toBeNull();
   });
 
   it('deletes only sources you added that found nothing', () => {
