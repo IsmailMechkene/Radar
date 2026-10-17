@@ -1,4 +1,4 @@
-import { RefreshCw, RotateCcw, RotateCw, Undo2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, RotateCcw, RotateCw, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PreviewItem, Rules, RulesState } from '../../../shared/ipc';
 import { VerdictBadge } from '../../components/Badge';
@@ -15,7 +15,7 @@ import { cn } from '../../components/lib/cn';
 import { notifyDataChanged } from '../lib/data-events';
 import {
   canRemove,
-  LISTS,
+  listById,
   rescoreSummary,
   roleGroupList,
   sameRules,
@@ -23,8 +23,10 @@ import {
   setGroupPoints,
   setThreshold,
   signed,
-  WEIGHTS,
+  verdictReason,
+  weightsIn,
   type ListDef,
+  type WeightDef,
 } from '../lib/rules';
 import { profileFromSettings } from '../../../core/rules/profile';
 import { cleanIpcError } from '../lib/settings-helpers';
@@ -32,11 +34,13 @@ import { useSettings } from '../state/settings';
 import { PageTitle } from './PageTitle';
 
 function Card({
+  id,
   title,
   description,
   children,
   className,
 }: {
+  id?: string;
   title: string;
   description?: string;
   children: ReactNode;
@@ -44,8 +48,9 @@ function Card({
 }) {
   return (
     <section
+      id={id}
       className={cn(
-        'rounded-2xl bg-surface px-4.5 py-4 hairline border-line shadow-card',
+        'scroll-mt-4 rounded-2xl bg-surface px-4.5 py-4 hairline border-line shadow-card',
         className,
       )}
     >
@@ -111,6 +116,102 @@ function Keywords({
   );
 }
 
+/** "machine learning, ml, ai, ia, … +19": a list in one quiet line. */
+function summary(items: readonly string[], shown = 4): string {
+  const head = items.slice(0, shown).join(', ');
+  return items.length > shown ? `${head}, … +${items.length - shown}` : head;
+}
+
+/** The small "23 keywords" toggle at the end of a row that has a list. */
+function ListToggle({
+  count,
+  noun,
+  open,
+  onToggle,
+}: {
+  count: number;
+  noun: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant="plain"
+      iconRight={open ? ChevronUp : ChevronDown}
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      {count} {count === 1 ? noun : noun === 'company' ? 'companies' : `${noun}s`}
+    </Button>
+  );
+}
+
+/** The editor that opens under a row (chips with remove buttons and an add field). */
+function ListPanel({ children }: { children: ReactNode }) {
+  return <div className="mb-2 rounded-xl bg-fill px-3 py-2.5">{children}</div>;
+}
+
+const minus = (v: number) => (v === 0 ? '0' : `−${v}`);
+
+interface RowProps {
+  w: WeightDef;
+  draft: Rules;
+  saved: Rules;
+  onChange: (r: Rules) => void;
+  open: string | null;
+  onToggle: (id: string) => void;
+}
+
+/**
+ * One weight. Bonuses are edited as they are stored; penalties by their strength (dragging right
+ * makes the penalty bigger) and shown in red as negative points. A weight that applies to a list
+ * (stack keywords, watchlist) shows the list's size and opens it in place.
+ */
+function WeightRow({ w, draft, saved, onChange, open, onToggle }: RowProps) {
+  const list = w.list ? listById(w.list) : undefined;
+  const penalty = w.section === 'penalty';
+  const value = w.get(draft);
+  return (
+    <div className="hairline-t border-line first:border-0">
+      <Slider
+        layout="compact"
+        label={w.label}
+        description={w.description}
+        tone={penalty ? 'red' : 'accent'}
+        value={penalty ? -value : value}
+        min={penalty ? -w.max : w.min}
+        max={penalty ? -w.min : w.max}
+        format={penalty ? minus : signed}
+        changed={w.get(saved) !== value}
+        onChange={(v) => onChange(w.set(draft, penalty ? -v : v))}
+        trailing={
+          list ? (
+            <ListToggle
+              count={list.get(draft).length}
+              noun={list.noun}
+              open={open === w.id}
+              onToggle={() => onToggle(w.id)}
+            />
+          ) : null
+        }
+      />
+      {list && open === w.id && (
+        <ListPanel>
+          <Keywords list={list} rules={draft} onChange={onChange} />
+        </ListPanel>
+      )}
+    </div>
+  );
+}
+
+const SECTIONS = [
+  { id: 'rules-verdicts', label: 'Verdicts' },
+  { id: 'rules-role', label: 'Role match' },
+  { id: 'rules-bonuses', label: 'Bonuses' },
+  { id: 'rules-penalties', label: 'Penalties' },
+] as const;
+
 export function RulesPage() {
   const { settings } = useSettings();
   const toast = useToast();
@@ -120,6 +221,9 @@ export function RulesPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // The one list open for editing (a weight id, "role-<i>" or "excludes"); the rest stay folded.
+  const [open, setOpen] = useState<string | null>(null);
+  const toggle = (id: string) => setOpen((o) => (o === id ? null : id));
 
   const load = useCallback(
     () =>
@@ -239,53 +343,30 @@ export function RulesPage() {
         </div>
       )}
 
+      <nav aria-label="Rule sections" className="mb-3.5 flex flex-wrap gap-1.5">
+        {SECTIONS.map((sec) => (
+          <Button
+            key={sec.id}
+            size="sm"
+            onClick={() =>
+              document
+                .getElementById(sec.id)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+          >
+            {sec.label}
+          </Button>
+        ))}
+      </nav>
+
       <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-5">
         <div className="flex flex-col gap-4">
           <Card
-            title="Role keywords"
-            description="A title matching any keyword in a group gets that group's points (the best group counts)"
+            id="rules-verdicts"
+            title="Verdicts"
+            description="Each posting scores out of 100. Below Maybe is Skip; results are never deleted."
           >
-            <div className="flex flex-col gap-3.5">
-              {draft.role.groups.map((g, i) => (
-                <div key={g.label} className="flex flex-col gap-1.5">
-                  <Slider
-                    label={g.label}
-                    value={g.points}
-                    min={0}
-                    max={40}
-                    format={signed}
-                    changed={saved.role.groups[i]?.points !== g.points}
-                    onChange={(v) => setDraft(setGroupPoints(draft, i, v))}
-                  />
-                  <Keywords list={roleGroupList(i)} rules={draft} onChange={setDraft} />
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="Weights" description="Points added (or taken away) when a signal is present">
-            <div className="flex flex-col">
-              {WEIGHTS.map((w) => (
-                <Slider
-                  key={w.id}
-                  label={w.label}
-                  description={w.description}
-                  value={w.get(draft)}
-                  min={w.min}
-                  max={w.max}
-                  format={signed}
-                  changed={w.get(saved) !== w.get(draft)}
-                  onChange={(v) => setDraft(w.set(draft, v))}
-                />
-              ))}
-            </div>
-          </Card>
-
-          <Card
-            title="Verdict thresholds"
-            description="Below Maybe is Skip. Results are never deleted."
-          >
-            <div className="mb-2 flex h-7 overflow-hidden rounded-sm text-caption font-semibold">
+            <div className="mt-1 mb-1 flex h-7 overflow-hidden rounded-sm text-caption font-semibold">
               <div
                 className="flex items-center bg-gray-soft px-2 text-gray"
                 style={{ width: `${draft.thresholds.maybe}%` }}
@@ -303,28 +384,139 @@ export function RulesPage() {
               </div>
             </div>
             <Slider
+              layout="compact"
               label="Maybe from"
               value={draft.thresholds.maybe}
               min={0}
               max={100}
               changed={saved.thresholds.maybe !== draft.thresholds.maybe}
+              trailing={null}
               onChange={(v) => setDraft(setThreshold(draft, 'maybe', v))}
             />
             <Slider
+              layout="compact"
               label="Apply from"
               value={draft.thresholds.apply}
               min={0}
               max={100}
               changed={saved.thresholds.apply !== draft.thresholds.apply}
+              trailing={null}
               onChange={(v) => setDraft(setThreshold(draft, 'apply', v))}
             />
           </Card>
 
-          {LISTS.map((l) => (
-            <Card key={l.id} title={l.title} description={l.description}>
-              <Keywords list={l} rules={draft} onChange={setDraft} />
-            </Card>
-          ))}
+          <Card
+            id="rules-role"
+            title="Role match"
+            description="Points for what the title says. The best matching group counts, and your roles from Settings count too."
+          >
+            {weightsIn('role').map((w) => (
+              <WeightRow
+                key={w.id}
+                w={w}
+                draft={draft}
+                saved={saved}
+                onChange={setDraft}
+                open={open}
+                onToggle={toggle}
+              />
+            ))}
+            {draft.role.groups.map((g, i) => {
+              const list = roleGroupList(i);
+              const id = `role-${i}`;
+              return (
+                <div key={g.label} className="hairline-t border-line">
+                  <Slider
+                    layout="compact"
+                    label={g.label}
+                    description={summary(g.terms)}
+                    value={g.points}
+                    min={0}
+                    max={40}
+                    format={signed}
+                    changed={saved.role.groups[i]?.points !== g.points}
+                    onChange={(v) => setDraft(setGroupPoints(draft, i, v))}
+                    trailing={
+                      <ListToggle
+                        count={g.terms.length}
+                        noun="keyword"
+                        open={open === id}
+                        onToggle={() => toggle(id)}
+                      />
+                    }
+                  />
+                  {open === id && (
+                    <ListPanel>
+                      <Keywords list={list} rules={draft} onChange={setDraft} />
+                    </ListPanel>
+                  )}
+                </div>
+              );
+            })}
+          </Card>
+
+          <Card
+            id="rules-bonuses"
+            title="Bonuses"
+            description="Points added when a posting has the signal"
+          >
+            {weightsIn('bonus').map((w) => (
+              <WeightRow
+                key={w.id}
+                w={w}
+                draft={draft}
+                saved={saved}
+                onChange={setDraft}
+                open={open}
+                onToggle={toggle}
+              />
+            ))}
+          </Card>
+
+          <Card
+            id="rules-penalties"
+            title="Penalties"
+            description="Points taken away. Drag right for a bigger penalty."
+          >
+            {weightsIn('penalty').map((w) => (
+              <WeightRow
+                key={w.id}
+                w={w}
+                draft={draft}
+                saved={saved}
+                onChange={setDraft}
+                open={open}
+                onToggle={toggle}
+              />
+            ))}
+            <div className="hairline-t border-line">
+              <div className="grid grid-cols-[minmax(0,1fr)_13rem_44px_8.5rem] items-center gap-3.5 py-2">
+                <div className="min-w-0">
+                  <div className="truncate text-body font-medium">
+                    {listById('excludes')!.title}
+                  </div>
+                  <div className="truncate text-footnote text-fg-3">
+                    {listById('excludes')!.description}
+                  </div>
+                </div>
+                <span />
+                <span className="text-right text-body font-semibold text-red">Skip</span>
+                <div className="flex justify-end">
+                  <ListToggle
+                    count={listById('excludes')!.get(draft).length}
+                    noun={listById('excludes')!.noun}
+                    open={open === 'excludes'}
+                    onToggle={() => toggle('excludes')}
+                  />
+                </div>
+              </div>
+              {open === 'excludes' && (
+                <ListPanel>
+                  <Keywords list={listById('excludes')!} rules={draft} onChange={setDraft} />
+                </ListPanel>
+              )}
+            </div>
+          </Card>
         </div>
 
         <aside
@@ -358,6 +550,12 @@ export function RulesPage() {
                       {item.title}
                     </div>
                     <div className="truncate text-footnote text-fg-2">{item.org}</div>
+                    <div
+                      className="truncate text-caption text-fg-3"
+                      title={verdictReason(result, draft.thresholds.maybe)}
+                    >
+                      {verdictReason(result, draft.thresholds.maybe)}
+                    </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <VerdictBadge verdict={result.verdict} size="sm" />

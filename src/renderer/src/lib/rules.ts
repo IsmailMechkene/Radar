@@ -8,10 +8,16 @@ import {
 import type { Rules } from '../../../core/rules/schema';
 import type { PreviewItem } from '../../../core/rules/store';
 
+/** Where a weight is shown: the role match, a bonus, or a penalty (stored negative). */
+export type WeightSection = 'role' | 'bonus' | 'penalty';
+
 export interface WeightDef {
   id: string;
+  section: WeightSection;
   label: string;
   description: string;
+  /** The keyword list this weight applies to (shown and edited under it). */
+  list?: string;
   min: number;
   max: number;
   get: (r: Rules) => number;
@@ -24,6 +30,7 @@ const clone = (r: Rules): Rules => structuredClone(r);
 export const WEIGHTS: WeightDef[] = [
   {
     id: 'roles',
+    section: 'role',
     label: 'Your roles of interest',
     description: 'Title matches a role from Settings',
     min: 0,
@@ -33,6 +40,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'internship',
+    section: 'bonus',
     label: 'Internship',
     description: 'Intern, stage, Werkstudent, summer',
     min: 0,
@@ -45,6 +53,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'pfe',
+    section: 'bonus',
     label: 'PFE / end-of-studies',
     description: 'Projet de fin d’études, master thesis',
     min: 0,
@@ -57,6 +66,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'junior',
+    section: 'bonus',
     label: 'Junior role',
     description: 'Junior, graduate, entry level',
     min: 0,
@@ -69,6 +79,8 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'stack',
+    section: 'bonus',
+    list: 'stack',
     label: 'Stack match, each',
     description: 'Per stack keyword found (capped)',
     min: 0,
@@ -78,6 +90,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'region',
+    section: 'bonus',
     label: 'Target region',
     description: 'Location in a region from Settings',
     min: 0,
@@ -87,6 +100,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'visa',
+    section: 'bonus',
     label: 'Visa friendly',
     description: 'Sponsorship or relocation mentioned',
     min: 0,
@@ -96,8 +110,10 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'watchlist',
+    section: 'bonus',
+    list: 'watchlist',
     label: 'Watchlist company',
-    description: 'On your company list below',
+    description: 'Posting from a company on your list',
     min: 0,
     max: 20,
     get: (r) => r.watchlist.points,
@@ -105,6 +121,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'fresh',
+    section: 'bonus',
     label: 'Fresh posting',
     description: 'Seen in the last 14 days',
     min: 0,
@@ -114,6 +131,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'deadline',
+    section: 'bonus',
     label: 'Deadline far enough',
     description: 'More than 14 days to apply',
     min: 0,
@@ -123,6 +141,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'senior',
+    section: 'penalty',
     label: 'Senior wording',
     description: 'Senior, staff, lead, principal',
     min: -50,
@@ -135,6 +154,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'experience',
+    section: 'penalty',
     label: 'Years of experience',
     description: '5+ years required',
     min: -40,
@@ -147,6 +167,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'language',
+    section: 'penalty',
     label: 'Language barrier',
     description: 'Requires a language you don’t speak',
     min: -50,
@@ -159,6 +180,7 @@ export const WEIGHTS: WeightDef[] = [
   },
   {
     id: 'onsite',
+    section: 'penalty',
     label: 'On-site when you want remote',
     description: 'Only with a remote-only preference',
     min: -40,
@@ -172,6 +194,7 @@ export const signed = (v: number) => (v > 0 ? `+${v}` : String(v));
 
 export interface ListDef {
   id: string;
+  /** Section heading where the list stands alone (the excluded title words). */
   title: string;
   description: string;
   noun: string;
@@ -226,6 +249,9 @@ export const LISTS: ListDef[] = [
   },
 ];
 
+export const weightsIn = (section: WeightSection) => WEIGHTS.filter((w) => w.section === section);
+export const listById = (id: string) => LISTS.find((l) => l.id === id);
+
 /** Group points (each role group is a weight too). */
 export function setGroupPoints(r: Rules, index: number, v: number): Rules {
   const next = clone(r);
@@ -266,6 +292,22 @@ export function scorePreview(
     const result = scoreOpportunity(item, compiled, profile, now);
     return { item, result, delta: item.score === null ? null : result.score - item.score };
   });
+}
+
+/**
+ * One line under a preview row: why it got its verdict. A hard filter ("Not an internship") or the
+ * eligibility flag behind Needs review wins; a low score says so; otherwise the strongest signals.
+ */
+export function verdictReason(result: ScoreResult, maybeFrom: number): string {
+  if (result.verdict === 'skip') {
+    const filter = result.breakdown.signals.find((s) => s.id === 'filter');
+    if (filter) return filter.detail.split('; ')[0]!;
+    return `Under Maybe (${maybeFrom}) · ${result.breakdown.summary}`;
+  }
+  if (result.verdict === 'needs_review' && result.eligibilityNotes) {
+    return result.eligibilityNotes.split('\n')[0]!.split(':')[0]!.trim();
+  }
+  return result.breakdown.summary;
 }
 
 /** "Re-scored 377: 6 apply, 2 maybe, 0 needs review, 369 skip" */

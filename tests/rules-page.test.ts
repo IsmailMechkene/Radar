@@ -23,7 +23,9 @@ import {
   scorePreview,
   setGroupPoints,
   setThreshold,
+  verdictReason,
   WEIGHTS,
+  weightsIn,
 } from '../src/renderer/src/lib/rules';
 import { tempDb } from './helpers';
 
@@ -105,12 +107,31 @@ describe('stored rules', () => {
     const rows = scorePreview(items, defaults, profile, NOW);
     for (const r of rows) expect(r.result.score).toBe(r.item.score);
     expect(rows.every((r) => r.delta === 0)).toBe(true);
+    // Each row says why: a hard filter for a Skip, the strongest signals otherwise.
+    const senior = rows.find((r) => r.item.title === 'Senior Backend Engineer')!;
+    expect(senior.result.verdict).toBe('skip');
+    expect(verdictReason(senior.result, 40)).toMatch(/^(Excluded title word|Not an internship)/);
+    const ml = rows.find((r) => r.item.title === 'Machine Learning Intern')!;
+    expect(verdictReason(ml.result, 40)).toBe(ml.result.breakdown.summary);
     const harsher = scorePreview(items, setGroupPoints(defaults, 0, 0), profile, NOW);
     expect(harsher.find((r) => r.item.title === 'Machine Learning Intern')!.delta).toBeLessThan(0);
   });
 });
 
 describe('rules page edits', () => {
+  it('weights are grouped: role, bonuses, penalties (stored negative), lists attached', () => {
+    expect(weightsIn('role').map((w) => w.id)).toEqual(['roles']);
+    expect(weightsIn('penalty').every((w) => w.max === 0 && w.min < 0)).toBe(true);
+    expect(weightsIn('bonus').every((w) => w.min === 0)).toBe(true);
+    expect(WEIGHTS.filter((w) => w.list).map((w) => [w.id, w.list])).toEqual([
+      ['stack', 'stack'],
+      ['watchlist', 'watchlist'],
+    ]);
+    expect(weightsIn('role').length + weightsIn('bonus').length + weightsIn('penalty').length).toBe(
+      WEIGHTS.length,
+    );
+  });
+
   it('every weight reads and writes its own value without touching the saved rules', () => {
     for (const w of WEIGHTS) {
       const v = w.get(defaults);
