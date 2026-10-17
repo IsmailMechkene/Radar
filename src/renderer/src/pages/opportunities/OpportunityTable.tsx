@@ -1,5 +1,5 @@
 import { Radar, Star } from 'lucide-react';
-import { forwardRef, type ReactNode } from 'react';
+import { memo, useCallback, type ReactNode } from 'react';
 import type { OpportunityListItem } from '../../../../shared/ipc';
 import { Badge, VerdictBadge } from '../../../components/Badge';
 import { Checkbox } from '../../../components/Checkbox';
@@ -66,16 +66,33 @@ interface RowProps {
   checked: boolean;
   open: boolean;
   cursor: boolean;
-  onOpen: () => void;
-  onCheck: () => void;
-  onStar: () => void;
-  onFocusRow: () => void;
+  rowRef: (id: number, el: HTMLDivElement | null) => void;
+  onOpen: (id: number) => void;
+  onCheck: (id: number) => void;
+  onStar: (item: Item) => void;
+  onCursor: (id: number) => void;
 }
 
-const Row = forwardRef<HTMLDivElement, RowProps>(function Row(
-  { item, ctx, wide, checked, open, cursor, onOpen, onCheck, onStar, onFocusRow },
-  ref,
-) {
+// Memoized with callbacks that take the id: opening, checking or moving the cursor re-renders
+// only the rows whose state changed, not the whole list (which made the drawer stutter).
+const Row = memo(function Row({
+  item,
+  ctx,
+  wide,
+  checked,
+  open,
+  cursor,
+  rowRef,
+  onOpen: openId,
+  onCheck: checkId,
+  onStar: star,
+  onCursor,
+}: RowProps) {
+  const ref = useCallback((el: HTMLDivElement | null) => rowRef(item.id, el), [rowRef, item.id]);
+  const onOpen = () => openId(item.id);
+  const onCheck = () => checkId(item.id);
+  const onStar = () => star(item);
+  const onFocusRow = () => onCursor(item.id);
   const chip = deadlineChip(item, ctx);
   const SourceIcon = sourceIcon(item.source_access_method, item.opportunity_type);
   return (
@@ -159,6 +176,7 @@ interface TableProps {
   checked: ReadonlySet<number>;
   openId: number | null;
   cursorId: number | null;
+  /** These must be stable (useCallback) or every row re-renders. */
   rowRef: (id: number, el: HTMLDivElement | null) => void;
   onOpen: (id: number) => void;
   onCheck: (id: number) => void;
@@ -181,17 +199,17 @@ export function OpportunityTable(p: TableProps) {
       {p.items.map((item) => (
         <Row
           key={item.id}
-          ref={(el) => p.rowRef(item.id, el)}
           item={item}
           ctx={p.ctx}
           wide={p.wide}
           checked={p.checked.has(item.id)}
           open={p.openId === item.id}
           cursor={p.cursorId === item.id}
-          onOpen={() => p.onOpen(item.id)}
-          onCheck={() => p.onCheck(item.id)}
-          onStar={() => p.onStar(item)}
-          onFocusRow={() => p.onCursor(item.id)}
+          rowRef={p.rowRef}
+          onOpen={p.onOpen}
+          onCheck={p.onCheck}
+          onStar={p.onStar}
+          onCursor={p.onCursor}
         />
       ))}
       {p.items.length === 0 && p.empty}

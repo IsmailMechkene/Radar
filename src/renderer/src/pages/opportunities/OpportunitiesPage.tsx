@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { OptionMenu } from '../../../components/OptionMenu';
 import { Popover } from '../../../components/Popover';
 import { useToastLift } from '../../../components/Toast';
+import type { OpportunityListItem } from '../../../../shared/ipc';
 import { formatWeekday } from '../../lib/dates';
 import {
   applyFilters,
@@ -155,6 +156,17 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
     setOpenId(id);
     setCursorId(id);
   }, []);
+
+  const rowRef = useCallback((id: number, el: HTMLDivElement | null) => {
+    if (el) rows.current.set(id, el);
+    else rows.current.delete(id);
+  }, []);
+
+  const { setStarred } = api;
+  const starRow = useCallback(
+    (item: OpportunityListItem) => void setStarred([item.id], !item.starred),
+    [setStarred],
+  );
 
   const toggleCheck = useCallback((id: number) => {
     setChecked((c) => {
@@ -392,13 +404,10 @@ export function OpportunitiesPage({ query, isPackaged }: Props) {
             checked={checked}
             openId={openId}
             cursorId={cursorId}
-            rowRef={(id, el) => {
-              if (el) rows.current.set(id, el);
-              else rows.current.delete(id);
-            }}
+            rowRef={rowRef}
             onOpen={open}
             onCheck={toggleCheck}
-            onStar={(item) => void api.setStarred([item.id], !item.starred)}
+            onStar={starRow}
             onCursor={setCursorId}
             empty={empty}
           />

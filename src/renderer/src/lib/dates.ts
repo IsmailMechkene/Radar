@@ -3,8 +3,21 @@
 
 const DAY_MS = 86_400_000;
 
+// Building an Intl.DateTimeFormat is slow (a table row formats several dates), so each
+// locale + options combination is built once and reused.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function dtf(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let f = formatters.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, f);
+  }
+  return f;
+}
+
 function partsIn(date: Date, timeZone: string): { y: number; m: number; d: number } {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dtf('en-US', {
     timeZone,
     year: 'numeric',
     month: 'numeric',
@@ -23,14 +36,12 @@ export function calendarDaysBetween(from: Date, to: Date, timeZone: string): num
 
 /** "Nov 12" */
 export function formatShortDate(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-US', { timeZone, month: 'short', day: 'numeric' }).format(
-    new Date(iso),
-  );
+  return dtf('en-US', { timeZone, month: 'short', day: 'numeric' }).format(new Date(iso));
 }
 
 /** "Thu, Nov 12, 2026" */
 export function formatLongDate(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return dtf('en-US', {
     timeZone,
     weekday: 'short',
     month: 'short',
@@ -42,13 +53,13 @@ export function formatLongDate(iso: string, timeZone: string): string {
 /** "Mon, Nov 2 · 18:40" (24-hour clock). */
 export function formatVisit(iso: string, timeZone: string): string {
   const d = new Date(iso);
-  const day = new Intl.DateTimeFormat('en-US', {
+  const day = dtf('en-US', {
     timeZone,
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   }).format(d);
-  const time = new Intl.DateTimeFormat('en-GB', {
+  const time = dtf('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
@@ -59,7 +70,7 @@ export function formatVisit(iso: string, timeZone: string): string {
 
 /** "Monday" — the weekday of an instant, for "12 new since Monday". */
 export function formatWeekday(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'long' }).format(new Date(iso));
+  return dtf('en-US', { timeZone, weekday: 'long' }).format(new Date(iso));
 }
 
 /** Compact age for table cells: "now", "5h", "2d", "1w", "3mo". */

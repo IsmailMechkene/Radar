@@ -43,6 +43,9 @@ export function Drawer({ open, onClose, label, wide = true, children }: DrawerPr
       className={cn(
         'absolute top-(--toolbar-height) right-0 bottom-0 z-20 flex flex-col outline-none',
         'bg-surface hairline-l border-line shadow-drawer animate-drawer-in',
+        // The shadow only falls to the left: unclipped, its blur reached up into the toolbar and
+        // left a lighter box behind the native window controls (which are painted over it).
+        '[clip-path:inset(0_0_0_-64px)]',
         wide ? 'w-(--drawer-width)' : 'w-(--drawer-width-narrow)',
       )}
     >
