@@ -73,7 +73,8 @@ Every posting gets a score out of 100 and a verdict: **Apply** (65 or more), **M
 eligibility is unclear (work authorization, GPA). The detail drawer lists each signal and its points.
 Keywords, weights and thresholds can be edited on the **Rules** page, which re-scores a live preview of your own postings as you drag and re-scores everything when you save; **Reset to defaults** goes back to [seeds/rules.json](seeds/rules.json); your role, region
 and remote preferences come from Settings. Postings are re-scored at startup, after every scan and
-when a scoring setting changes. To re-score from the command line (it uses your edited rules too):
+when a scoring setting changes, in small batches in the background so the window stays responsive
+with tens of thousands of postings. To re-score from the command line (it uses your edited rules too):
 
 ```sh
 npm run rescore                                # re-score the app database
@@ -172,6 +173,18 @@ Radar and copy a backup over `radar.db` in the data folder.
 
 **Export JSON** saves every table in one file; **Export CSV** writes one CSV per table into a new
 folder (UTF-8, opens in Excel; cells that would run as spreadsheet formulas are neutralized).
+
+## Security and privacy
+
+- Nothing leaves your machine except requests to the sources you scan. Every request goes through
+  one client that sends a Radar User-Agent, checks robots.txt on each redirect hop, waits a second
+  between requests to the same host and stops reading a response after 10 MB.
+- The window is sandboxed with context isolation and a strict Content Security Policy; it cannot
+  navigate away, open other windows or request permissions (camera, location, notifications from
+  web content), and the main process only answers requests from Radar's own page.
+- Text from job boards is treated as untrusted: it is never rendered as HTML, and the text
+  processing (HTML to text, deadline parsing, page-change diffs, CSV import) runs in linear time
+  on hostile input.
 
 ## Build
 
