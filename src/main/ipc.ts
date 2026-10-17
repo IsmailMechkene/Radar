@@ -148,8 +148,8 @@ export interface IpcDeps {
   /** seeds/rules.json as loaded at startup (null when it could not be read). */
   defaultRules?: () => Rules | null;
   /** Reloads the rules in use and re-scores; returns the counts. */
-  rulesChanged?: () => RescoreResult | null;
-  rescoreNow?: () => RescoreResult | null;
+  rulesChanged?: () => Promise<RescoreResult | null>;
+  rescoreNow?: () => Promise<RescoreResult | null>;
   /** Native "save file" dialog; writes the text and resolves to the path, or null when cancelled. */
   saveTextFile?: (
     suggestedName: string,
@@ -489,17 +489,22 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     return { ...effectiveRules(db, d), defaults: d };
   });
 
-  handle(ipcMain, C.rulesSave, rulesSavePayloadSchema, ({ rules }) => {
+  handle(ipcMain, C.rulesSave, rulesSavePayloadSchema, async ({ rules }) => {
     saveUserRules(db, rules, now());
-    return deps.rulesChanged?.() ?? null;
+    return (await deps.rulesChanged?.()) ?? null;
   });
 
-  handle(ipcMain, C.rulesReset, rulesNoPayloadSchema, () => {
+  handle(ipcMain, C.rulesReset, rulesNoPayloadSchema, async () => {
     resetUserRules(db);
-    return deps.rulesChanged?.() ?? null;
+    return (await deps.rulesChanged?.()) ?? null;
   });
 
-  handle(ipcMain, C.rulesRescore, rulesNoPayloadSchema, () => deps.rescoreNow?.() ?? null);
+  handle(
+    ipcMain,
+    C.rulesRescore,
+    rulesNoPayloadSchema,
+    async () => (await deps.rescoreNow?.()) ?? null,
+  );
 
   handle(ipcMain, C.rulesPreview, rulesNoPayloadSchema, () => previewItems(db));
 

@@ -1,6 +1,9 @@
 // Performance review regressions: what crosses IPC stays small, and the expensive paths only
 // touch the rows they need.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CHUNK_SIZE } from '../src/core/chunks';
 import { migrate } from '../src/core/db/migrate';
 import {
   dismissOpportunities,
@@ -11,6 +14,12 @@ import {
 } from '../src/core/db/opportunities';
 import { insertSource } from '../src/core/db/sources';
 import { listDeadlines } from '../src/core/deadlines/list';
+import { extractDeadlines, extractDeadlinesAsync } from '../src/core/deadlines/postings';
+import { compileRules } from '../src/core/rules/engine';
+import { profileFromSettings } from '../src/core/rules/profile';
+import { rescoreAll, rescoreAllAsync } from '../src/core/rules/rescore';
+import { parseRules } from '../src/core/rules/schema';
+import { DEFAULT_SETTINGS } from '../src/core/settings/schema';
 import { tempDb } from './helpers';
 
 const NOW = new Date('2026-10-16T08:00:00.000Z');
@@ -120,5 +129,83 @@ describe('deadline queries', () => {
         to: new Date(NOW.getTime() + 16 * DAY),
       }),
     ).toEqual(['last week', 'soon starred']);
+  });
+});
+
+describe('chunked re-scoring and deadline reading', () => {
+  let t: ReturnType<typeof tempDb>;
+  const rules = compileRules(
+    parseRules(JSON.parse(readFileSync(join(__dirname, '..', 'seeds/rules.json'), 'utf8'))),
+  );
+  const profile = profileFromSettings(DEFAULT_SETTINGS);
+  const N = CHUNK_SIZE * 2 + 1; // three chunks, the last one a single row
+
+  beforeEach(() => {
+    t = tempDb();
+    migrate(t.db);
+    const src = insertSource(t.db, { kind: 'ashby', name: 'Board', access_method: 'api' }, NOW);
+    t.db.transaction(() => {
+      for (let i = 0; i < N; i++) {
+        upsertOpportunity(
+          t.db,
+          {
+            dedupe_key: `k${i}`,
+            source_id: src.id,
+            org: 'Acme',
+            title: i % 2 ? 'Software Engineering Intern' : 'Sales Manager',
+            location: 'Paris',
+            opportunity_type: i % 2 ? 'internship' : 'fulltime',
+            url: `https://acme.test/${i}`,
+            description:
+              i % 3
+                ? 'Apply by 30 November 2026.'
+                : 'Applications are reviewed on a rolling basis.',
+          },
+          NOW,
+        );
+      }
+    })();
+  });
+  afterEach(() => t.cleanup());
+
+  const snapshot = () =>
+    t.db
+      .prepare(
+        'SELECT id, score, verdict, deadline_at, deadline_status FROM opportunities ORDER BY id',
+      )
+      .all();
+
+  it('every row is covered, and the async pass matches the sync one', async () => {
+    const sync = { deadlines: extractDeadlines(t.db, 'Europe/Paris') };
+    const score = rescoreAll(t.db, rules, profile, NOW);
+    const after = snapshot();
+    expect(sync.deadlines.checked).toBe(N);
+    expect(score.scored).toBe(N);
+    expect(
+      t.db.prepare('SELECT COUNT(*) AS n FROM opportunities WHERE score IS NULL').get(),
+    ).toEqual({ n: 0 });
+
+    t.db.prepare('UPDATE opportunities SET score = NULL, verdict = NULL, deadline_at = NULL').run();
+    let pauses = 0;
+    const pause = async () => {
+      pauses += 1;
+    };
+    expect(await extractDeadlinesAsync(t.db, 'Europe/Paris', pause)).toEqual(sync.deadlines);
+    expect(await rescoreAllAsync(t.db, rules, profile, NOW, pause)).toEqual(score);
+    expect(pauses).toBe(6); // after each of the three chunks, for both passes
+    expect(snapshot()).toEqual(after);
+  });
+
+  it('the async pass gives other work a turn between chunks', async () => {
+    const order: string[] = [];
+    const pass = rescoreAllAsync(t.db, rules, profile, NOW, () =>
+      new Promise<void>((resolve) => setImmediate(resolve)).then(() => {
+        order.push('chunk');
+      }),
+    );
+    setImmediate(() => order.push('other'));
+    await pass;
+    expect(order.indexOf('other')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('other')).toBeLessThan(order.length - 1);
   });
 });

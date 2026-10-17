@@ -2,6 +2,7 @@
 // "until filled" are `rolling`; a low-confidence parse is `unknown` with its sentence kept and a
 // note. A posting never gets `expected` (that is only for programs, from last cycle).
 import type Database from 'better-sqlite3';
+import { drain, drainAsync, inChunks } from '../chunks';
 import { z } from 'zod';
 import { languageSchema, utcTimestampSchema } from '../db/schemas';
 import { parseDates, type ParsedDate } from './parse';
@@ -78,28 +79,46 @@ export interface DeadlineExtraction {
  * Deterministic: the same text and time zone always give the same result, so it is safe to run
  * after every scan and when the time zone changes.
  */
-export function extractDeadlines(db: Database.Database, timeZone: string): DeadlineExtraction {
-  const rows = db
-    .prepare(
-      `SELECT o.id, o.description, o.deadline_text, o.posted_at, o.first_seen_at, o.language
-         FROM opportunities o JOIN sources s ON s.id = o.source_id
-        WHERE s.kind <> 'sample' AND o.deadline_status <> 'closed'`,
-    )
-    .all()
-    .map((r) => rowSchema.parse(r));
+function extractChunks(db: Database.Database, timeZone: string, out: DeadlineExtraction) {
+  const load = db.prepare(
+    `SELECT o.id, o.description, o.deadline_text, o.posted_at, o.first_seen_at, o.language
+       FROM opportunities o JOIN sources s ON s.id = o.source_id
+      WHERE s.kind <> 'sample' AND o.deadline_status <> 'closed' AND o.id > ?
+      ORDER BY o.id LIMIT ?`,
+  );
   const update = db.prepare(
     `UPDATE opportunities SET deadline_at = ?, deadline_status = ?, deadline_text = ?,
        deadline_note = ? WHERE id = ?`,
   );
-  const out: DeadlineExtraction = { checked: rows.length, confirmed: 0, rolling: 0, doubtful: 0 };
-  db.transaction(() => {
-    for (const row of rows) {
-      const d = postingDeadline(row, timeZone);
-      update.run(d.deadline_at, d.status, d.sentence, d.note, row.id);
-      if (d.status === 'confirmed') out.confirmed += 1;
-      else if (d.status === 'rolling') out.rolling += 1;
-      else if (d.note) out.doubtful += 1;
-    }
-  })();
+  return inChunks(
+    db,
+    (after, limit) => load.all(after, limit).map((r) => rowSchema.parse(r)),
+    (rows) => {
+      for (const row of rows) {
+        const d = postingDeadline(row, timeZone);
+        update.run(d.deadline_at, d.status, d.sentence, d.note, row.id);
+        out.checked += 1;
+        if (d.status === 'confirmed') out.confirmed += 1;
+        else if (d.status === 'rolling') out.rolling += 1;
+        else if (d.note) out.doubtful += 1;
+      }
+    },
+  );
+}
+
+export function extractDeadlines(db: Database.Database, timeZone: string): DeadlineExtraction {
+  const out: DeadlineExtraction = { checked: 0, confirmed: 0, rolling: 0, doubtful: 0 };
+  drain(extractChunks(db, timeZone, out));
+  return out;
+}
+
+/** Same as extractDeadlines, giving the event loop a turn between chunks of postings (CHUNK_SIZE). */
+export async function extractDeadlinesAsync(
+  db: Database.Database,
+  timeZone: string,
+  pause: () => Promise<void>,
+): Promise<DeadlineExtraction> {
+  const out: DeadlineExtraction = { checked: 0, confirmed: 0, rolling: 0, doubtful: 0 };
+  await drainAsync(extractChunks(db, timeZone, out), pause);
   return out;
 }

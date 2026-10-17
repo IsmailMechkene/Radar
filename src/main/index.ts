@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
-import { extractDeadlines } from '../core/deadlines/postings';
+import { extractDeadlinesAsync } from '../core/deadlines/postings';
 import { createHttpClient } from '../core/http/client';
 import { parseSeedPrograms, syncSeedPrograms } from '../core/programs/seeds';
 import type { Notice } from '../core/reminders/store';
@@ -31,7 +31,7 @@ import type { RescoreResult } from '../core/rules/rescore';
 import type { Rules } from '../core/rules/schema';
 import { effectiveRules } from '../core/rules/store';
 import { profileFromSettings, SCORING_SETTING_KEYS } from '../core/rules/profile';
-import { rescoreAll } from '../core/rules/rescore';
+import { rescoreAllAsync } from '../core/rules/rescore';
 import { parseRules } from '../core/rules/schema';
 import { getAllSettings, getSetting, seedDefaultSettings } from '../core/settings/store';
 import { parseSeedSources } from '../core/sources/seeds';
@@ -224,15 +224,31 @@ function applyRules(database: Database.Database): void {
   console.log(`[radar] scoring with ${r.custom ? 'your edited rules' : 'the default rules'}`);
 }
 
+// Deadline reading and re-scoring run in chunks of postings with a turn of the event loop
+// between them, so a large database never freezes the window. They go through one queue: a scan
+// finishing while a setting changes cannot run two passes over the same rows at once.
+let jobs: Promise<unknown> = Promise.resolve();
+function queued<T>(job: () => Promise<T>): Promise<T> {
+  const next = jobs.then(job, job);
+  jobs = next.catch(() => undefined);
+  return next;
+}
+const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 /** Re-scores every stored (non-sample) opportunity with the current rules and settings. */
-function rescore(database: Database.Database, why: string): RescoreResult | null {
+function rescore(database: Database.Database, why: string): Promise<RescoreResult | null> {
+  return queued(() => rescoreJob(database, why));
+}
+
+async function rescoreJob(database: Database.Database, why: string): Promise<RescoreResult | null> {
   if (!compiledRules) return null;
   try {
-    const r = rescoreAll(
+    const r = await rescoreAllAsync(
       database,
       compiledRules,
       profileFromSettings(getAllSettings(database)),
       new Date(),
+      nextTurn,
     );
     const v = r.byVerdict;
     console.log(
@@ -246,12 +262,11 @@ function rescore(database: Database.Database, why: string): RescoreResult | null
 }
 
 /** Re-scoring triggered by data changes: logged, never fatal. */
-function rescoreQuietly(database: Database.Database, why: string): void {
-  try {
-    rescore(database, why);
-  } catch {
-    // already logged
-  }
+function rescoreQuietly(database: Database.Database, why: string): Promise<void> {
+  return rescore(database, why).then(
+    () => undefined,
+    () => undefined, // already logged
+  );
 }
 
 /** Loads seeds/sources.json into the database. A broken file is reported, never fatal. */
@@ -284,15 +299,17 @@ function syncPrograms(database: Database.Database): void {
 }
 
 /** Reads posting deadlines from their text (confirmed, rolling or unknown). */
-function refreshDeadlines(database: Database.Database, why: string): void {
-  try {
-    const r = extractDeadlines(database, getSetting(database, 'timezone'));
-    console.log(
-      `[radar] deadlines read (${why}): ${r.confirmed} confirmed, ${r.rolling} rolling, ${r.doubtful} to check, of ${r.checked}`,
-    );
-  } catch (err) {
-    console.error(`[radar] reading deadlines failed (${why}):`, err);
-  }
+function refreshDeadlines(database: Database.Database, why: string): Promise<void> {
+  return queued(async () => {
+    try {
+      const r = await extractDeadlinesAsync(database, getSetting(database, 'timezone'), nextTurn);
+      console.log(
+        `[radar] deadlines read (${why}): ${r.confirmed} confirmed, ${r.rolling} rolling, ${r.doubtful} to check, of ${r.checked}`,
+      );
+    } catch (err) {
+      console.error(`[radar] reading deadlines failed (${why}):`, err);
+    }
+  });
 }
 
 /** Native notification; clicking it brings the window forward. */
@@ -356,18 +373,19 @@ function start(): void {
     syncSeeds(database);
     syncPrograms(database);
     ensureDefaultTemplates(database, new Date());
-    refreshDeadlines(database, 'startup');
     defaultRules = loadDefaultRules();
     applyRules(database);
-    rescoreQuietly(database, 'startup');
+    // Queued, not awaited: the window opens while stored rows are refreshed.
+    void refreshDeadlines(database, 'startup');
+    void rescoreQuietly(database, 'startup');
     const http = createHttpClient();
     const scan = createScanService({
       db: database,
       http,
       onProgress: (p) => broadcast(IPC_EVENTS.scanProgress, p),
-      afterScan: () => {
-        refreshDeadlines(database, 'after scan');
-        rescoreQuietly(database, 'after scan');
+      afterScan: async () => {
+        await refreshDeadlines(database, 'after scan');
+        await rescoreQuietly(database, 'after scan');
       },
       onFinished: (summary) => broadcast(IPC_EVENTS.scanFinished, summary),
     });
@@ -415,10 +433,11 @@ function start(): void {
       readTextFile: (path) => readFileSync(path, 'utf8'),
       testSource: (source) => testFetch(source, http),
       defaultRules: () => defaultRules,
-      rulesChanged: () => {
-        applyRules(database);
-        return rescore(database, 'rules changed');
-      },
+      rulesChanged: () =>
+        queued(() => {
+          applyRules(database);
+          return rescoreJob(database, 'rules changed');
+        }),
       rescoreNow: () => rescore(database, 'Re-score everything'),
       checkProgramPage: async (programId) => {
         const row = database
@@ -479,10 +498,10 @@ function start(): void {
         if (key === 'timezone') {
           // Local calendar days moved: expected program dates and parsed deadlines follow.
           syncPrograms(database);
-          refreshDeadlines(database, 'setting timezone');
-          rescoreQuietly(database, 'setting timezone');
+          void refreshDeadlines(database, 'setting timezone');
+          void rescoreQuietly(database, 'setting timezone');
         } else if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
-          rescoreQuietly(database, `setting ${key}`);
+          void rescoreQuietly(database, `setting ${key}`);
         }
       },
     });
