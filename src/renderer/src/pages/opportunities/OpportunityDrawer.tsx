@@ -270,9 +270,9 @@ function SourcesCard({
       </div>
       {d.sources.map((s, i) => (
         <div key={s.url} className="flex h-10 items-center gap-2.5 hairline-t border-line">
-          <Icon icon={sourceIcon(s.access_method)} size={15} className="text-fg-3" />
-          <span className="text-body font-medium">{s.name}</span>
-          <span className="text-footnote text-fg-3">
+          <Icon icon={sourceIcon(s.access_method)} size={15} className="shrink-0 text-fg-3" />
+          <span className="min-w-0 truncate text-body font-medium">{s.name}</span>
+          <span className="shrink-0 text-footnote text-fg-3">
             {i === 0 ? 'First seen ' : ''}
             {formatShortDate(s.first_seen_at, ctx.timeZone)}
           </span>
@@ -280,7 +280,7 @@ function SourcesCard({
             type="button"
             aria-label={`Open on ${s.name}`}
             onClick={() => onOpenLink(s.url)}
-            className="focus-ring ml-auto grid size-7 place-items-center rounded-sm text-accent-text hover:bg-fill"
+            className="focus-ring ml-auto grid size-7 shrink-0 place-items-center rounded-sm text-accent-text hover:bg-fill"
           >
             <Icon icon={ExternalLink} size={14} />
           </button>
@@ -386,7 +386,7 @@ export function OpportunityDrawer({
                     .join(' · ')}
                 </div>
               </div>
-              <div className="ml-auto flex gap-1.5">
+              <div className="ml-auto flex shrink-0 gap-1.5">
                 <button
                   type="button"
                   aria-label={starred ? 'Unstar' : 'Star'}

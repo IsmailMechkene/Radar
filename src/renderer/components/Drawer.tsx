@@ -61,7 +61,7 @@ export function DrawerClose({ onClose }: { onClose: () => void }) {
       type="button"
       aria-label="Close"
       onClick={onClose}
-      className="focus-ring grid size-7 place-items-center rounded-full bg-fill text-fg-2 hover:bg-fill-2"
+      className="focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-fill text-fg-2 hover:bg-fill-2"
     >
       <Icon icon={X} size={15} />
     </button>
