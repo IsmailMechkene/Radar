@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { resolveTheme } from '../../shared/theme';
 import { App } from './App';
+import { LockWindow } from './lock/LockWindow';
 import { rememberedTheme } from './state/theme';
 import './index.css';
 
@@ -18,6 +19,10 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    {new URLSearchParams(window.location.search).get('window') === 'lock' ? (
+      <LockWindow />
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 );

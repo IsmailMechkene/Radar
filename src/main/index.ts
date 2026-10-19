@@ -40,6 +40,7 @@ import { parseSeedSources } from '../core/sources/seeds';
 import { syncSeedSources } from '../core/sources/sync';
 import { IPC_EVENTS, type WindowInfo } from '../shared/ipc';
 import {
+  LOCK_TITLEBAR_HEIGHT,
   TITLE_BAR_OVERLAY,
   TOOLBAR_HEIGHT,
   type ResolvedTheme,
@@ -48,7 +49,7 @@ import {
 import { registerIpcHandlers, registerShellHandlers } from './ipc';
 import { createVault, type Vault } from './vault';
 import { prepareEncryptedDatabase } from '../core/vault/encrypt';
-import { applyAutostart, createLifecycle } from './lifecycle';
+import { applyAutostart, createLifecycle, type WindowKind } from './lifecycle';
 import { createScanService, type ScanService } from './scan';
 import { createScheduler, type Scheduler } from './scheduler';
 import { checkPage, watchPages } from '../core/watch/pages';
@@ -84,6 +85,11 @@ const liveNotifications = new Set<Notification>();
 const lifecycle = createLifecycle({
   app,
   createWindow,
+  // The login window until unlocked and the recovery key is saved; then the app window.
+  windowKind: () => {
+    const s = vault?.status();
+    return s?.state === 'unlocked' && !s.recoveryKey ? 'app' : 'lock';
+  },
   lock: {
     available: () => vault?.isUnlocked() ?? false,
     run: () =>
@@ -95,7 +101,20 @@ function overlayColors() {
   return TITLE_BAR_OVERLAY[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 }
 
-function chromeOptions(): BrowserWindowConstructorOptions {
+/** Native window controls overlay height per window (the login window's header is shorter). */
+const overlayHeights = new WeakMap<BrowserWindow, number>();
+
+function chromeOptions(kind: WindowKind): BrowserWindowConstructorOptions {
+  if (kind === 'lock') {
+    // Its own top rows are the drag region; native buttons above the radar panel.
+    return process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 20, y: 18 } }
+      : {
+          titleBarStyle: 'hidden',
+          titleBarOverlay: { ...overlayColors(), height: LOCK_TITLEBAR_HEIGHT },
+          backgroundColor: overlayColors().color,
+        };
+  }
   if (process.platform === 'darwin') {
     // macOS: native traffic lights over a vibrant sidebar. Kept for later; untested on Windows.
     return {
@@ -124,16 +143,17 @@ function isAppUrl(url: string | undefined): boolean {
   return url.startsWith(pathToFileURL(join(__dirname, '../renderer/')).toString());
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(kind: WindowKind, onShown?: () => void): BrowserWindow {
+  const size: BrowserWindowConstructorOptions =
+    kind === 'lock'
+      ? { width: 1080, height: 680, minWidth: 900, minHeight: 600, center: true }
+      : { width: 1440, height: 900, minWidth: 1100, minHeight: 700 };
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1100,
-    minHeight: 700,
+    ...size,
     show: false,
     title: 'Radar',
     autoHideMenuBar: true,
-    ...chromeOptions(),
+    ...chromeOptions(kind),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -142,10 +162,13 @@ function createWindow(): BrowserWindow {
     },
   });
 
-  // Opens maximized (full work area), not at a fixed size.
+  overlayHeights.set(win, kind === 'lock' ? LOCK_TITLEBAR_HEIGHT : OVERLAY_HEIGHT);
+  // The app opens maximized (full work area), not at a fixed size; the login window centred.
   win.once('ready-to-show', () => {
-    win.maximize();
+    if (kind === 'app') win.maximize();
     win.show();
+    win.focus();
+    onShown?.();
   });
   // Links never open inside the app: new windows are denied and off-app navigation is blocked.
   // External links go through window.radar.app.openExternal (http/https only).
@@ -156,13 +179,15 @@ function createWindow(): BrowserWindow {
   // No <webview> may be attached (the app never uses one).
   win.webContents.on('will-attach-webview', (event) => event.preventDefault());
   win.on('close', (event) => lifecycle.handleWindowClose(win, event));
-  win.on('closed', () => lifecycle.handleWindowClosed());
+  win.on('closed', () => lifecycle.handleWindowClosed(win));
 
+  // Same page for both; ?window=lock renders only the login screens.
+  const search = kind === 'lock' ? 'window=lock' : '';
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
   if (!app.isPackaged && devUrl) {
-    void win.loadURL(devUrl);
+    void win.loadURL(search ? `${devUrl}?${search}` : devUrl);
   } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'));
+    void win.loadFile(join(__dirname, '../renderer/index.html'), { search });
   }
   return win;
 }
@@ -176,7 +201,7 @@ function syncNativeChrome(theme: ResolvedTheme): void {
   if (process.platform === 'darwin') return;
   const colors = TITLE_BAR_OVERLAY[theme];
   for (const win of BrowserWindow.getAllWindows()) {
-    win.setTitleBarOverlay({ ...colors, height: OVERLAY_HEIGHT });
+    win.setTitleBarOverlay({ ...colors, height: overlayHeights.get(win) ?? OVERLAY_HEIGHT });
     if (material !== 'mica') win.setBackgroundColor(colors.color);
   }
 }
@@ -628,6 +653,7 @@ function startShell(): void {
     onChange: (status) => {
       refreshTray();
       broadcast(IPC_EVENTS.authChanged, status);
+      lifecycle.syncWindowKind();
     },
   });
   vault = v;

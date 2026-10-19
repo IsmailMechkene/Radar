@@ -26,3 +26,6 @@ export const TITLE_BAR_OVERLAY: Record<ResolvedTheme, { color: string; symbolCol
 
 /** Toolbar height in px (design: 52). The native controls overlay is 1 px shorter. */
 export const TOOLBAR_HEIGHT = 52;
+
+/** The login window's native controls overlay height in px (--lock-titlebar-height). */
+export const LOCK_TITLEBAR_HEIGHT = 40;

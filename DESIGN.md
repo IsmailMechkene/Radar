@@ -301,29 +301,59 @@ Your rules are stored in the database (seeds/rules.json stays the default and sh
 
 ### Lock screens
 
-Not in the design; built only from existing tokens and components (`src/renderer/src/lock/`). Radar
-starts locked, and the whole app (providers included) is mounted only once unlocked, so locking
-unmounts every page.
+Not in the design; built only from existing tokens and components (`src/renderer/src/lock/`).
 
-1. **Frame:** the window background, a 52 px drag strip where the toolbar would be, and one centred
-   360 px card (`surface`, radius 14, hairline, `card` shadow, 24 px padding): 52 px `BrandMark`,
-   `title-3` heading, 12 px secondary text, then 14 px gaps between fields (`footnote` 600 labels,
-   `md` `TextInput`s), a full-width `lg` primary button and a `plain` link button.
-2. **Set a password** (first run): password twice; the problem shows inline in red once the second
-   field is typed (at least 8 characters, at most 72 bytes, both equal). With an existing
-   unencrypted database the text says it will be encrypted and the button reads "Encrypting your
-   data…" while it runs.
-3. **Save your recovery key:** the key in mono on a `fill` block, two lines of four groups;
+**Login window.** While locked, Radar shows a login window of its own instead of the app window:
+1080 × 680, centred, resizable down to 900 × 600, on `--bg`. Unlocking (once the recovery key is
+saved) replaces it with the app window, maximized; Lock replaces the app window with a new login
+window. The new window appears before the old one closes, so there is no gap. Locking from the tray
+while the window is hidden just closes it; **Open** then shows the login window. The app window
+mounts the app (providers included) only while unlocked, so locking unmounts every page.
+
+Layout (a split page, after a reference the user chose; colors, type and components are Radar's):
+
+1. **Left column:** a 52 px top row that drags the window, with `BrandMark sm` and "Radar"
+   (`callout` 600, `brand` tracking) on the left (moved right of the traffic lights on macOS,
+   `.lock-brand`), and a `footnote` tertiary line on the right: "Step 1 of 2" / "Step 2 of 2" during
+   setup, "Forgot your password? **Use recovery key**" when locked, "Remember it? **Use password**"
+   on the recovery form (the action is a small `plain` button). Below, the screen in a
+   `--lock-form-width` 320 px column centred in the remaining space: left-aligned `title-2` heading,
+   13 px secondary text, 14 px gaps between fields (`footnote` 600 labels, `md` `TextInput`s), a
+   full-width `lg` primary button.
+2. **Right panel** (`LockPanel`): `--lock-panel-width` 46 %, inset 12 px from the window edges and
+   starting below the 40 px native controls row, radius 16, `surface-2` with a hairline border.
+   - **Tip** at the top: "DID YOU KNOW?" (`caption-2` 600 caps, tertiary), the tip itself as a
+     centred `title-3` 600 headline (fades in when it changes), and a small `plain` **Next tip ›**
+     button. Tips rotate every 9 s and pause while the pointer or focus is on them; each one
+     describes something Radar really does (`LOGIN_TIPS`).
+   - **Icon** low in the panel: Radar's icon as three stacked tiles seen at an isometric angle
+     (CSS 3D: `rotate-x-55 rotate-z-45`, layers 12 px apart): two frosted `glass` tiles and the brand
+     gradient tile with the ring and dot on top, corners `--radius-icon` (22.5 %, the macOS icon
+     grid), and a soft contact shadow below.
+   - **Glow** along the bottom edge (`login-glow`): Apple's system blue, purple, pink and orange in
+     a conic gradient (`--glow-*`, the cycle twice so the visible arc holds all four), masked to a
+     band so the colors never meet in a muddy middle, then blurred (`--blur-glow` 40 px,
+     `saturate-150`) at `--glow-opacity` (1 light, 0.8 dark). It is a circle `--glow-size` 140 % of
+     the panel wide, sunk `--glow-bottom` below it, so only its top arc shows, and it turns once
+     every 24 s (`motion-safe` only), so the colors drift. Decoration only.
+
+Screens:
+
+1. **Set up Radar** (first run, the "register" step): password twice; the problem shows inline in
+   red once the second field is typed (at least 8 characters, at most 72 bytes, both equal). With an
+   existing unencrypted database the text says it will be encrypted and the button reads "Encrypting
+   your data…" while it runs.
+2. **Save your recovery key:** the key in mono on a `fill` block, two lines of four groups;
    **Copy recovery key** (secondary, shows "Copied"); a `Checkbox` "I saved my recovery key"; Continue
    stays disabled until it is checked. Shown once; a key never confirmed is replaced at the next
    unlock.
-4. **Radar is locked:** password, Unlock, **Forgot password?** which switches to **Use your recovery
-   key** (recovery key in mono, new password twice, "Unlock and set password", Back to password).
-5. **Radar can't open your data:** the reason (damaged keys.json, or an encrypted database without
+3. **Welcome back** (locked, the "log in" step): password and Unlock; the top-right link opens
+   **Use your recovery key** (recovery key in mono, new password twice, "Unlock and set password").
+4. **Radar can't open your data:** the reason (damaged keys.json, or an encrypted database without
    it). No buttons: nothing here may overwrite the data.
 
 Errors ("Wrong password") show under the field in red with the triangle icon; the field turns
-invalid. The lock screens use the theme last applied in this window (remembered in local storage,
+invalid. The login window uses the theme last applied in the app (remembered in local storage,
 since settings are unreadable while locked). **Lock Radar** is a toolbar icon button (Lucide `lock`)
 after the theme button; the tray menu has **Lock** while unlocked.
 
@@ -352,8 +382,6 @@ after the theme button; the tray menu has **Lock** while unlocked.
 | Linux                            | Same overlay as Windows                                                                         | None                                                                                              | Untested                                          |
 
 The overlay colors update when the theme changes (`nativeTheme.themeSource` + `setTitleBarOverlay`).
-The material choice is a pure function (`src/main/window-material.ts`), exposed to the page as
-`<html data-material>` through `window.radar.app.getWindowInfo()`.
 
 ## 9. Checking against the design
 
@@ -412,4 +440,4 @@ The throwaway profile is set up with a random password and unlocked automaticall
 | Single-row x and s                                                                         | Toast only                                                                   | Apply immediately with a toast; Dismiss offers Undo                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Same as the design, plus Undo                                                                                           |
 | Space on a row                                                                             | Not in the design                                                            | Checks or unchecks the cursor row                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Keyboard-only multi-select                                                                                              |
 | "of 100" caption                                                                           | 10 px                                                                        | 10.5 px (`micro`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Nearest type token                                                                                                      |
-| Lock screens, toolbar Lock button                                                          | Not in the design                                                            | Set a password, Save your recovery key, Radar is locked / Use your recovery key, and an error card (see "Lock screens"); a padlock button at the right of the toolbar                                                                                                                                                                                                                                                                                                                                | The database is encrypted and opening it needs the password; built from existing tokens and components                  |
+| Lock screens, toolbar Lock button                                                          | Not in the design                                                            | A split login window (form on the left; on the right a panel with a rotating tip, Radar's icon as stacked glass tiles and a multicolor glow) for Set up Radar, Save your recovery key, Welcome back / Use your recovery key and an error screen (see "Lock screens"); a padlock button at the right of the toolbar                                                                                                                                                                                   | The database is encrypted and opening it needs the password; built from existing tokens and components                  |

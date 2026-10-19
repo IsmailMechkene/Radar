@@ -8,29 +8,69 @@ import { Checkbox } from '../../components/Checkbox';
 import { Icon } from '../../components/Icon';
 import { TextInput } from '../../components/Input';
 import { cleanIpcError } from '../lib/settings-helpers';
+import { LockPanel } from './LockPanel';
 
-/** Full window: a drag strip where the toolbar would be, and one centred card. */
-function LockFrame({ children }: { children: ReactNode }) {
+/**
+ * The login window: on the left the brand, a link on the right of the same row (the other way in),
+ * and the screen centred in a narrow column; on the right the radar panel. The top rows drag the
+ * window; the native buttons sit above the panel.
+ */
+function LockFrame({ children, topRight }: { children: ReactNode; topRight?: ReactNode }) {
   return (
-    <div className="flex h-full w-full flex-col bg-bg">
-      <div className="app-drag h-(--toolbar-height) shrink-0" />
-      <main className="grid min-h-0 flex-1 place-items-center overflow-y-auto px-8 pb-12">
-        <div className="w-90 rounded-2xl bg-surface p-6 hairline border-line shadow-card">
-          {children}
-        </div>
-      </main>
+    <div className="flex h-full w-full bg-bg">
+      <section className="flex min-w-0 flex-1 flex-col">
+        <header className="lock-brand app-drag flex h-(--toolbar-height) shrink-0 items-center justify-between gap-4 px-6">
+          <div className="flex items-center gap-2">
+            <BrandMark size="sm" />
+            <span className="text-callout font-semibold tracking-brand">Radar</span>
+          </div>
+          {topRight && (
+            <div className="app-no-drag flex items-center gap-1 text-footnote text-fg-3">
+              {topRight}
+            </div>
+          )}
+        </header>
+        <main className="flex min-h-0 flex-1 overflow-y-auto px-10">
+          {/* m-auto centres the column and still scrolls from the top when it is taller. */}
+          <div className="m-auto w-full max-w-(--lock-form-width) py-8">{children}</div>
+        </main>
+      </section>
+      <LockPanel />
     </div>
   );
 }
 
 function Heading({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-col items-center text-center">
-      <BrandMark size="lg" />
-      <h1 className="mt-3 text-title-3 font-semibold tracking-title-3">{title}</h1>
-      {children && <p className="mt-1.5 text-footnote leading-normal text-fg-2">{children}</p>}
+    <div className="mb-6">
+      <h1 className="text-title-2 font-semibold tracking-title-2">{title}</h1>
+      {children && <p className="mt-2 text-body leading-normal text-fg-2">{children}</p>}
     </div>
   );
+}
+
+/** Top-right link: a plain question, then the action. */
+function TopLink({
+  question,
+  action,
+  onClick,
+}: {
+  question: string;
+  action: string;
+  onClick: () => void;
+}) {
+  return (
+    <>
+      <span>{question}</span>
+      <Button variant="plain" size="sm" onClick={onClick} className="px-1">
+        {action}
+      </Button>
+    </>
+  );
+}
+
+function Step({ n }: { n: number }) {
+  return <span className="tabular-nums">Step {n} of 2</span>;
 }
 
 function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
@@ -146,10 +186,11 @@ export function SetupScreen({
   };
 
   return (
-    <LockFrame>
-      <Heading title="Set a password">
-        Radar encrypts everything it stores on this computer. You type this password to open it.
-        {hasPlainData && ' Your existing data will be encrypted with it.'}
+    <LockFrame topRight={<Step n={1} />}>
+      <Heading title="Set up Radar">
+        Choose a password. Radar encrypts everything it stores on this computer with it, and asks
+        for it each time it opens.
+        {hasPlainData && ' Your existing data will be encrypted too.'}
       </Heading>
       <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
         <NewPasswordFields
@@ -189,7 +230,7 @@ export function RecoveryKeyScreen({
   };
 
   return (
-    <LockFrame>
+    <LockFrame topRight={<Step n={2} />}>
       <Heading title="Save your recovery key">
         If you forget your password, this key is the only way to open your data. Radar shows it
         once. Keep it somewhere safe, away from this computer.
@@ -262,8 +303,14 @@ function PasswordUnlock({
   };
 
   return (
-    <LockFrame>
-      <Heading title="Radar is locked">Enter your password to open your data.</Heading>
+    <LockFrame
+      topRight={
+        <TopLink question="Forgot your password?" action="Use recovery key" onClick={onForgot} />
+      }
+    >
+      <Heading title="Welcome back">
+        Radar is locked. Enter your password to open your data.
+      </Heading>
       <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
         <Field label="Password">
           {(id) => (
@@ -287,9 +334,6 @@ function PasswordUnlock({
           className="mt-1 w-full"
         >
           {busy ? 'Unlocking…' : 'Unlock'}
-        </Button>
-        <Button variant="plain" onClick={onForgot} className="self-center">
-          Forgot password?
         </Button>
       </form>
     </LockFrame>
@@ -317,7 +361,9 @@ function RecoveryUnlock({
   };
 
   return (
-    <LockFrame>
+    <LockFrame
+      topRight={<TopLink question="Remember it?" action="Use password" onClick={onBack} />}
+    >
       <Heading title="Use your recovery key">
         The key you saved when you set your password opens your data. Then choose a new password.
       </Heading>
@@ -347,9 +393,6 @@ function RecoveryUnlock({
         <ErrorLine message={error} />
         <Button type="submit" variant="primary" size="lg" disabled={busy} className="mt-1 w-full">
           {busy ? 'Unlocking…' : 'Unlock and set password'}
-        </Button>
-        <Button variant="plain" onClick={onBack} className="self-center">
-          Back to password
         </Button>
       </form>
     </LockFrame>

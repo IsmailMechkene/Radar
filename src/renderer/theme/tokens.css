@@ -46,6 +46,7 @@
   --win:
     0 0 0 0.5px rgba(0, 0, 0, 0.22), 0 24px 80px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.06);
   --dim: rgba(0, 0, 0, 0.16);
+  --glow-opacity: 1;
   --wall: #d7dce4;
   --ctl: #ffffff;
   --track: rgba(120, 120, 128, 0.18);
@@ -91,6 +92,7 @@
     0 0 0 0.5px rgba(0, 0, 0, 0.8), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1),
     0 24px 80px rgba(0, 0, 0, 0.45);
   --dim: rgba(0, 0, 0, 0.42);
+  --glow-opacity: 0.8;
   --wall: #26292f;
   --ctl: #636366;
   --track: rgba(120, 120, 128, 0.34);
@@ -105,6 +107,11 @@
   --knob: #ffffff;
   --brand-from: #2d9bff;
   --brand-to: #0a6cdb;
+  /* Login panel glow (Apple system blue, purple, pink, orange). */
+  --glow-blue: #0a84ff;
+  --glow-purple: #bf5af2;
+  --glow-pink: #ff375f;
+  --glow-orange: #ff9f0a;
   --brand-ring: rgba(255, 255, 255, 0.9);
   /* Settings icon tiles (design Settings screen). */
   --tile-red: #ff3b30;
@@ -134,6 +141,13 @@
 
   --sidebar-width: 240px;
   --toolbar-height: 52px;
+  --lock-titlebar-height: 40px;
+  --lock-form-width: 320px;
+  --lock-panel-width: 46%;
+  --blur-glow: 40px;
+  /* The glow is a circle this wide (of the panel), centred below the panel's bottom edge. */
+  --glow-size: 140%;
+  --glow-bottom: -80%;
   --drawer-width: 520px;
   --drawer-width-narrow: 440px;
   --content-max-settings: 680px;
@@ -254,6 +268,8 @@
   --radius-xl: 12px;
   --radius-2xl: 14px;
   --radius-3xl: 16px;
+  /* App icon corner (macOS icon grid: about 22.5 % of the side). */
+  --radius-icon: 22.5%;
   --radius-full: 9999px;
 
   --ease-out: ease-out;
@@ -273,6 +289,8 @@
   --animate-drawer-in: drawer-in 300ms var(--ease-drawer) both;
   --animate-fade-in: fade-in 200ms ease-out both;
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  /* Login panel: the glow turns slowly, so its colors drift along the bottom edge. */
+  --animate-glow-drift: glow-drift 24s linear infinite;
 
   @keyframes toast-in {
     from {
@@ -294,6 +312,11 @@
   @keyframes fade-in {
     from {
       opacity: 0;
+    }
+  }
+  @keyframes glow-drift {
+    to {
+      transform: rotate(1turn);
     }
   }
   @keyframes shimmer {
@@ -380,6 +403,11 @@
   display: none;
 }
 
+/* Login window: on macOS the brand moves right of the traffic lights. */
+:root[data-platform='darwin'] .lock-brand {
+  padding-left: calc(var(--spacing) * 16);
+}
+
 /* Scan status dot halo: 22% of the dot color (design `scanDot`). */
 .scan-dot {
   box-shadow: 0 0 0 var(--ring-dot) color-mix(in srgb, currentColor 22%, transparent);
@@ -389,6 +417,30 @@
 /* Collapsed long text fades out at the bottom (drawer description). */
 @utility mask-fade-bottom {
   mask-image: linear-gradient(180deg, black 40%, transparent);
+}
+
+/* Login panel: a soft multicolor light rising from the bottom edge. */
+@utility login-glow {
+  /* The cycle twice, so the top half (the only part in view) holds every color. */
+  background: conic-gradient(
+    var(--glow-blue),
+    var(--glow-purple),
+    var(--glow-pink),
+    var(--glow-orange),
+    var(--glow-blue),
+    var(--glow-purple),
+    var(--glow-pink),
+    var(--glow-orange),
+    var(--glow-blue)
+  );
+  /* A band, not a disc: where the colors meet in the middle they turn muddy. The parent blurs it. */
+  mask-image: radial-gradient(
+    closest-side,
+    transparent 38%,
+    black 62%,
+    black 90%,
+    transparent 100%
+  );
 }
 
 /* Two-line clamp (strip card titles). */

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyAutostart, createLifecycle } from '../src/main/lifecycle';
+import { applyAutostart, createLifecycle, type WindowKind } from '../src/main/lifecycle';
 
 function fakeWindow() {
   return {
@@ -8,6 +8,8 @@ function fakeWindow() {
     focus: vi.fn<() => void>(),
     restore: vi.fn<() => void>(),
     isMinimized: vi.fn<() => boolean>(() => false),
+    isVisible: vi.fn<() => boolean>(() => true),
+    destroy: vi.fn<() => void>(),
   };
 }
 
@@ -80,6 +82,57 @@ describe('lifecycle', () => {
     lifecycle.handleWindowClosed();
     click(lifecycle, 'Open');
     expect(createWindow).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('login window and app window', () => {
+  function swapSetup() {
+    let kind: WindowKind = 'lock';
+    const created: { kind: WindowKind; win: ReturnType<typeof fakeWindow>; shown?: () => void }[] =
+      [];
+    const lifecycle = createLifecycle({
+      app: { quit: vi.fn() },
+      createWindow: (k, onShown) => {
+        const win = fakeWindow();
+        created.push({ kind: k, win, shown: onShown });
+        return win;
+      },
+      windowKind: () => kind,
+    });
+    return { lifecycle, created, setKind: (k: WindowKind) => (kind = k) };
+  }
+
+  it('opens the login window while locked, and swaps once the new window is on screen', () => {
+    const { lifecycle, created, setKind } = swapSetup();
+    lifecycle.showWindow();
+    expect(created.map((c) => c.kind)).toEqual(['lock']);
+
+    setKind('app'); // unlocked
+    lifecycle.syncWindowKind();
+    expect(created.map((c) => c.kind)).toEqual(['lock', 'app']);
+    expect(created[0]!.win.destroy).not.toHaveBeenCalled(); // no gap while the app loads
+    created[1]!.shown?.();
+    expect(created[0]!.win.destroy).toHaveBeenCalledOnce();
+    // The login window closing does not forget the app window.
+    lifecycle.handleWindowClosed(created[0]!.win);
+    expect(lifecycle.current()).toEqual({ window: created[1]!.win, kind: 'app' });
+
+    lifecycle.syncWindowKind(); // same kind: nothing
+    expect(created).toHaveLength(2);
+  });
+
+  it('a window hidden in the tray is closed, and the right one opens on Open', () => {
+    const { lifecycle, created, setKind } = swapSetup();
+    setKind('app');
+    lifecycle.showWindow();
+    created[0]!.win.isVisible.mockReturnValue(false);
+    setKind('lock'); // locked from the tray
+    lifecycle.syncWindowKind();
+    expect(created[0]!.win.destroy).toHaveBeenCalledOnce();
+    expect(created).toHaveLength(1);
+    expect(lifecycle.current()).toBeNull();
+    lifecycle.showWindow();
+    expect(created.map((c) => c.kind)).toEqual(['app', 'lock']);
   });
 });
 

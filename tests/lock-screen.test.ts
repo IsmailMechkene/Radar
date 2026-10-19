@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lockView } from '../src/renderer/src/lib/lock';
+import { LOGIN_TIPS, lockView, nextTip } from '../src/renderer/src/lib/lock';
 import { newPasswordProblem, passwordProblem } from '../src/shared/password';
 
 describe('lock screen', () => {
@@ -19,5 +19,12 @@ describe('lock screen', () => {
     // 72 bytes is the limit, not 72 characters.
     expect(passwordProblem('a'.repeat(72))).toBeNull();
     expect(passwordProblem('ü'.repeat(37))).toMatch(/at most 72 bytes/);
+  });
+
+  it('cycles through the login tips', () => {
+    expect(LOGIN_TIPS.length).toBeGreaterThan(3);
+    expect(nextTip(0)).toBe(1);
+    expect(nextTip(LOGIN_TIPS.length - 1)).toBe(0);
+    expect(nextTip(3, 0)).toBe(0);
   });
 });

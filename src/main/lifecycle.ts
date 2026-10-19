@@ -6,7 +6,12 @@ export interface WindowLike {
   focus(): void;
   restore(): void;
   isMinimized(): boolean;
+  isVisible(): boolean;
+  destroy(): void;
 }
+
+/** The small login window while locked; the full app window once unlocked. */
+export type WindowKind = 'lock' | 'app';
 
 export interface CloseEventLike {
   preventDefault(): void;
@@ -20,7 +25,10 @@ export interface TrayMenuItem {
 
 export interface LifecycleDeps<W extends WindowLike> {
   app: { quit(): void };
-  createWindow: () => W;
+  /** `onShown` runs once the new window is on screen (used to close the one it replaces). */
+  createWindow: (kind: WindowKind, onShown?: () => void) => W;
+  /** Which window the app should show now; default 'app'. */
+  windowKind?: () => WindowKind;
   /** Tray "Lock", shown while Radar is unlocked. */
   lock?: { available: () => boolean; run: () => void };
 }
@@ -28,10 +36,34 @@ export interface LifecycleDeps<W extends WindowLike> {
 export function createLifecycle<W extends WindowLike>(deps: LifecycleDeps<W>) {
   let quitting = false;
   let window: W | null = null;
+  let kind: WindowKind = 'app';
+  const wanted = () => deps.windowKind?.() ?? 'app';
+
+  /**
+   * After a lock or unlock: swaps to the window the state calls for. A visible window is replaced
+   * once the new one is on screen (no gap); a hidden one (in the tray) is just closed, and the
+   * right one is created when the user opens Radar again.
+   */
+  function syncWindowKind(): void {
+    if (!window || kind === wanted()) return;
+    const old = window;
+    window = null;
+    if (!old.isVisible()) {
+      old.destroy();
+      return;
+    }
+    kind = wanted();
+    window = deps.createWindow(kind, () => old.destroy());
+  }
 
   function showWindow(): W {
+    if (window && kind !== wanted()) {
+      window.destroy();
+      window = null;
+    }
     if (!window) {
-      window = deps.createWindow();
+      kind = wanted();
+      window = deps.createWindow(kind);
       return window;
     }
     if (window.isMinimized()) window.restore();
@@ -47,6 +79,9 @@ export function createLifecycle<W extends WindowLike>(deps: LifecycleDeps<W>) {
 
   return {
     showWindow,
+    syncWindowKind,
+    /** The window shown now, and what it is. */
+    current: () => (window ? { window, kind } : null),
     quit,
     isQuitting: () => quitting,
     /** Wire to the window's 'close' event: hide to tray unless the app is quitting. */
@@ -55,9 +90,9 @@ export function createLifecycle<W extends WindowLike>(deps: LifecycleDeps<W>) {
       event.preventDefault();
       win.hide();
     },
-    /** Wire to the window's 'closed' event. */
-    handleWindowClosed(): void {
-      window = null;
+    /** Wire to the window's 'closed' event (a replaced window closing does not count). */
+    handleWindowClosed(win?: WindowLike): void {
+      if (!win || win === window) window = null;
     },
     /** Wire to app 'before-quit' (OS shutdown, installer, etc.) so windows are allowed to close. */
     handleBeforeQuit(): void {

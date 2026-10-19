@@ -3,7 +3,13 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, settingsSchema } from '../src/core/settings/schema';
 import { chooseWindowMaterial } from '../src/main/window-material';
-import { resolveTheme, TITLE_BAR_OVERLAY, toggledTheme } from '../src/shared/theme';
+import {
+  LOCK_TITLEBAR_HEIGHT,
+  resolveTheme,
+  TITLE_BAR_OVERLAY,
+  toggledTheme,
+  TOOLBAR_HEIGHT,
+} from '../src/shared/theme';
 
 describe('theme resolution', () => {
   it('follows the OS when the preference is system', () => {
@@ -42,6 +48,16 @@ describe('native title bar colors stay in sync with tokens.css', () => {
   ] as const)('%s', (theme, scope) => {
     expect(TITLE_BAR_OVERLAY[theme].color.toLowerCase()).toBe(token(scope, '--bg'));
     expect(TITLE_BAR_OVERLAY[theme].symbolColor.toLowerCase()).toBe(token(scope, '--tx2'));
+  });
+});
+
+describe('window sizes stay in sync with tokens.css', () => {
+  const css = readFileSync(join(__dirname, '../src/renderer/theme/tokens.css'), 'utf8');
+  const px = (name: string) => Number(new RegExp(`${name}:\\s*(\\d+)px`).exec(css)?.[1]);
+
+  it('toolbar and login window', () => {
+    expect(px('--toolbar-height')).toBe(TOOLBAR_HEIGHT);
+    expect(px('--lock-titlebar-height')).toBe(LOCK_TITLEBAR_HEIGHT);
   });
 });
 

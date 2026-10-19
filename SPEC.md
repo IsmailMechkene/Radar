@@ -33,7 +33,7 @@ TypeScript end to end, one language, one process tree.
 | Packaging | electron-builder (NSIS/dmg/AppImage), GitHub release optional |
 
 Process layout:
-- `main` (Electron main): owns DB, scheduler, alerts, tray. Keeps running when the window is closed (minimize to tray). Starts in two parts: the shell (window, tray, lock screen IPC) and, after unlock, everything that needs the database. Lock (toolbar or tray) stops the scheduler and scans, removes the data IPC handlers, closes the database and wipes the key from memory.
+- `main` (Electron main): owns DB, scheduler, alerts, tray. Keeps running when the window is closed (minimize to tray). Starts in two parts: the shell (a small login window, tray, lock IPC) and, after unlock, the app window and everything that needs the database. Lock (toolbar or tray) stops the scheduler and scans, removes the data IPC handlers, closes the database and wipes the key from memory.
 - `renderer` (React): talks to main over typed IPC only. No direct DB access.
 - `core/` (pure TS, no Electron imports): adapters, rules, deadline engine, dedupe. Runs under plain Node so it can also run headless: `node cli.js scan` for an OS scheduler or CI.
 
