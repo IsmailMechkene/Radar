@@ -83,6 +83,27 @@ describe('lifecycle', () => {
   });
 });
 
+describe('tray Lock', () => {
+  it('shows Lock only while unlocked and runs it', () => {
+    let unlocked = false;
+    const run = vi.fn();
+    const lifecycle = createLifecycle({
+      app: { quit: vi.fn() },
+      createWindow: fakeWindow,
+      lock: { available: () => unlocked, run },
+    });
+    const labels = () => lifecycle.trayMenuTemplate().map((i) => i.label ?? '-');
+    expect(labels()).toEqual(['Open', '-', 'Quit']);
+    unlocked = true;
+    expect(labels()).toEqual(['Open', 'Lock', '-', 'Quit']);
+    lifecycle
+      .trayMenuTemplate()
+      .find((i) => i.label === 'Lock')
+      ?.click?.();
+    expect(run).toHaveBeenCalledOnce();
+  });
+});
+
 describe('applyAutostart', () => {
   it('sets the login item when packaged', () => {
     const app = { isPackaged: true, setLoginItemSettings: vi.fn() };

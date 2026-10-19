@@ -25,6 +25,21 @@ npm run dev
 
 Closing the window keeps Radar running in the tray. Use the tray menu's **Open** to bring it back and **Quit** to exit.
 
+## Password and encryption
+
+Radar's database is encrypted on disk. On first start Radar asks for a password (at least 8
+characters) and then shows a **recovery key** once: save it somewhere safe, it is the only way back
+in if you forget the password (**Forgot password?** on the lock screen). A database from an earlier
+version is encrypted at that moment; the unencrypted file is deleted only after the encrypted copy
+has been checked.
+
+**Lock** (the padlock in the toolbar, or the tray menu) closes the database and stops everything:
+no scans, reminders or backups run until you unlock again. Backups are encrypted with the same key
+and open with the same password. The key file is `keys.json` next to `radar.db`
+(`%APPDATA%
+adar` on Windows); without it the data cannot be opened, so back it up with the
+database.
+
 In development, an empty Opportunities page offers **Load sample data** so the page can be tried before any source exists. Sample rows are labeled as such and can be removed from the same page.
 
 ## Test and check
@@ -49,8 +64,12 @@ for example from Windows Task Scheduler or cron, into the app's own database:
 ```sh
 npm run scan                                   # every enabled source
 npm run scan -- --source "Mistral AI"          # only some sources
-npm run scan -- --db ./scratch.db              # another database file
+npm run scan -- --db ./scratch.db              # another database file (keys.json must sit next to it)
 ```
+
+The CLI asks for your password. Under a scheduler, where nobody can type it, set `RADAR_PASSWORD`
+(or `RADAR_RECOVERY_KEY`) in that task's environment; add `--recovery-key` to type the recovery key
+instead of the password.
 
 Fetch one source live and print what Radar would store, without writing anything:
 

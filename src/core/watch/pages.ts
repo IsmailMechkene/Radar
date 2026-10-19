@@ -4,7 +4,7 @@
 // first fetch only records a baseline; a later change stores a snapshot and an alert with a
 // short line diff.
 import { createHash } from 'node:crypto';
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { htmlToText, stripElements } from '../adapters/normalize';
 import { sourceRowSchema, utcTimestampSchema, type SourceRow } from '../db/schemas';

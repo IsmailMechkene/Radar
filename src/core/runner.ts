@@ -1,7 +1,7 @@
 // Scan orchestration (M3): fetch each enabled source through its adapter, store items with
 // dedupe, track first/last seen, close postings that disappeared, and log the run.
 // Network calls happen outside transactions; each source's writes are one transaction.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { ADAPTERS } from './adapters/registry';
 import type { Adapter, AdapterResult, RawItem } from './adapters/types';
 import { upsertOpportunity } from './db/opportunities';
@@ -44,6 +44,8 @@ export interface ScanOptions {
   adapters?: Readonly<Record<string, Adapter>>;
   /** Called after each source, e.g. to report progress. */
   onSource?: (outcome: SourceOutcome, done: number, total: number) => void;
+  /** Checked before each source; true ends the scan early (Radar was locked). */
+  shouldStop?: () => boolean;
 }
 
 /** Enabled sources that have an adapter (pending, sample and unknown kinds are not scanned). */
@@ -152,8 +154,13 @@ export async function runScan(db: Database.Database, opts: ScanOptions): Promise
   const sources = scannableSources(db, adapters, opts.only);
   const runId = startRun(db, opts.trigger, now());
   const outcomes: SourceOutcome[] = [];
+  let stopped = 0;
 
   for (const source of sources) {
+    if (opts.shouldStop?.()) {
+      stopped = sources.length - outcomes.length;
+      break;
+    }
     const base = { sourceId: source.id, name: source.name };
     let outcome: SourceOutcome;
     try {
@@ -202,6 +209,7 @@ export async function runScan(db: Database.Database, opts: ScanOptions): Promise
     ...(o.skipped ? [`${o.name}: ${o.skipped} item(s) skipped as malformed`] : []),
     ...(o.ok && o.items === 0 ? [`${o.name}: returned no items`] : []),
   ]);
+  if (stopped) problems.push(`Stopped early: ${stopped} source(s) not scanned`);
   const summary: ScanSummary = {
     runId,
     outcomes,

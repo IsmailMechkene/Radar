@@ -1,7 +1,7 @@
 // What the Deadlines page shows (SPEC section 9): every dated deadline (open opportunities,
 // programs' expected windows, manual deadlines) plus follow-ups that are due, with the reminder
 // state behind Snooze and Done.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { localDateSchema } from '../db/pipeline';
 import { utcTimestampSchema } from '../db/schemas';

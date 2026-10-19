@@ -24,7 +24,8 @@ TypeScript end to end, one language, one process tree.
 |---|---|
 | Shell | Electron (tray icon, autostart on login, native notifications) |
 | UI | React + Vite + Tailwind + TanStack Table |
-| DB | SQLite via better-sqlite3, migrations with a tiny runner (no ORM needed; Drizzle is fine) |
+| DB | SQLite via better-sqlite3-multiple-ciphers (SQLite3 Multiple Ciphers, ChaCha20-Poly1305), encrypted at rest; migrations with a tiny runner (no ORM needed) |
+| Lock | Mandatory password. A random 32-byte data key encrypts the database; it is stored only wrapped (AES-256-GCM) by a scrypt key from the password and by a recovery key shown once at setup. Node `crypto` only, no extra dependency |
 | Scheduler | node-cron inside the main process, plus startup catch-up |
 | Fetch/parse | undici/fetch, cheerio, fast-xml-parser for RSS. Playwright only for pages that truly need JS, behind a flag |
 | Alerts | Electron Notification, Telegram bot (free), Gmail SMTP with app password via nodemailer (optional), ntfy.sh (optional) |
@@ -32,7 +33,7 @@ TypeScript end to end, one language, one process tree.
 | Packaging | electron-builder (NSIS/dmg/AppImage), GitHub release optional |
 
 Process layout:
-- `main` (Electron main): owns DB, scheduler, alerts, tray. Keeps running when the window is closed (minimize to tray).
+- `main` (Electron main): owns DB, scheduler, alerts, tray. Keeps running when the window is closed (minimize to tray). Starts in two parts: the shell (window, tray, lock screen IPC) and, after unlock, everything that needs the database. Lock (toolbar or tray) stops the scheduler and scans, removes the data IPC handlers, closes the database and wipes the key from memory.
 - `renderer` (React): talks to main over typed IPC only. No direct DB access.
 - `core/` (pure TS, no Electron imports): adapters, rules, deadline engine, dedupe. Runs under plain Node so it can also run headless: `node cli.js scan` for an OS scheduler or CI.
 
@@ -58,6 +59,8 @@ radar/
 ```
 
 ## 4. Data model (SQLite)
+
+`<userData>/radar.db` is encrypted with the data key (SQLite3 Multiple Ciphers, default ChaCha20-Poly1305); without the key it does not open. Next to it, `<userData>/keys.json` holds the data key wrapped twice (AES-256-GCM): by a key derived from the password (scrypt, N 2^17, r 8, p 1) and by a key derived from the recovery key (HKDF-SHA256; the recovery key is 160 random bits shown as 8 groups of 4 Crockford base32 characters). Neither the password nor the recovery key is stored. Forgot password: the recovery key opens the data and the data key is re-wrapped with a new password. A recovery key never confirmed as saved is replaced by a new one at the next unlock. A plain `radar.db` from before encryption is copied, encrypted, checked table by table, and only then replaced (the plain file is deleted after the check); an interrupted run resumes on the next unlock.
 
 ```
 sources(id, kind, name, url, config_json, enabled, last_ok_at, last_error, consecutive_empty, created_at)
@@ -139,13 +142,14 @@ GPA rules: parse "GPA 3.5/4" style requirements and compare with a configurable 
 
 ## 8. Reliability (this is what makes it "never miss anything")
 
-- **Startup catch-up**: on launch and on wake from sleep, if last successful scan > 12 h ago, run immediately. Fire any reminders whose `due_at` has passed and `fired_at` is null.
+- **Locked means idle**: nothing runs while Radar is locked (no scans, reminders, page checks or backups); catch-up happens at unlock. Radar starts locked; autostart therefore waits at the lock screen.
+- **Startup catch-up**: on unlock and on wake from sleep, if last successful scan > 12 h ago, run immediately. Fire any reminders whose `due_at` has passed and `fired_at` is null.
 - **Autostart on login** (`app.setLoginItemSettings`) and tray residency.
 - **Heartbeat**: a persistent banner "Last successful scan: X ago", red if > 48 h.
 - **Per-source health**: if a source returns zero items or errors 3 runs in a row, alert once ("source X looks broken") and show it in the Sources page.
 - **Run log** for every scan with counts and errors; viewable and exportable.
-- **Backups**: daily SQLite backup to a user-chosen folder, keep the last 14. JSON/CSV export of everything.
-- **Headless mode** so a plain OS scheduler (Task Scheduler, cron, launchd) can run `cli scan` even if the app is closed.
+- **Backups**: daily SQLite backup to a user-chosen folder, keep the last 14 (`VACUUM INTO`, so each backup is encrypted with the same key and opens with the same password). JSON/CSV export of everything (exports are plain files the user chose to write).
+- **Headless mode** so a plain OS scheduler (Task Scheduler, cron, launchd) can run `cli scan` even if the app is closed. The CLI needs the password (typed, or `RADAR_PASSWORD`) or the recovery key (`--recovery-key`, or `RADAR_RECOVERY_KEY`), and `keys.json` next to the database.
 - **Optional free hosting (M8)**: GitHub Actions cron running `cli scan` and pushing alerts via Telegram, with the SQLite file stored in a private repo or artifact. Standard runners are free for public repos; private repos get 2,000 minutes per month on the Free plan. Scheduled workflows in public repos can be paused after long inactivity, so keep a keep-alive commit or rely on the local app as primary.
 - Secrets (Telegram token, SMTP app password) go in the OS keychain (keytar) or env vars, never in the repo or the DB in plain text.
 

@@ -9,17 +9,18 @@ import {
   Notification,
   clipboard,
   powerMonitor,
-  session,
+  session as electronSession,
   shell,
   Tray,
   type BrowserWindowConstructorOptions,
 } from 'electron';
+import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { syncReminders } from '../core/reminders/store';
 import { release, tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
 import { dueMatchAlerts, type MatchAlert } from '../core/alerts/matches';
@@ -44,9 +45,11 @@ import {
   type ResolvedTheme,
   type ThemePreference,
 } from '../shared/theme';
-import { registerIpcHandlers } from './ipc';
+import { registerIpcHandlers, registerShellHandlers } from './ipc';
+import { createVault, type Vault } from './vault';
+import { prepareEncryptedDatabase } from '../core/vault/encrypt';
 import { applyAutostart, createLifecycle } from './lifecycle';
-import { createScanService } from './scan';
+import { createScanService, type ScanService } from './scan';
 import { createScheduler, type Scheduler } from './scheduler';
 import { checkPage, watchPages } from '../core/watch/pages';
 import { getSource } from '../core/db/sources';
@@ -75,12 +78,18 @@ const windowInfo = (): WindowInfo => ({
 });
 
 let tray: Tray | null = null;
-let db: Database.Database | null = null;
-let scheduler: Scheduler | null = null;
 // Notifications are kept referenced until closed, or their click handler can be collected.
 const liveNotifications = new Set<Notification>();
 
-const lifecycle = createLifecycle({ app, createWindow });
+const lifecycle = createLifecycle({
+  app,
+  createWindow,
+  lock: {
+    available: () => vault?.isUnlocked() ?? false,
+    run: () =>
+      void vault?.lock().catch((err: unknown) => console.error('[radar] lock failed:', err)),
+  },
+});
 
 function overlayColors() {
   return TITLE_BAR_OVERLAY[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
@@ -403,20 +412,33 @@ function fail(title: string, err: unknown): void {
   app.exit(1);
 }
 
-function start(): void {
-  // The app asks for no browser permissions (camera, geolocation, ...): refuse them all.
-  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
-    callback(false),
-  );
-  session.defaultSession.setPermissionCheckHandler(() => false);
-  const dbPath = resolveDbPath(app.getPath('userData'));
+/** Everything that needs the open database; null while locked. */
+interface Session {
+  database: Database.Database;
+  scan: ScanService;
+  scheduler: Scheduler;
+  unregisterIpc: () => void;
+}
+let session: Session | null = null;
+
+/**
+ * Unlocked part of the app: encrypts a plain database left from before (or finishes an
+ * interrupted encryption), opens it with the data key, then starts what reads it: seeds, rules,
+ * scoring, scans, the scheduler and the data IPC handlers.
+ */
+async function startUnlocked(dataKey: Buffer): Promise<void> {
+  const dataDir = app.getPath('userData');
+  const dbPath = resolveDbPath(dataDir);
+  const prepared = await prepareEncryptedDatabase(dataDir, dataKey);
+  if (prepared.encrypted) console.log(`[radar] ${dbPath} is now encrypted; plain file deleted`);
+  if (prepared.cleanedUp) console.log('[radar] removed a plain copy left by an interrupted run');
+  const database = openDatabase(dbPath, dataKey);
+  let unregisterIpc: (() => void) | null = null;
   try {
-    const database = openDatabase(dbPath);
-    db = database;
     const result = migrate(database);
     const seeded = seedDefaultSettings(database);
     console.log(
-      `[radar] database ${dbPath} at schema v${result.to}` +
+      `[radar] database ${dbPath} (encrypted) at schema v${result.to}` +
         (result.applied.length ? ` (applied ${result.applied.join(', ')})` : '') +
         (seeded.length ? `; seeded settings: ${seeded.join(', ')}` : ''),
     );
@@ -444,7 +466,7 @@ function start(): void {
       },
     });
     if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
-    scheduler = createScheduler({
+    const scheduler = createScheduler({
       db: database,
       scan: { run: (trigger) => scan.run(trigger), status: () => scan.status() },
       watchPages: async () => {
@@ -454,12 +476,11 @@ function start(): void {
       notify: showNotice,
       deliverMatches: () => deliverMatchAlerts(database),
     });
-    registerIpcHandlers({
+    unregisterIpc = registerIpcHandlers({
       ipcMain,
       db: database,
       applyAutostart: (enabled) => applyAutostart(app, enabled),
       applyTheme,
-      setChromeTheme: syncNativeChrome,
       windowInfo,
       openExternal: (url) => shell.openExternal(url),
       copyText: (text) => clipboard.writeText(text),
@@ -561,18 +582,75 @@ function start(): void {
         }
       },
     });
+    session = { database, scan, scheduler, unregisterIpc };
   } catch (err) {
-    fail(`Radar could not open its database (${dbPath})`, err);
-    return;
+    unregisterIpc?.();
+    await jobs; // startup re-scoring may already be queued on this database
+    database.close();
+    throw err;
   }
+  // Hourly tick and now (startup catch-up); wake from sleep ticks too (see startShell).
+  if (!SHOT_MODE) session.scheduler.start();
+}
+
+/** Lock: data IPC goes first, then background work drains, then the database closes. */
+async function stopUnlocked(): Promise<void> {
+  const s = session;
+  if (!s) return;
+  session = null;
+  s.unregisterIpc();
+  await s.scheduler.stop();
+  await s.scan.stop();
+  await jobs;
+  s.database.close();
+  compiledRules = null;
+  console.log('[radar] locked: database closed');
+}
+
+let vault: Vault | null = null;
+
+function refreshTray(): void {
+  tray?.setContextMenu(Menu.buildFromTemplate(lifecycle.trayMenuTemplate()));
+}
+
+/** The app without its data: window, tray, menu and the lock screen's IPC. */
+function startShell(): void {
+  // The app asks for no browser permissions (camera, geolocation, ...): refuse them all.
+  electronSession.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
+    callback(false),
+  );
+  electronSession.defaultSession.setPermissionCheckHandler(() => false);
+
+  const v = createVault({
+    dataDir: app.getPath('userData'),
+    open: startUnlocked,
+    close: stopUnlocked,
+    onChange: (status) => {
+      refreshTray();
+      broadcast(IPC_EVENTS.authChanged, status);
+    },
+  });
+  vault = v;
+  registerShellHandlers({
+    ipcMain,
+    windowInfo,
+    setChromeTheme: syncNativeChrome,
+    auth: v,
+    isTrustedSender: isAppUrl,
+  });
 
   installMenu();
   console.log(`[radar] window material: ${material}`);
 
   if (SHOT_MODE) {
-    const win = lifecycle.showWindow();
-    void import('./shot')
-      .then(({ runShots }) => runShots(win as BrowserWindow))
+    // Throwaway profile: a random password nobody needs, so the screens show real pages.
+    void v
+      .setup(randomBytes(24).toString('base64'))
+      .then(() => v.confirmRecoveryKey())
+      .then(() => {
+        const win = lifecycle.showWindow();
+        return import('./shot').then(({ runShots }) => runShots(win as BrowserWindow));
+      })
       .then(
         () => lifecycle.quit(),
         (err) => fail('Screenshot run failed', err),
@@ -580,12 +658,12 @@ function start(): void {
     return;
   }
 
+  const status = v.status();
+  if (status.state === 'error') console.error(`[radar] cannot open the data: ${status.message}`);
   createTray();
   lifecycle.showWindow();
   app.on('activate', () => lifecycle.showWindow());
-  // Hourly tick, now (startup catch-up), and after the computer wakes up.
-  scheduler?.start();
-  powerMonitor.on('resume', () => void scheduler?.tick('resume'));
+  powerMonitor.on('resume', () => void session?.scheduler.tick('resume'));
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -593,14 +671,14 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => lifecycle.showWindow());
-  app.whenReady().then(start, (err) => fail('Radar failed to start', err));
+  app.whenReady().then(startShell, (err) => fail('Radar failed to start', err));
 
   // Stay alive in the tray when no window is open.
   app.on('window-all-closed', () => {});
   app.on('before-quit', () => lifecycle.handleBeforeQuit());
   app.on('will-quit', () => {
-    scheduler?.stop();
+    void session?.scheduler.stop();
     tray?.destroy();
-    db?.close();
+    session?.database.close();
   });
 }

@@ -2,7 +2,7 @@
 // that qualify are alerted (now, or in the daily summary), the rest are marked handled at once, so
 // a later re-score or another source finding the posting never brings an old one back. Quiet hours
 // hold alerts (never drop them); the next tick after they end sends them.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { isQuietTime } from '../reminders/quiet';
 import type { Settings } from '../settings/schema';

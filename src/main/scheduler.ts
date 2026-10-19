@@ -2,7 +2,7 @@
 // from sleep. A tick scans when the last successful scan is too old, checks watched pages that
 // are due, plans reminders and fires what is due. During quiet hours nothing is fired; a timer
 // ticks again when they end. No Electron imports: notifications and timers are injected.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { latestSuccessfulRun, type RunTrigger } from '../core/db/runs';
 import { quietEndsAt } from '../core/reminders/quiet';
 import { fireDue, syncReminders, type Notice } from '../core/reminders/store';
@@ -46,6 +46,8 @@ export function createScheduler(deps: SchedulerDeps) {
   let interval: unknown = null;
   let quietTimer: unknown = null;
   let running: Promise<TickResult> | null = null;
+  // Set by stop(): a tick in flight skips its remaining steps (Radar was locked).
+  let stopped = false;
 
   function scanIsStale(at: Date): boolean {
     const hours = Math.min(getSetting(deps.db, 'scanIntervalHours'), STALE_SCAN_HOURS);
@@ -63,16 +65,19 @@ export function createScheduler(deps: SchedulerDeps) {
         console.error(`[scheduler] scan (${reason}) failed:`, err);
       }
     }
+    if (stopped) return result;
     try {
       await deps.watchPages();
     } catch (err) {
       console.error('[scheduler] page watch failed:', err);
     }
+    if (stopped) return result;
     try {
       await deps.dailyBackup?.();
     } catch (err) {
       console.error('[scheduler] backup failed:', err);
     }
+    if (stopped) return result;
 
     const at = now();
     const timeZone = getSetting(deps.db, 'timezone');
@@ -120,6 +125,7 @@ export function createScheduler(deps: SchedulerDeps) {
 
   /** One tick at a time; a tick requested while one runs waits for it and returns its result. */
   function tick(reason: TickReason): Promise<TickResult> {
+    if (stopped) return Promise.resolve({ scanned: false, notices: 0, deferred: 0 });
     if (running) return running;
     running = run(reason).finally(() => {
       running = null;
@@ -130,14 +136,18 @@ export function createScheduler(deps: SchedulerDeps) {
   return {
     tick,
     start(): void {
+      stopped = false;
       if (interval === null) interval = setI(() => void tick('hourly'), TICK_MS);
       void tick('startup');
     },
-    stop(): void {
+    /** Clears the timers; a tick in flight stops at its next step. Resolves when it has. */
+    async stop(): Promise<void> {
+      stopped = true;
       if (interval !== null) clearI(interval);
       if (quietTimer !== null) clearT(quietTimer);
       interval = null;
       quietTimer = null;
+      await running;
     },
   };
 }

@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import { IPC_CHANNELS as C, IPC_EVENTS as E, type RadarApi } from '../shared/ipc';
+import {
+  IPC_CHANNELS as C,
+  IPC_EVENTS as E,
+  SHELL_CHANNELS as S,
+  type RadarApi,
+} from '../shared/ipc';
 
 /** Subscribes to a main-process event; the returned function unsubscribes. */
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
@@ -11,16 +16,26 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
 }
 
 const api: RadarApi = {
+  auth: {
+    status: () => ipcRenderer.invoke(S.authStatus),
+    setup: (password) => ipcRenderer.invoke(S.authSetup, { password }),
+    unlock: (password) => ipcRenderer.invoke(S.authUnlock, { password }),
+    recover: (recoveryKey, newPassword) =>
+      ipcRenderer.invoke(S.authRecover, { recoveryKey, newPassword }),
+    confirmRecoveryKey: () => ipcRenderer.invoke(S.authConfirmRecovery),
+    lock: () => ipcRenderer.invoke(S.authLock),
+    onChanged: (listener) => subscribe(E.authChanged, listener),
+  },
   settings: {
     getAll: () => ipcRenderer.invoke(C.settingsGetAll),
     get: (key) => ipcRenderer.invoke(C.settingsGet, { key }),
     set: (key, value) => ipcRenderer.invoke(C.settingsSet, { key, value }),
   },
   app: {
-    getWindowInfo: () => ipcRenderer.invoke(C.appGetWindowInfo),
+    getWindowInfo: () => ipcRenderer.invoke(S.appGetWindowInfo),
     openExternal: (url) => ipcRenderer.invoke(C.appOpenExternal, { url }),
     navCounts: (newSince) => ipcRenderer.invoke(C.appNavCounts, { newSince }),
-    setChromeTheme: (theme) => ipcRenderer.invoke(C.appChromeTheme, { theme }),
+    setChromeTheme: (theme) => ipcRenderer.invoke(S.appChromeTheme, { theme }),
     onMatchAlert: (listener) => subscribe(E.matchAlert, listener),
     copyText: (text) => ipcRenderer.invoke(C.appCopyText, { text }),
     openMail: (to, subject, body) => ipcRenderer.invoke(C.appOpenMail, { to, subject, body }),

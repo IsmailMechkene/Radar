@@ -2,7 +2,7 @@
 // matched by name in English or French, in any order; unknown columns are ignored and listed.
 // Rows already in the pipeline (same organization and role) are skipped, so a re-import is safe.
 // Nothing is silently dropped: every skipped row or unread value is reported.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { createPipelineRow, type PipelineNew, type PipelineStatus } from '../db/pipeline';
 import { readDate } from '../deadlines/parse';
 import { zonedToUtc } from '../time';

@@ -1,7 +1,7 @@
 // Deadlines of scanned postings (M5). A date stated in the posting is `confirmed`; "rolling" and
 // "until filled" are `rolling`; a low-confidence parse is `unknown` with its sentence kept and a
 // note. A posting never gets `expected` (that is only for programs, from last cycle).
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { drain, drainAsync, inChunks } from '../chunks';
 import { z } from 'zod';
 import { languageSchema, utcTimestampSchema } from '../db/schemas';

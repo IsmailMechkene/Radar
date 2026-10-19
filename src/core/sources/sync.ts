@@ -1,7 +1,7 @@
 // Loads seeds/sources.json into the sources table. Idempotent: matched on (kind, name); config,
 // URL and notes are refreshed; pending seeds are stored disabled. Sources not in the file
 // (added by hand later) are left alone.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import type { SeedSource } from './seeds';
 
 export interface SyncResult {

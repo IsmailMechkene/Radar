@@ -2,7 +2,7 @@
 // and when scoring settings change). Development sample rows keep their recorded scores.
 // Program postings are not scored: they are tracked on the Programs watchlist with their own
 // status, so their score and verdict are cleared.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { drain, drainAsync, inChunks } from '../chunks';
 import { applyScore, clearScore } from '../db/opportunities';

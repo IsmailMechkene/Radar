@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WindowInfo } from '../../shared/ipc';
 import { ToastProvider } from '../components/Toast';
+import { LockGate } from './lock/LockGate';
 import { AppShell } from './shell/AppShell';
 import { ScanProvider } from './state/scan';
 import { SettingsProvider } from './state/settings';
@@ -21,11 +22,13 @@ export function App() {
 
   return (
     <ToastProvider>
-      <SettingsProvider>
-        <ScanProvider>
-          <AppShell info={info} />
-        </ScanProvider>
-      </SettingsProvider>
+      <LockGate>
+        <SettingsProvider>
+          <ScanProvider>
+            <AppShell info={info} />
+          </ScanProvider>
+        </SettingsProvider>
+      </LockGate>
     </ToastProvider>
   );
 }

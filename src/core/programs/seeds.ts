@@ -1,6 +1,6 @@
 // Programs watchlist (seeds/programs.json, SPEC section 10). Last-cycle windows become `expected`
 // dates, never `confirmed`, and are labelled as unverified everywhere they are shown.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { endOfLocalDay, startOfLocalDay } from '../time';
 

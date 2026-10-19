@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Moon, Sun } from 'lucide-react';
 import { useToast } from '../../components/Toast';
 import { requestMatches } from '../state/match-alerts';
 import { lazy, Suspense, useEffect, useReducer, useRef, useState } from 'react';
@@ -18,7 +18,7 @@ import {
   routeHref,
   type Route,
 } from '../lib/router';
-import { shortcutLabel } from '../lib/settings-helpers';
+import { cleanIpcError, shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
 import { DeadlinesPage } from '../pages/deadlines/DeadlinesPage';
 import { OutreachPage } from '../pages/outreach/OutreachPage';
@@ -200,6 +200,16 @@ export function AppShell({ info }: { info: WindowInfo | null }) {
               }
               disabled={!settings}
               onClick={() => void update('theme', toggledTheme(resolved), { toast: false })}
+            />
+            <ToolbarButton
+              icon={Lock}
+              label="Lock Radar"
+              onClick={() =>
+                void window.radar.auth.lock().catch((err: unknown) => {
+                  console.error('[lock] lock failed', err);
+                  toast({ message: `Not locked: ${cleanIpcError(err)}`, tone: 'error' });
+                })
+              }
             />
           </Toolbar>
 

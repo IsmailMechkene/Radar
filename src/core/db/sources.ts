@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { sourceInputSchema, sourceRowSchema, type SourceInput, type SourceRow } from './schemas';
 
 export function insertSource(db: Database.Database, input: SourceInput, now: Date): SourceRow {

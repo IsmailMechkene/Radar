@@ -299,6 +299,34 @@ Built from the design's `rules` screen (`src/renderer/src/pages/RulesPage.tsx`).
 
 Your rules are stored in the database (seeds/rules.json stays the default and ships read-only); a saved version that no longer validates is reported and the defaults are used.
 
+### Lock screens
+
+Not in the design; built only from existing tokens and components (`src/renderer/src/lock/`). Radar
+starts locked, and the whole app (providers included) is mounted only once unlocked, so locking
+unmounts every page.
+
+1. **Frame:** the window background, a 52 px drag strip where the toolbar would be, and one centred
+   360 px card (`surface`, radius 14, hairline, `card` shadow, 24 px padding): 52 px `BrandMark`,
+   `title-3` heading, 12 px secondary text, then 14 px gaps between fields (`footnote` 600 labels,
+   `md` `TextInput`s), a full-width `lg` primary button and a `plain` link button.
+2. **Set a password** (first run): password twice; the problem shows inline in red once the second
+   field is typed (at least 8 characters, at most 72 bytes, both equal). With an existing
+   unencrypted database the text says it will be encrypted and the button reads "Encrypting your
+   data…" while it runs.
+3. **Save your recovery key:** the key in mono on a `fill` block, two lines of four groups;
+   **Copy recovery key** (secondary, shows "Copied"); a `Checkbox` "I saved my recovery key"; Continue
+   stays disabled until it is checked. Shown once; a key never confirmed is replaced at the next
+   unlock.
+4. **Radar is locked:** password, Unlock, **Forgot password?** which switches to **Use your recovery
+   key** (recovery key in mono, new password twice, "Unlock and set password", Back to password).
+5. **Radar can't open your data:** the reason (damaged keys.json, or an encrypted database without
+   it). No buttons: nothing here may overwrite the data.
+
+Errors ("Wrong password") show under the field in red with the triangle icon; the field turns
+invalid. The lock screens use the theme last applied in this window (remembered in local storage,
+since settings are unreadable while locked). **Lock Radar** is a toolbar icon button (Lucide `lock`)
+after the theme button; the tray menu has **Lock** while unlocked.
+
 ## 7. Do / Don't
 
 - **Do** use tokens through Tailwind classes or `var(--…)`. **Don't** write hex/rgb values, px font sizes or font names in components.
@@ -338,6 +366,7 @@ Builds, opens the app (with a throwaway profile) and the design file in windows 
 `app-<route>-<theme>.png`, `design-<route>-<theme>.png`, long pages as `-2`, `-3`… parts, plus
 `shots/compare.html` showing them side by side. Pairs: Opportunities (dev sample data loaded into the
 throwaway profile), the detail drawer (app: first row; design: `drawer="hf1"`), Settings, Components.
+The throwaway profile is set up with a random password and unlocked automatically.
 
 ## 10. Deviations from the design file
 
@@ -383,3 +412,4 @@ throwaway profile), the detail drawer (app: first row; design: `drawer="hf1"`), 
 | Single-row x and s                                                                         | Toast only                                                                   | Apply immediately with a toast; Dismiss offers Undo                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Same as the design, plus Undo                                                                                           |
 | Space on a row                                                                             | Not in the design                                                            | Checks or unchecks the cursor row                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Keyboard-only multi-select                                                                                              |
 | "of 100" caption                                                                           | 10 px                                                                        | 10.5 px (`micro`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Nearest type token                                                                                                      |
+| Lock screens, toolbar Lock button                                                          | Not in the design                                                            | Set a password, Save your recovery key, Radar is locked / Use your recovery key, and an error card (see "Lock screens"); a padlock button at the right of the toolbar                                                                                                                                                                                                                                                                                                                                | The database is encrypted and opening it needs the password; built from existing tokens and components                  |

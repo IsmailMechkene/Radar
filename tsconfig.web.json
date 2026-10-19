@@ -1,5 +1,11 @@
 {
   "compilerOptions": {
+    // The package ships index.d.ts but its "exports" map hides it from TypeScript.
+    "paths": {
+      "better-sqlite3-multiple-ciphers": [
+        "./node_modules/better-sqlite3-multiple-ciphers/index.d.ts"
+      ]
+    },
     "target": "ES2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",

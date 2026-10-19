@@ -21,6 +21,8 @@ export interface TrayMenuItem {
 export interface LifecycleDeps<W extends WindowLike> {
   app: { quit(): void };
   createWindow: () => W;
+  /** Tray "Lock", shown while Radar is unlocked. */
+  lock?: { available: () => boolean; run: () => void };
 }
 
 export function createLifecycle<W extends WindowLike>(deps: LifecycleDeps<W>) {
@@ -62,9 +64,11 @@ export function createLifecycle<W extends WindowLike>(deps: LifecycleDeps<W>) {
       quitting = true;
     },
     trayMenuTemplate(): TrayMenuItem[] {
+      const lock = deps.lock;
       return [
         { label: 'Open', click: () => void showWindow() },
-        { type: 'separator' },
+        ...(lock?.available() ? [{ label: 'Lock', click: () => lock.run() }] : []),
+        { type: 'separator' as const },
         { label: 'Quit', click: quit },
       ];
     },

@@ -1,7 +1,7 @@
 // Dev-only sample data so the Opportunities page can be built and checked before any scanner
 // exists. Everything is tagged with source kind 'sample' and can be removed in one call.
 // Dates are relative to `now`, so the sample never goes stale.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { applyScore, upsertOpportunity } from '../db/opportunities';
 import {

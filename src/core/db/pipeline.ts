@@ -1,6 +1,6 @@
 // Pipeline rows (SPEC section 9: Not started, Drafted, Sent, Follow-up sent, Interview, Rejected,
 // Offer, Not eligible), with planned send date, sent date and automatic follow-up dates.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { followupDates } from '../reminders/plan';
 import { utcTimestampSchema } from './schemas';

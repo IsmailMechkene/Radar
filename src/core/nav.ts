@@ -1,7 +1,7 @@
 // Sidebar counts. Each uses the same rule as its page, so a badge never disagrees with what the
 // page shows: new opportunities since the last visit, Due soon, follow-ups due, program pages
 // changed and not reviewed, sources that look broken.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { followupDue, listPipeline } from './db/pipeline';
 import { dueSoon } from './deadlines/due';
 import { listDeadlines } from './deadlines/list';

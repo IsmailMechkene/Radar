@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { currentSchemaVersion, migrate } from '../src/core/db/migrate';
 import { migrations } from '../src/core/db/migrations';

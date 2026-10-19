@@ -2,7 +2,7 @@
 // table in memory), and each chunk is written in its own transaction. The generator yields after
 // each chunk so the caller can either run it straight through or give the event loop a turn
 // between chunks (the Electron main process stays responsive during a large re-score).
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 
 export const CHUNK_SIZE = 250;
 

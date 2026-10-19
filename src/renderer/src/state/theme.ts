@@ -2,6 +2,28 @@ import { useEffect, useLayoutEffect, useState } from 'react';
 import { resolveTheme, type ResolvedTheme, type ThemePreference } from '../../../shared/theme';
 
 const QUERY = '(prefers-color-scheme: dark)';
+const REMEMBERED = 'radar.theme';
+
+/**
+ * The theme setting as last seen, kept in this window's storage so the lock screen (which cannot
+ * read settings) opens in the same theme. Not sensitive; a missing value means 'system'.
+ */
+export function rememberedTheme(): ThemePreference {
+  try {
+    const v = localStorage.getItem(REMEMBERED);
+    return v === 'light' || v === 'dark' ? v : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+function rememberTheme(pref: ThemePreference): void {
+  try {
+    localStorage.setItem(REMEMBERED, pref);
+  } catch {
+    // storage unavailable: the lock screen follows the OS instead
+  }
+}
 
 /** Applies `change` with every CSS transition off, so the whole page switches in one frame. */
 function switchWithoutTransitions(root: HTMLElement, change: () => void): void {
@@ -26,6 +48,9 @@ export function useAppliedTheme(pref: ThemePreference | undefined): ResolvedThem
   }, []);
 
   const resolved = resolveTheme(pref ?? 'system', systemDark);
+  useEffect(() => {
+    if (pref) rememberTheme(pref);
+  }, [pref]);
   // Layout effect: the new tokens apply before the next paint, in the same frame as the components
   // that re-render for the new theme (the toolbar icon, the score rings).
   useLayoutEffect(() => {

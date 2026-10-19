@@ -52,14 +52,28 @@ import type { OpportunityDetail, OpportunityListItem } from '../core/db/schemas'
 import type { ScanSummary, SourceOutcome } from '../core/runner';
 import { settingKeySchema, type SettingKey, type Settings } from '../core/settings/schema';
 
+/**
+ * Always answered, locked or not: window chrome and the lock itself. Nothing here reads the
+ * database.
+ */
+export const SHELL_CHANNELS = {
+  appGetWindowInfo: 'app:get-window-info',
+  appChromeTheme: 'app:chrome-theme',
+  authStatus: 'auth:status',
+  authSetup: 'auth:setup',
+  authUnlock: 'auth:unlock',
+  authRecover: 'auth:recover',
+  authConfirmRecovery: 'auth:confirm-recovery',
+  authLock: 'auth:lock',
+} as const;
+
+/** Data channels: registered on unlock, removed on lock. */
 export const IPC_CHANNELS = {
   settingsGetAll: 'settings:get-all',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
-  appGetWindowInfo: 'app:get-window-info',
   appOpenExternal: 'app:open-external',
   appNavCounts: 'app:nav-counts',
-  appChromeTheme: 'app:chrome-theme',
   dataBackupInfo: 'data:backup-info',
   dataBackupNow: 'data:backup-now',
   dataChooseBackupFolder: 'data:choose-backup-folder',
@@ -119,7 +133,18 @@ export const IPC_EVENTS = {
   scanProgress: 'scan:progress',
   scanFinished: 'scan:finished',
   matchAlert: 'app:match-alert',
+  authChanged: 'auth:changed',
 } as const;
+
+/** Where the lock stands (main -> page). */
+export type AuthStatus =
+  /** First run: no password yet. `hasPlainData`: an unencrypted database will be encrypted. */
+  | { state: 'setup'; hasPlainData: boolean }
+  | { state: 'locked' }
+  /** `recoveryKey` is set until the user confirms they saved it (shown once). */
+  | { state: 'unlocked'; recoveryKey: string | null }
+  /** The data cannot be opened (damaged or missing keys.json). */
+  | { state: 'error'; message: string };
 
 /** New strong matches found by a scan (main -> page). */
 export interface MatchAlertEvent {
@@ -130,7 +155,9 @@ export interface MatchAlertEvent {
   open: boolean;
 }
 
-export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
+export type IpcChannel =
+  | (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
+  | (typeof SHELL_CHANNELS)[keyof typeof SHELL_CHANNELS];
 
 const noPayload = z.undefined();
 const idsSchema = z.array(z.int().positive()).min(1).max(10_000);
@@ -144,6 +171,14 @@ export const settingsSetPayloadSchema = z.strictObject({
   value: z.unknown(),
 });
 export const appGetWindowInfoPayloadSchema = noPayload;
+// Strength is checked by the vault; these bounds only keep payloads sane.
+const secret = z.string().min(1).max(512);
+export const authNoPayloadSchema = noPayload;
+export const authPasswordPayloadSchema = z.strictObject({ password: secret });
+export const authRecoverPayloadSchema = z.strictObject({
+  recoveryKey: secret,
+  newPassword: secret,
+});
 /** Only web links leave the app; file:, javascript: and custom schemes are refused. */
 function isWebUrl(value: string): boolean {
   try {
@@ -325,6 +360,21 @@ export interface ScanProgress {
 
 /** The API exposed to the renderer as `window.radar`. */
 export interface RadarApi {
+  /** Works while locked. Every other group needs Radar unlocked. */
+  auth: {
+    status(): Promise<AuthStatus>;
+    /** First run: sets the password, encrypts existing data; the result carries the recovery key. */
+    setup(password: string): Promise<AuthStatus>;
+    unlock(password: string): Promise<AuthStatus>;
+    /** Forgot password: opens with the recovery key and sets a new password. */
+    recover(recoveryKey: string, newPassword: string): Promise<AuthStatus>;
+    /** The user saved the recovery key; it is not shown again. */
+    confirmRecoveryKey(): Promise<AuthStatus>;
+    /** Stops background work, closes the database and shows the lock screen. */
+    lock(): Promise<AuthStatus>;
+    /** Lock state changes (also from the tray); returns the unsubscribe function. */
+    onChanged(listener: (s: AuthStatus) => void): () => void;
+  };
   settings: {
     getAll(): Promise<Settings>;
     get<K extends SettingKey>(key: K): Promise<Settings[K]>;

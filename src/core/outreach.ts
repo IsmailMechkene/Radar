@@ -1,6 +1,6 @@
 // Outreach drafts (SPEC section 9): templates with [merge fields] filled per organization, copied
 // or opened in the user's mail app. Radar never sends anything. Pure helpers + small DB layer.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { listPipeline, type PipelineItem } from './db/pipeline';
 import { utcTimestampSchema } from './db/schemas';

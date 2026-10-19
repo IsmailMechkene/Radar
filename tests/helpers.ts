@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { openDatabase, resolveDbPath } from '../src/core/db/open';
 
 export const fixedClock = (iso: string) => () => new Date(iso);

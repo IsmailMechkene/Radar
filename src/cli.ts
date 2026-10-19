@@ -2,14 +2,22 @@
 // Implemented so far: `scan` (store results in the database, for OS schedulers),
 // `scan --dry --source <name>` (fetch one source, print, save nothing), `rescore`, and
 // `remind --dry --now <time>` (what would fire at that time, on a copy; nothing is saved).
+// The database is encrypted: every command that reads it needs the password (or recovery key).
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
-import Database from 'better-sqlite3';
+import Database from 'better-sqlite3-multiple-ciphers';
 import { getAdapter } from './core/adapters/registry';
 import type { AdapterResult, RawItem } from './core/adapters/types';
 import { migrate } from './core/db/migrate';
-import { openDatabase, resolveDbPath } from './core/db/open';
+import { applyKey, openDatabase, resolveDbPath } from './core/db/open';
+import { prepareEncryptedDatabase } from './core/vault/encrypt';
+import {
+  readKeyFile,
+  unlockWithPassword,
+  unlockWithRecoveryKey,
+  WrongSecretError,
+} from './core/vault/keys';
 import { createHttpClient, HttpError, RobotsDisallowedError } from './core/http/client';
 import { extractDeadlines } from './core/deadlines/postings';
 import { defaultDataDir } from './core/paths';
@@ -44,7 +52,12 @@ const USAGE = `Usage:
   --dry      fetch and print only; nothing is written to the database
   --source   a source name from seeds/sources.json (repeatable without --dry)
   --json     with --dry: print normalized items as JSON (without the raw payload)
-  --limit    with --dry: print at most n items (default 50; all are still fetched and counted)`;
+  --limit    with --dry: print at most n items (default 50; all are still fetched and counted)
+  --recovery-key  ask for the recovery key instead of the password
+
+The database is encrypted. Commands that read it ask for your password, or take it from the
+RADAR_PASSWORD (or RADAR_RECOVERY_KEY) environment variable when there is no terminal, e.g. under
+an OS scheduler. keys.json must sit next to the database file.`;
 
 interface Args {
   command: string | undefined;
@@ -54,6 +67,7 @@ interface Args {
   db: string | undefined;
   limit: number;
   now: string | undefined;
+  recoveryKey: boolean;
 }
 
 export function parseArgs(argv: readonly string[]): Args {
@@ -65,6 +79,7 @@ export function parseArgs(argv: readonly string[]): Args {
     db: undefined,
     limit: 50,
     now: undefined,
+    recoveryKey: false,
   };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
@@ -74,6 +89,7 @@ export function parseArgs(argv: readonly string[]): Args {
     else if (a === '--db') args.db = argv[++i];
     else if (a === '--limit') args.limit = Number(argv[++i]);
     else if (a === '--now') args.now = argv[++i];
+    else if (a === '--recovery-key') args.recoveryKey = true;
     else throw new Error(`Unknown argument "${a}"`);
   }
   if (!Number.isInteger(args.limit) || args.limit < 0) {
@@ -180,6 +196,72 @@ function dbPathFor(args: Args): string {
     : resolveDbPath(defaultDataDir(process.platform, process.env, homedir()));
 }
 
+/** A problem the user fixes (missing password, no keys.json): printed without a stack trace. */
+class UnlockError extends Error {
+  override name = 'UnlockError';
+}
+
+/** Reads a secret from the terminal without echoing it. */
+function promptHidden(question: string): Promise<string> {
+  const stdin = process.stdin;
+  return new Promise((resolve, reject) => {
+    let value = '';
+    const finish = (err?: Error) => {
+      stdin.off('data', onData);
+      stdin.setRawMode(false);
+      stdin.pause();
+      process.stderr.write('\n');
+      if (err) reject(err);
+      else resolve(value);
+    };
+    const onData = (chunk: string) => {
+      for (const ch of chunk) {
+        if (ch === '\r' || ch === '\n') return finish();
+        if (ch === '\u0003') return finish(new Error('Cancelled'));
+        if (ch === '\u007f' || ch === '\b') value = value.slice(0, -1);
+        else value += ch;
+      }
+    };
+    process.stderr.write(question);
+    stdin.setRawMode(true);
+    stdin.setEncoding('utf8');
+    stdin.resume();
+    stdin.on('data', onData);
+  });
+}
+
+/** The data key, from the environment or a prompt. keys.json lives next to the database. */
+async function dataKeyFor(dbPath: string, args: Args): Promise<Buffer> {
+  const file = readKeyFile(dirname(dbPath));
+  if (!file) {
+    throw new UnlockError(
+      `No keys.json next to ${dbPath}: open Radar once and set a password first.`,
+    );
+  }
+  const envRecovery = process.env['RADAR_RECOVERY_KEY'];
+  const envPassword = process.env['RADAR_PASSWORD'];
+  if (args.recoveryKey || (!envPassword && envRecovery)) {
+    const key = envRecovery ?? (process.stdin.isTTY ? await promptHidden('Recovery key: ') : '');
+    if (!key) throw new UnlockError('Set RADAR_RECOVERY_KEY or run in a terminal to type it.');
+    return unlockWithRecoveryKey(file, key);
+  }
+  const password = envPassword ?? (process.stdin.isTTY ? await promptHidden('Password: ') : '');
+  if (!password) throw new UnlockError('Set RADAR_PASSWORD or run in a terminal to type it.');
+  return unlockWithPassword(file, password);
+}
+
+/** Opens the app's encrypted database (encrypting a plain one left from before). */
+async function openAppDatabase(dbPath: string, args: Args) {
+  const key = await dataKeyFor(dbPath, args);
+  try {
+    await prepareEncryptedDatabase(dirname(dbPath), key);
+    if (!existsSync(dbPath)) mkdirSync(dirname(dbPath), { recursive: true });
+    return openDatabase(dbPath, key);
+  } finally {
+    key.fill(0);
+  }
+}
+
 /** Scores every stored opportunity with seeds/rules.json and the stored settings. */
 function rescoreDb(db: ReturnType<typeof openDatabase>): string {
   const defaults = parseRules(
@@ -197,8 +279,7 @@ function rescoreDb(db: ReturnType<typeof openDatabase>): string {
 
 async function rescoreCommand(args: Args): Promise<number> {
   const dbPath = dbPathFor(args);
-  mkdirSync(dirname(dbPath), { recursive: true });
-  const db = openDatabase(dbPath);
+  const db = await openAppDatabase(dbPath, args);
   try {
     migrate(db);
     console.log(rescoreDb(db));
@@ -231,9 +312,16 @@ async function remindDry(args: Args): Promise<number> {
   const dbPath = dbPathFor(args);
   let db: Database.Database;
   if (existsSync(dbPath)) {
+    const key = await dataKeyFor(dbPath, args);
     const file = new Database(dbPath, { readonly: true, fileMustExist: true });
-    const image = file.serialize();
-    file.close();
+    let image: Buffer;
+    try {
+      applyKey(file, key);
+      image = file.serialize(); // decrypted pages: the copy lives only in memory
+    } finally {
+      file.close();
+      key.fill(0);
+    }
     // The app's file is in WAL mode, which an in-memory copy cannot use: mark the copy as a
     // rollback-journal database (header bytes 18-19) so it can be written.
     image[18] = 1;
@@ -308,8 +396,7 @@ async function remindDry(args: Args): Promise<number> {
 /** Real scan into the app's database (or --db). Seeds are synced first; results are scored. */
 async function scanLive(args: Args): Promise<number> {
   const dbPath = dbPathFor(args);
-  mkdirSync(dirname(dbPath), { recursive: true });
-  const db = openDatabase(dbPath);
+  const db = await openAppDatabase(dbPath, args);
   try {
     migrate(db);
     const seeds = loadSeeds();
@@ -373,7 +460,8 @@ main(process.argv.slice(2)).then(
     process.exitCode = code;
   },
   (err: unknown) => {
-    console.error(err);
+    const expected = err instanceof UnlockError || err instanceof WrongSecretError;
+    console.error(expected ? (err as Error).message : err);
     process.exitCode = 1;
   },
 );

@@ -1,5 +1,5 @@
 // Scan run log (SPEC section 8: every scan is recorded with counts and errors).
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { utcTimestampSchema } from './schemas';
 

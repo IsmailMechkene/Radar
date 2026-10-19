@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import type { IpcMain } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { z } from 'zod';
@@ -69,6 +69,10 @@ import {
   appOpenExternalPayloadSchema,
   appNavCountsPayloadSchema,
   appChromeThemePayloadSchema,
+  authNoPayloadSchema,
+  authPasswordPayloadSchema,
+  authRecoverPayloadSchema,
+  SHELL_CHANNELS as S,
   dataNoPayloadSchema,
   appCopyTextPayloadSchema,
   appOpenMailPayloadSchema,
@@ -115,19 +119,20 @@ import {
   settingsGetAllPayloadSchema,
   settingsGetPayloadSchema,
   settingsSetPayloadSchema,
+  type AuthStatus,
   type IpcChannel,
   type WindowInfo,
 } from '../shared/ipc';
 import type { ResolvedTheme, ThemePreference } from '../shared/theme';
 import type { ScanService } from './scan';
 
+type IpcMainLike = Pick<IpcMain, 'handle' | 'removeHandler'>;
+
 export interface IpcDeps {
-  ipcMain: Pick<IpcMain, 'handle'>;
+  ipcMain: IpcMainLike;
   db: Database.Database;
   applyAutostart: (enabled: boolean) => void;
   applyTheme: (theme: ThemePreference) => void;
-  /** Native window controls and background in the theme the page now shows. */
-  setChromeTheme?: (theme: ResolvedTheme) => void;
   windowInfo: () => WindowInfo;
   openExternal: (url: string) => Promise<void>;
   /** System clipboard (main process). */
@@ -182,7 +187,7 @@ function describe(err: unknown): string {
 }
 
 function handle<S extends z.ZodType>(
-  ipcMain: IpcDeps['ipcMain'],
+  ipcMain: Pick<IpcMain, 'handle'>,
   channel: IpcChannel,
   schema: S,
   fn: (payload: z.output<S>) => unknown,
@@ -209,9 +214,65 @@ function handle<S extends z.ZodType>(
   });
 }
 
-export function registerIpcHandlers(deps: IpcDeps): void {
+/** Records every channel it registers, so they can all be removed again. */
+function tracked(ipcMain: IpcMainLike): { ipc: Pick<IpcMain, 'handle'>; remove: () => void } {
+  const channels: string[] = [];
+  return {
+    ipc: {
+      handle: (channel, fn) => {
+        channels.push(channel);
+        ipcMain.handle(channel, fn);
+      },
+    },
+    remove: () => {
+      for (const channel of channels.splice(0)) ipcMain.removeHandler(channel);
+    },
+  };
+}
+
+export interface ShellIpcDeps {
+  ipcMain: IpcMainLike;
+  windowInfo: () => WindowInfo;
+  /** Native window controls and background in the theme the page now shows. */
+  setChromeTheme?: (theme: ResolvedTheme) => void;
+  auth: {
+    status: () => AuthStatus;
+    setup: (password: string) => Promise<AuthStatus>;
+    unlock: (password: string) => Promise<AuthStatus>;
+    recover: (recoveryKey: string, newPassword: string) => Promise<AuthStatus>;
+    confirmRecoveryKey: () => Promise<AuthStatus>;
+    lock: () => Promise<AuthStatus>;
+  };
+  isTrustedSender?: (senderUrl: string | undefined) => boolean;
+}
+
+/** Channels that work while locked (window chrome, the lock itself). Registered once. */
+export function registerShellHandlers(deps: ShellIpcDeps): void {
   trustedSender = deps.isTrustedSender;
-  const { ipcMain, db, applyAutostart, applyTheme, windowInfo } = deps;
+  const { ipcMain, auth } = deps;
+  handle(ipcMain, S.appGetWindowInfo, appGetWindowInfoPayloadSchema, () => deps.windowInfo());
+  handle(ipcMain, S.appChromeTheme, appChromeThemePayloadSchema, ({ theme }) =>
+    deps.setChromeTheme?.(theme),
+  );
+  handle(ipcMain, S.authStatus, authNoPayloadSchema, () => auth.status());
+  handle(ipcMain, S.authSetup, authPasswordPayloadSchema, ({ password }) => auth.setup(password));
+  handle(ipcMain, S.authUnlock, authPasswordPayloadSchema, ({ password }) => auth.unlock(password));
+  handle(ipcMain, S.authRecover, authRecoverPayloadSchema, ({ recoveryKey, newPassword }) =>
+    auth.recover(recoveryKey, newPassword),
+  );
+  handle(ipcMain, S.authConfirmRecovery, authNoPayloadSchema, () => auth.confirmRecoveryKey());
+  handle(ipcMain, S.authLock, authNoPayloadSchema, () => auth.lock());
+}
+
+/**
+ * Data channels, registered on unlock. Returns the function that removes them all again (lock),
+ * after which the page gets "no handler" errors instead of data.
+ */
+export function registerIpcHandlers(deps: IpcDeps): () => void {
+  if (deps.isTrustedSender) trustedSender = deps.isTrustedSender;
+  const { db, applyAutostart, applyTheme } = deps;
+  const { ipc: ipcMain, remove } = tracked(deps.ipcMain);
+  const windowInfo = deps.windowInfo;
   const now = deps.now ?? (() => new Date());
 
   handle(ipcMain, C.settingsGetAll, settingsGetAllPayloadSchema, () => getAllSettings(db));
@@ -229,18 +290,12 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     return stored;
   });
 
-  handle(ipcMain, C.appGetWindowInfo, appGetWindowInfoPayloadSchema, () => windowInfo());
-
   handle(ipcMain, C.appOpenExternal, appOpenExternalPayloadSchema, ({ url }) =>
     deps.openExternal(url),
   );
 
   handle(ipcMain, C.appNavCounts, appNavCountsPayloadSchema, ({ newSince }) =>
     navCounts(db, { now: now(), timeZone: getSetting(db, 'timezone'), newSince }),
-  );
-
-  handle(ipcMain, C.appChromeTheme, appChromeThemePayloadSchema, ({ theme }) =>
-    deps.setChromeTheme?.(theme),
   );
 
   handle(ipcMain, C.appCopyText, appCopyTextPayloadSchema, ({ text }) => {
@@ -530,4 +585,6 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     devOnly();
     return clearSampleData(db);
   });
+
+  return remove;
 }

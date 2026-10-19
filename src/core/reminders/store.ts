@@ -2,7 +2,7 @@
 // firing collapses everything due for one target into a single notice (the most urgent), so a
 // computer that was off for a week gets one reminder per item, not a flood. Quiet hours defer:
 // nothing is marked fired while it is quiet.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { utcTimestampSchema } from '../db/schemas';
 import { EXPECTED_LABEL } from '../programs/seeds';

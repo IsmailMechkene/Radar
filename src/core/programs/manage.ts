@@ -1,7 +1,7 @@
 // The Programs page's data: each watched program with its window, last cycle, page watch state and
 // the latest change alert not yet reviewed. Edits made here belong to the user (edited_at), so
 // seed sync leaves them alone.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { localDateSchema } from '../db/pipeline';
 import { utcTimestampSchema } from '../db/schemas';

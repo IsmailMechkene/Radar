@@ -1,8 +1,10 @@
-// Daily SQLite backups (SPEC section 8): a consistent copy of the database through SQLite's
-// online backup API, one file per local day, the last 14 kept. No Electron: the folder is passed in.
+// Daily SQLite backups (SPEC section 8): a consistent copy of the database through VACUUM INTO,
+// one file per local day, the last 14 kept. No Electron: the folder is passed in.
+// VACUUM INTO writes the copy encrypted with the same key as the open database (the backup API
+// refuses an encrypted source), so a backup opens with the same password as radar.db.
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { zonedParts } from './time';
 
 export const KEEP_BACKUPS = 14;
@@ -76,7 +78,7 @@ export async function backupDatabase(
   const temp = join(folder, `${name}.part`);
   rmSync(temp, { force: true });
   try {
-    await db.backup(temp);
+    db.prepare('VACUUM INTO ?').run(temp);
     renameSync(temp, target);
   } catch (err) {
     rmSync(temp, { force: true });

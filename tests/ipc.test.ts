@@ -8,10 +8,12 @@ import { getSetting, seedDefaultSettings } from '../src/core/settings/store';
 import { createHttpClient, type FetchFn } from '../src/core/http/client';
 import { parseSeedSources } from '../src/core/sources/seeds';
 import { syncSeedSources } from '../src/core/sources/sync';
-import { registerIpcHandlers } from '../src/main/ipc';
+import { registerIpcHandlers, registerShellHandlers } from '../src/main/ipc';
 import { createScanService } from '../src/main/scan';
 import {
   IPC_CHANNELS,
+  SHELL_CHANNELS,
+  type AuthStatus,
   type OpportunityListItem,
   type PipelineImport,
   type PipelineItem,
@@ -46,6 +48,9 @@ describe('IPC handlers', () => {
   let dataDir: string;
   let folderPick: string | null;
   let saved: { name: string; contents: string } | null;
+  let unregister: () => void;
+  let scanService: ReturnType<typeof createScanService>;
+  let unlockCalls: string[];
 
   beforeEach(() => {
     t = tempDb();
@@ -82,12 +87,34 @@ describe('IPC handlers', () => {
       onProgress: (p) => progress.push(p),
       onFinished: (r) => finished.push(r),
     });
-    registerIpcHandlers({
-      ipcMain: { handle: (channel: string, fn: Handler) => void handlers.set(channel, fn) },
+    scanService = scan;
+    const ipcMain = {
+      handle: (channel: string, fn: Handler) => void handlers.set(channel, fn),
+      removeHandler: (channel: string) => void handlers.delete(channel),
+    };
+    unlockCalls = [];
+    const status = (): AuthStatus => ({ state: 'unlocked', recoveryKey: null });
+    registerShellHandlers({
+      ipcMain,
+      windowInfo: () => info,
+      setChromeTheme,
+      auth: {
+        status,
+        setup: async () => status(),
+        unlock: async (password) => {
+          unlockCalls.push(password);
+          return status();
+        },
+        recover: async () => status(),
+        confirmRecoveryKey: async () => status(),
+        lock: async () => ({ state: 'locked' }),
+      },
+    });
+    unregister = registerIpcHandlers({
+      ipcMain,
       db: t.db,
       applyAutostart,
       applyTheme,
-      setChromeTheme,
       windowInfo: () => info,
       openExternal,
       readSampleFixture: fixture,
@@ -117,7 +144,22 @@ describe('IPC handlers', () => {
     handlers.get(channel)!({} as IpcMainInvokeEvent, payload);
 
   it('registers every channel', () => {
-    expect([...handlers.keys()].sort()).toEqual(Object.values(IPC_CHANNELS).sort());
+    expect([...handlers.keys()].sort()).toEqual(
+      [...Object.values(IPC_CHANNELS), ...Object.values(SHELL_CHANNELS)].sort(),
+    );
+  });
+
+  it('lock removes every data channel and keeps the shell ones', async () => {
+    unregister();
+    expect([...handlers.keys()].sort()).toEqual(Object.values(SHELL_CHANNELS).sort());
+    expect(await invoke(SHELL_CHANNELS.authUnlock, { password: 'correct horse' })).toEqual({
+      state: 'unlocked',
+      recoveryKey: null,
+    });
+    expect(unlockCalls).toEqual(['correct horse']);
+    await expect(invoke(SHELL_CHANNELS.authUnlock, { password: '' })).rejects.toThrow(
+      /invalid payload/,
+    );
   });
 
   it('rejects malformed payloads and bad values', async () => {
@@ -154,16 +196,16 @@ describe('IPC handlers', () => {
       invoke(IPC_CHANNELS.settingsSet, { key: 'theme', value: 'sepia' }),
     ).rejects.toThrow();
     expect(applyTheme).toHaveBeenCalledOnce();
-    expect(await invoke(IPC_CHANNELS.appGetWindowInfo)).toEqual(info);
+    expect(await invoke(SHELL_CHANNELS.appGetWindowInfo)).toEqual(info);
   });
 
   it('recolors the window controls only when the page reports its painted theme', async () => {
     await invoke(IPC_CHANNELS.settingsSet, { key: 'theme', value: 'dark' });
     expect(setChromeTheme).not.toHaveBeenCalled();
-    await invoke(IPC_CHANNELS.appChromeTheme, { theme: 'dark' });
+    await invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark' });
     expect(setChromeTheme).toHaveBeenCalledWith('dark');
     for (const theme of ['system', 'sepia', undefined]) {
-      await expect(invoke(IPC_CHANNELS.appChromeTheme, { theme })).rejects.toThrow(
+      await expect(invoke(SHELL_CHANNELS.appChromeTheme, { theme })).rejects.toThrow(
         /invalid payload/,
       );
     }
@@ -259,6 +301,20 @@ describe('IPC handlers', () => {
     expect(failed).toMatchObject({ sourcesOk: 0, sourcesFailed: 1 });
     expect(failed.errorSummary).toMatch(/Cohere: .*404/);
     await expect(invoke(IPC_CHANNELS.scanRun, { sources: [] })).rejects.toThrow(/invalid payload/);
+  });
+
+  it('lock stops a running scan after its current source and refuses new ones', async () => {
+    const seeds = JSON.parse(
+      readFileSync(join(__dirname, '../seeds/sources.json'), 'utf8'),
+    ) as unknown;
+    syncSeedSources(t.db, parseSeedSources(seeds), NOW);
+    const running = scanService.run('manual');
+    await scanService.stop();
+    const summary = await running;
+    expect(summary.outcomes.length).toBeLessThan(6);
+    expect(summary.errorSummary).toMatch(/Stopped early: \d+ source\(s\) not scanned/);
+    expect(finished).toEqual([]); // no re-scoring or alerts once locked
+    await expect(scanService.run('manual')).rejects.toThrow(/locked/);
   });
 
   it('tells main which setting changed (scoring settings trigger a re-score)', async () => {

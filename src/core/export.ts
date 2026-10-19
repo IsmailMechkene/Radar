@@ -2,7 +2,7 @@
 // Page snapshots export without their full page text (it is only a change-detection baseline).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 
 /** Tables in export order, with the columns left out (if any). */
 export const EXPORT_TABLES: readonly { name: string; omit?: readonly string[] }[] = [

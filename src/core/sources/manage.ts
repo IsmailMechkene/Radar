@@ -1,7 +1,7 @@
 // The Sources page's data: every source with its health, how many open postings it lists, and
 // the controls (pause, add, delete, test fetch). Health uses the same "broken" rule as the
 // sidebar count (src/core/nav.ts).
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { ashbyConfigSchema } from '../adapters/ashby';
 import { greenhouseConfigSchema } from '../adapters/greenhouse';

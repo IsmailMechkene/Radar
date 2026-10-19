@@ -1,13 +1,15 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { resolveTheme } from '../../shared/theme';
 import { App } from './App';
+import { rememberedTheme } from './state/theme';
 import './index.css';
 
-// Paint the OS theme immediately; the saved preference replaces it once settings load.
-document.documentElement.dataset['theme'] = window.matchMedia('(prefers-color-scheme: dark)')
-  .matches
-  ? 'dark'
-  : 'light';
+// Paint the last known theme immediately (the lock screen cannot read settings yet).
+document.documentElement.dataset['theme'] = resolveTheme(
+  rememberedTheme(),
+  window.matchMedia('(prefers-color-scheme: dark)').matches,
+);
 
 const root = document.getElementById('root');
 if (!root) {

@@ -1,6 +1,6 @@
 // The rules in use: the user's version from the Rules page, else seeds/rules.json. A stored
 // version that no longer validates is reported, never silently replaced.
-import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { z } from 'zod';
 import { opportunityRowSchema } from '../db/schemas';
 import type { ScoringInput } from './engine';

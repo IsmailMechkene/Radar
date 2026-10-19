@@ -185,4 +185,32 @@ describe('scheduler', () => {
     const r = await s.tick('startup');
     expect(r).toEqual({ scanned: false, notices: 1, deferred: 0 });
   });
+
+  it('stop (lock) cuts a running tick short: no page checks or notifications after it', async () => {
+    let release!: () => void;
+    const s = createScheduler({
+      db: t.db,
+      now: () => now,
+      scan: {
+        run: () => new Promise<void>((resolve) => (release = resolve)),
+        status: () => ({ running: false }),
+      },
+      watchPages: async () => {
+        watched += 1;
+      },
+      notify: (n) => notices.push(n),
+      setTimeout: (fn, ms) => timers.push({ fn, ms }),
+      clearTimeout: () => {},
+      setInterval: (fn, ms) => intervals.push({ fn, ms }),
+      clearInterval: () => {},
+    });
+    const tick = s.tick('startup');
+    const stopped = s.stop();
+    release();
+    await stopped;
+    expect(await tick).toEqual({ scanned: true, notices: 0, deferred: 0 });
+    expect(watched).toBe(0);
+    expect(notices).toEqual([]);
+    expect(await s.tick('hourly')).toEqual({ scanned: false, notices: 0, deferred: 0 });
+  });
 });
