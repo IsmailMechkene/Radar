@@ -34,6 +34,7 @@ import {
   timezoneList,
 } from '../lib/settings-helpers';
 import { useSettings } from '../state/settings';
+import { AccountSection } from './AccountSection';
 import { DataSection } from './DataSection';
 import { PageTitle } from './PageTitle';
 
@@ -198,6 +199,8 @@ export function SettingsPage({ isPackaged }: { isPackaged: boolean }) {
       <div className="mb-5.5">
         <PageTitle title="Settings" />
       </div>
+
+      <AccountSection />
 
       <GroupedSection title="Search">
         <GroupedRow

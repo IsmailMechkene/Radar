@@ -25,6 +25,7 @@ TypeScript end to end, one language, one process tree.
 | Shell | Electron (tray icon, autostart on login, native notifications) |
 | UI | React + Vite + Tailwind + TanStack Table |
 | DB | SQLite via better-sqlite3-multiple-ciphers (SQLite3 Multiple Ciphers, ChaCha20-Poly1305), encrypted at rest; migrations with a tiny runner (no ORM needed) |
+| Accounts | Supabase Auth (supabase-js, PKCE): email + password, or Google. Mandatory. Browser steps return to a loopback server (`http://127.0.0.1:47319/auth/callback`); tokens stay in main, on disk only through Electron safeStorage. URL and publishable key in an uncommitted `.env` |
 | Lock | Mandatory password. A random 32-byte data key encrypts the database; it is stored only wrapped (AES-256-GCM) by a scrypt key from the password and by a recovery key shown once at setup. Node `crypto` only, no extra dependency |
 | Scheduler | node-cron inside the main process, plus startup catch-up |
 | Fetch/parse | undici/fetch, cheerio, fast-xml-parser for RSS. Playwright only for pages that truly need JS, behind a flag |
@@ -61,6 +62,8 @@ radar/
 ## 4. Data model (SQLite)
 
 `<userData>/radar.db` is encrypted with the data key (SQLite3 Multiple Ciphers, default ChaCha20-Poly1305); without the key it does not open. Next to it, `<userData>/keys.json` holds the data key wrapped twice (AES-256-GCM): by a key derived from the password (scrypt, N 2^17, r 8, p 1) and by a key derived from the recovery key (HKDF-SHA256; the recovery key is 160 random bits shown as 8 groups of 4 Crockford base32 characters). Neither the password nor the recovery key is stored. Forgot password: the recovery key opens the data and the data key is re-wrapped with a new password. A recovery key never confirmed as saved is replaced by a new one at the next unlock. A plain `radar.db` from before encryption is copied, encrypted, checked table by table, and only then replaced (the plain file is deleted after the check); an interrupted run resumes on the next unlock.
+
+Accounts (Phase 2): `keys.json` also records the linked account (`userId`, `email`, `provider`). Email accounts: the account password is the password above. Google accounts: a separate password for this computer, chosen after the first Google sign-in. Unlocking needs no network once an account is linked and a session is stored; the session is renewed in the background (every 30 min, every minute while offline; an ended session asks the user to sign in again). Data linked to one account never opens for another. Forgot password: the reset email sets the account password; the recovery key re-encrypts the data here with it (checked before the account changes). A password changed on another computer is detected at unlock (the new password signs in but does not open the data) and the recovery key re-encrypts the data once. A computer set up before accounts unlocks with its password, then links an account (an email account's password takes over). The server never holds anything that opens the data.
 
 ```
 sources(id, kind, name, url, config_json, enabled, last_ok_at, last_error, consecutive_empty, created_at)

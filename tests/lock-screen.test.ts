@@ -6,10 +6,21 @@ describe('lock screen', () => {
   it('shows the app only when unlocked and the recovery key is saved', () => {
     expect(lockView(null)).toBe('loading');
     expect(lockView({ state: 'setup', hasPlainData: true })).toBe('setup');
-    expect(lockView({ state: 'locked' })).toBe('locked');
+    expect(lockView({ state: 'locked', account: null })).toBe('locked');
+    expect(
+      lockView({
+        state: 'signin',
+        purpose: 'new',
+        account: null,
+        hasPlainData: false,
+        problem: null,
+      }),
+    ).toBe('signin');
+    expect(lockView({ state: 'browser' })).toBe('browser');
     expect(lockView({ state: 'error', message: 'keys.json is damaged' })).toBe('error');
-    expect(lockView({ state: 'unlocked', recoveryKey: 'ABCD-EFGH' })).toBe('recovery-key');
-    expect(lockView({ state: 'unlocked', recoveryKey: null })).toBe('app');
+    const unlocked = { state: 'unlocked', account: null, session: null } as const;
+    expect(lockView({ ...unlocked, recoveryKey: 'ABCD-EFGH' })).toBe('recovery-key');
+    expect(lockView({ ...unlocked, recoveryKey: null })).toBe('app');
   });
 
   it('checks a new password typed twice', () => {

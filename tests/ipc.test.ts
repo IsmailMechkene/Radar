@@ -51,6 +51,7 @@ describe('IPC handlers', () => {
   let unregister: () => void;
   let scanService: ReturnType<typeof createScanService>;
   let unlockCalls: string[];
+  let signUps: string[];
 
   beforeEach(() => {
     t = tempDb();
@@ -93,7 +94,14 @@ describe('IPC handlers', () => {
       removeHandler: (channel: string) => void handlers.delete(channel),
     };
     unlockCalls = [];
-    const status = (): AuthStatus => ({ state: 'unlocked', recoveryKey: null });
+    signUps = [];
+    const status = (): AuthStatus => ({
+      state: 'unlocked',
+      recoveryKey: null,
+      account: null,
+      session: null,
+    });
+    const flow = async () => status();
     registerShellHandlers({
       ipcMain,
       windowInfo: () => info,
@@ -105,9 +113,23 @@ describe('IPC handlers', () => {
           unlockCalls.push(password);
           return status();
         },
-        recover: async () => status(),
-        confirmRecoveryKey: async () => status(),
-        lock: async () => ({ state: 'locked' }),
+        recover: flow,
+        confirmRecoveryKey: flow,
+        lock: async () => ({ state: 'locked', account: null }),
+        createAccount: async (email) => {
+          signUps.push(email);
+          return status();
+        },
+        signIn: flow,
+        google: flow,
+        cancel: flow,
+        emailConfirmed: flow,
+        resendEmail: flow,
+        requestReset: flow,
+        setNewPassword: flow,
+        choosePassword: flow,
+        finishPasswordChange: flow,
+        signOut: flow,
       },
     });
     unregister = registerIpcHandlers({
@@ -152,7 +174,7 @@ describe('IPC handlers', () => {
   it('lock removes every data channel and keeps the shell ones', async () => {
     unregister();
     expect([...handlers.keys()].sort()).toEqual(Object.values(SHELL_CHANNELS).sort());
-    expect(await invoke(SHELL_CHANNELS.authUnlock, { password: 'correct horse' })).toEqual({
+    expect(await invoke(SHELL_CHANNELS.authUnlock, { password: 'correct horse' })).toMatchObject({
       state: 'unlocked',
       recoveryKey: null,
     });
@@ -160,6 +182,15 @@ describe('IPC handlers', () => {
     await expect(invoke(SHELL_CHANNELS.authUnlock, { password: '' })).rejects.toThrow(
       /invalid payload/,
     );
+    // Account flows validate the email before they reach the account service.
+    await invoke(SHELL_CHANNELS.authCreateAccount, {
+      email: 'me@example.com',
+      password: 'x'.repeat(9),
+    });
+    expect(signUps).toEqual(['me@example.com']);
+    await expect(
+      invoke(SHELL_CHANNELS.authCreateAccount, { email: 'not an email', password: 'x'.repeat(9) }),
+    ).rejects.toThrow(/invalid payload/);
   });
 
   it('rejects malformed payloads and bad values', async () => {

@@ -107,6 +107,11 @@
   --knob: #ffffff;
   --brand-from: #2d9bff;
   --brand-to: #0a6cdb;
+  /* Google's "G" mark on Continue with Google (its brand colors, required by Google). */
+  --google-blue: #4285f4;
+  --google-green: #34a853;
+  --google-yellow: #fbbc05;
+  --google-red: #ea4335;
   /* Login panel glow (Apple system blue, purple, pink, orange). */
   --glow-blue: #0a84ff;
   --glow-purple: #bf5af2;

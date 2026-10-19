@@ -65,6 +65,17 @@ export const SHELL_CHANNELS = {
   authRecover: 'auth:recover',
   authConfirmRecovery: 'auth:confirm-recovery',
   authLock: 'auth:lock',
+  authCreateAccount: 'auth:create-account',
+  authSignIn: 'auth:sign-in',
+  authGoogle: 'auth:google',
+  authCancel: 'auth:cancel',
+  authEmailConfirmed: 'auth:email-confirmed',
+  authResendEmail: 'auth:resend-email',
+  authRequestReset: 'auth:request-reset',
+  authSetNewPassword: 'auth:set-new-password',
+  authChoosePassword: 'auth:choose-password',
+  authFinishPasswordChange: 'auth:finish-password-change',
+  authSignOut: 'auth:sign-out',
 } as const;
 
 /** Data channels: registered on unlock, removed on lock. */
@@ -137,13 +148,51 @@ export const IPC_EVENTS = {
 } as const;
 
 /** Where the lock stands (main -> page). */
+/** The account this computer's data belongs to (no tokens: those stay in main). */
+export interface AccountInfo {
+  email: string;
+  /** Email users unlock with their account password; Google users with a Radar password. */
+  provider: 'email' | 'google';
+}
+
+/** The account session while unlocked: renewed, waiting for the network, or ended. */
+export type SessionState = 'online' | 'offline' | 'expired';
+
 export type AuthStatus =
-  /** First run: no password yet. `hasPlainData`: an unencrypted database will be encrypted. */
+  /** Accounts off (screenshots, or no .env): first run with a local password only. */
   | { state: 'setup'; hasPlainData: boolean }
-  | { state: 'locked' }
+  /**
+   * Sign in or create an account. `new`: first run. `connect`: data set up before accounts,
+   * unlocked, to be linked. `again`: data linked to `account`, no session (signed out or ended).
+   * `problem`: why the last attempt (or a browser sign-in) failed.
+   */
+  | {
+      state: 'signin';
+      purpose: 'new' | 'connect' | 'again';
+      account: AccountInfo | null;
+      hasPlainData: boolean;
+      problem: string | null;
+    }
+  /** A link was emailed (confirm the address, or reset the password); waiting for it. */
+  | { state: 'check-email'; email: string; purpose: 'signup' | 'reset'; problem: string | null }
+  /** Google sign-in is open in the browser. */
+  | { state: 'browser' }
+  /** First Google sign-in on this computer: choose the password that encrypts the data here. */
+  | { state: 'choose-password'; account: AccountInfo; hasPlainData: boolean }
+  /** Opened from a reset link: a new password, and the recovery key when data exists here. */
+  | { state: 'new-password'; account: AccountInfo; hasData: boolean }
+  /** The account password changed (elsewhere): the recovery key re-encrypts the data here. */
+  | { state: 'password-changed'; account: AccountInfo }
+  /** Unlock with a password. `account` null: data from before accounts (linked after unlock). */
+  | { state: 'locked'; account: AccountInfo | null }
   /** `recoveryKey` is set until the user confirms they saved it (shown once). */
-  | { state: 'unlocked'; recoveryKey: string | null }
-  /** The data cannot be opened (damaged or missing keys.json). */
+  | {
+      state: 'unlocked';
+      recoveryKey: string | null;
+      account: AccountInfo | null;
+      session: SessionState | null;
+    }
+  /** The data cannot be opened (damaged or missing keys.json, accounts not configured). */
   | { state: 'error'; message: string };
 
 /** New strong matches found by a scan (main -> page). */
@@ -179,6 +228,14 @@ export const authRecoverPayloadSchema = z.strictObject({
   recoveryKey: secret,
   newPassword: secret,
 });
+const email = z.email().max(320);
+export const authCredentialsPayloadSchema = z.strictObject({ email, password: secret });
+export const authEmailPayloadSchema = z.strictObject({ email });
+export const authNewPasswordPayloadSchema = z.strictObject({
+  password: secret,
+  recoveryKey: z.string().max(512),
+});
+export const authRecoveryKeyPayloadSchema = z.strictObject({ recoveryKey: secret });
 /** Only web links leave the app; file:, javascript: and custom schemes are refused. */
 function isWebUrl(value: string): boolean {
   try {
@@ -378,6 +435,26 @@ export interface RadarApi {
     lock(): Promise<AuthStatus>;
     /** Lock state changes (also from the tray); returns the unsubscribe function. */
     onChanged(listener: (s: AuthStatus) => void): () => void;
+    /** New account; usually continues with "check your email". */
+    createAccount(email: string, password: string): Promise<AuthStatus>;
+    signIn(email: string, password: string): Promise<AuthStatus>;
+    /** Opens Google sign-in in the browser; the result arrives as a status change. */
+    google(): Promise<AuthStatus>;
+    /** Leaves "check your email" or the browser wait. */
+    cancel(): Promise<AuthStatus>;
+    /** "I've confirmed my email": signs in with the password from the sign-up. */
+    emailConfirmed(): Promise<AuthStatus>;
+    resendEmail(): Promise<AuthStatus>;
+    /** Emails a reset link. */
+    requestReset(email: string): Promise<AuthStatus>;
+    /** After the reset link: new password, plus the recovery key for data kept here. */
+    setNewPassword(password: string, recoveryKey: string): Promise<AuthStatus>;
+    /** First Google sign-in here: the password that encrypts this computer's data. */
+    choosePassword(password: string): Promise<AuthStatus>;
+    /** The account password changed elsewhere: the recovery key re-encrypts the data. */
+    finishPasswordChange(recoveryKey: string): Promise<AuthStatus>;
+    /** Forgets the session on this computer and locks. */
+    signOut(): Promise<AuthStatus>;
   };
   settings: {
     getAll(): Promise<Settings>;

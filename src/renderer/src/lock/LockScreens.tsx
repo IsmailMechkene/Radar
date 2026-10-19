@@ -1,6 +1,6 @@
 import { Check, Copy, TriangleAlert } from 'lucide-react';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
-import type { AuthStatus } from '../../../shared/ipc';
+import type { AccountInfo, AuthStatus } from '../../../shared/ipc';
 import { newPasswordProblem } from '../../../shared/password';
 import { BrandMark } from '../../components/Brand';
 import { Button } from '../../components/Button';
@@ -15,7 +15,7 @@ import { LockPanel } from './LockPanel';
  * and the screen centred in a narrow column; on the right the radar panel. The top rows drag the
  * window; the native buttons sit above the panel.
  */
-function LockFrame({ children, topRight }: { children: ReactNode; topRight?: ReactNode }) {
+export function LockFrame({ children, topRight }: { children: ReactNode; topRight?: ReactNode }) {
   return (
     <div className="flex h-full w-full bg-bg">
       <section className="flex min-w-0 flex-1 flex-col">
@@ -40,7 +40,7 @@ function LockFrame({ children, topRight }: { children: ReactNode; topRight?: Rea
   );
 }
 
-function Heading({ title, children }: { title: string; children?: ReactNode }) {
+export function Heading({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="mb-6">
       <h1 className="text-title-2 font-semibold tracking-title-2">{title}</h1>
@@ -50,7 +50,7 @@ function Heading({ title, children }: { title: string; children?: ReactNode }) {
 }
 
 /** Top-right link: a plain question, then the action. */
-function TopLink({
+export function TopLink({
   question,
   action,
   onClick,
@@ -69,11 +69,11 @@ function TopLink({
   );
 }
 
-function Step({ n }: { n: number }) {
+export function Step({ n }: { n: number }) {
   return <span className="tabular-nums">Step {n} of 2</span>;
 }
 
-function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
+export function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
@@ -85,7 +85,7 @@ function Field({ label, children }: { label: string; children: (id: string) => R
   );
 }
 
-function ErrorLine({ message }: { message: string | null }) {
+export function ErrorLine({ message }: { message: string | null }) {
   if (!message) return null;
   return (
     <p role="alert" className="flex items-start gap-1.5 text-footnote text-red">
@@ -96,7 +96,7 @@ function ErrorLine({ message }: { message: string | null }) {
 }
 
 /** Runs an auth call: busy while it runs, the cleaned error message when it fails. */
-function useAuthAction(onDone: (s: AuthStatus) => void) {
+export function useAuthAction(onDone: (s: AuthStatus) => void) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = (call: () => Promise<AuthStatus>) => {
@@ -117,7 +117,7 @@ function useAuthAction(onDone: (s: AuthStatus) => void) {
 }
 
 /** New password typed twice; the problem shows once both were typed or after a submit. */
-function NewPasswordFields({
+export function NewPasswordFields({
   password,
   confirm,
   onPassword,
@@ -278,24 +278,72 @@ export function RecoveryKeyScreen({
 }
 
 /** Locked: the password, or the recovery key when it is forgotten. */
-export function UnlockScreen({ onDone }: { onDone: (s: AuthStatus) => void }) {
-  const [mode, setMode] = useState<'password' | 'recovery'>('password');
-  return mode === 'password' ? (
-    <PasswordUnlock onDone={onDone} onForgot={() => setMode('recovery')} />
+export function UnlockScreen({
+  account,
+  onDone,
+}: {
+  account: AccountInfo | null;
+  onDone: (s: AuthStatus) => void;
+}) {
+  const [mode, setMode] = useState<'password' | 'forgot'>('password');
+  if (mode === 'password') {
+    return <PasswordUnlock account={account} onDone={onDone} onForgot={() => setMode('forgot')} />;
+  }
+  // Email users: the account password is also the lock, so it is reset by email (plus the
+  // recovery key). Google users and data from before accounts: recovery key + new password.
+  return account?.provider === 'email' ? (
+    <ResetByEmail email={account.email} onDone={onDone} onBack={() => setMode('password')} />
   ) : (
     <RecoveryUnlock onDone={onDone} onBack={() => setMode('password')} />
   );
 }
 
+function ResetByEmail({
+  email,
+  onDone,
+  onBack,
+}: {
+  email: string;
+  onDone: (s: AuthStatus) => void;
+  onBack: () => void;
+}) {
+  const { busy, error, run } = useAuthAction(onDone);
+  return (
+    <LockFrame
+      topRight={<TopLink question="Remember it?" action="Use password" onClick={onBack} />}
+    >
+      <Heading title="Reset your password">
+        Radar emails a reset link to {email}. Open it on this computer, then choose a new password
+        and enter your recovery key: it re-encrypts your data here with the new password.
+      </Heading>
+      <div className="flex flex-col gap-3.5">
+        <ErrorLine message={error} />
+        <Button
+          variant="primary"
+          size="lg"
+          disabled={busy}
+          className="w-full"
+          onClick={() => run(() => window.radar.auth.requestReset(email))}
+        >
+          {busy ? 'Sending…' : 'Send reset link'}
+        </Button>
+      </div>
+    </LockFrame>
+  );
+}
+
 function PasswordUnlock({
+  account,
   onDone,
   onForgot,
 }: {
+  account: AccountInfo | null;
   onDone: (s: AuthStatus) => void;
   onForgot: () => void;
 }) {
   const [password, setPassword] = useState('');
   const { busy, error, run } = useAuthAction(onDone);
+  const google = account?.provider === 'google';
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -305,14 +353,21 @@ function PasswordUnlock({
   return (
     <LockFrame
       topRight={
-        <TopLink question="Forgot your password?" action="Use recovery key" onClick={onForgot} />
+        <TopLink
+          question={google ? 'Forgot your Radar password?' : 'Forgot your password?'}
+          action={account?.provider === 'email' ? 'Reset it' : 'Use recovery key'}
+          onClick={onForgot}
+        />
       }
     >
       <Heading title="Welcome back">
-        Radar is locked. Enter your password to open your data.
+        {account ? `Signed in as ${account.email}. ` : 'Radar is locked. '}
+        {google
+          ? 'Enter the Radar password you chose for this computer (not your Google password).'
+          : 'Enter your password to open your data.'}
       </Heading>
       <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
-        <Field label="Password">
+        <Field label={google ? 'Radar password' : 'Password'}>
           {(id) => (
             <TextInput
               id={id}

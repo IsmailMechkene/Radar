@@ -25,6 +25,20 @@ const api: RadarApi = {
     confirmRecoveryKey: () => ipcRenderer.invoke(S.authConfirmRecovery),
     lock: () => ipcRenderer.invoke(S.authLock),
     onChanged: (listener) => subscribe(E.authChanged, listener),
+    createAccount: (email, password) =>
+      ipcRenderer.invoke(S.authCreateAccount, { email, password }),
+    signIn: (email, password) => ipcRenderer.invoke(S.authSignIn, { email, password }),
+    google: () => ipcRenderer.invoke(S.authGoogle),
+    cancel: () => ipcRenderer.invoke(S.authCancel),
+    emailConfirmed: () => ipcRenderer.invoke(S.authEmailConfirmed),
+    resendEmail: () => ipcRenderer.invoke(S.authResendEmail),
+    requestReset: (email) => ipcRenderer.invoke(S.authRequestReset, { email }),
+    setNewPassword: (password, recoveryKey) =>
+      ipcRenderer.invoke(S.authSetNewPassword, { password, recoveryKey }),
+    choosePassword: (password) => ipcRenderer.invoke(S.authChoosePassword, { password }),
+    finishPasswordChange: (recoveryKey) =>
+      ipcRenderer.invoke(S.authFinishPasswordChange, { recoveryKey }),
+    signOut: () => ipcRenderer.invoke(S.authSignOut),
   },
   settings: {
     getAll: () => ipcRenderer.invoke(C.settingsGetAll),

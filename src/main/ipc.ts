@@ -69,9 +69,13 @@ import {
   appOpenExternalPayloadSchema,
   appNavCountsPayloadSchema,
   appChromeThemePayloadSchema,
+  authCredentialsPayloadSchema,
+  authEmailPayloadSchema,
+  authNewPasswordPayloadSchema,
   authNoPayloadSchema,
   authPasswordPayloadSchema,
   authRecoverPayloadSchema,
+  authRecoveryKeyPayloadSchema,
   SHELL_CHANNELS as S,
   dataNoPayloadSchema,
   appCopyTextPayloadSchema,
@@ -242,6 +246,17 @@ export interface ShellIpcDeps {
     recover: (recoveryKey: string, newPassword: string) => Promise<AuthStatus>;
     confirmRecoveryKey: () => Promise<AuthStatus>;
     lock: () => Promise<AuthStatus>;
+    createAccount: (email: string, password: string) => Promise<AuthStatus>;
+    signIn: (email: string, password: string) => Promise<AuthStatus>;
+    google: () => Promise<AuthStatus>;
+    cancel: () => Promise<AuthStatus>;
+    emailConfirmed: () => Promise<AuthStatus>;
+    resendEmail: () => Promise<AuthStatus>;
+    requestReset: (email: string) => Promise<AuthStatus>;
+    setNewPassword: (password: string, recoveryKey: string) => Promise<AuthStatus>;
+    choosePassword: (password: string) => Promise<AuthStatus>;
+    finishPasswordChange: (recoveryKey: string) => Promise<AuthStatus>;
+    signOut: () => Promise<AuthStatus>;
   };
   isTrustedSender?: (senderUrl: string | undefined) => boolean;
 }
@@ -262,6 +277,29 @@ export function registerShellHandlers(deps: ShellIpcDeps): void {
   );
   handle(ipcMain, S.authConfirmRecovery, authNoPayloadSchema, () => auth.confirmRecoveryKey());
   handle(ipcMain, S.authLock, authNoPayloadSchema, () => auth.lock());
+  handle(ipcMain, S.authCreateAccount, authCredentialsPayloadSchema, ({ email, password }) =>
+    auth.createAccount(email, password),
+  );
+  handle(ipcMain, S.authSignIn, authCredentialsPayloadSchema, ({ email, password }) =>
+    auth.signIn(email, password),
+  );
+  handle(ipcMain, S.authGoogle, authNoPayloadSchema, () => auth.google());
+  handle(ipcMain, S.authCancel, authNoPayloadSchema, () => auth.cancel());
+  handle(ipcMain, S.authEmailConfirmed, authNoPayloadSchema, () => auth.emailConfirmed());
+  handle(ipcMain, S.authResendEmail, authNoPayloadSchema, () => auth.resendEmail());
+  handle(ipcMain, S.authRequestReset, authEmailPayloadSchema, ({ email }) =>
+    auth.requestReset(email),
+  );
+  handle(ipcMain, S.authSetNewPassword, authNewPasswordPayloadSchema, (p) =>
+    auth.setNewPassword(p.password, p.recoveryKey),
+  );
+  handle(ipcMain, S.authChoosePassword, authPasswordPayloadSchema, ({ password }) =>
+    auth.choosePassword(password),
+  );
+  handle(ipcMain, S.authFinishPasswordChange, authRecoveryKeyPayloadSchema, ({ recoveryKey }) =>
+    auth.finishPasswordChange(recoveryKey),
+  );
+  handle(ipcMain, S.authSignOut, authNoPayloadSchema, () => auth.signOut());
 }
 
 /**

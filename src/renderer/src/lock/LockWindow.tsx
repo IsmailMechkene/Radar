@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import type { AuthStatus } from '../../../shared/ipc';
 import { cleanIpcError } from '../lib/settings-helpers';
 import { rememberedTheme, useAppliedTheme } from '../state/theme';
+import {
+  BrowserScreen,
+  CheckEmailScreen,
+  ChoosePasswordScreen,
+  NewPasswordScreen,
+  PasswordChangedScreen,
+  SignInScreen,
+} from './AccountScreens';
 import { LockErrorScreen, RecoveryKeyScreen, SetupScreen, UnlockScreen } from './LockScreens';
 
 /**
@@ -27,13 +35,53 @@ export function LockWindow() {
     return off;
   }, []);
 
-  if (status?.state === 'setup') {
-    return <SetupScreen hasPlainData={status.hasPlainData} onDone={setStatus} />;
-  }
-  if (status?.state === 'locked') return <UnlockScreen onDone={setStatus} />;
-  if (status?.state === 'error') return <LockErrorScreen message={status.message} />;
-  if (status?.state === 'unlocked' && status.recoveryKey) {
-    return <RecoveryKeyScreen recoveryKey={status.recoveryKey} onDone={setStatus} />;
+  const done = setStatus;
+  switch (status?.state) {
+    case 'setup':
+      return <SetupScreen hasPlainData={status.hasPlainData} onDone={done} />;
+    case 'signin':
+      // Keyed by purpose so a new sign-in (e.g. after signing out) starts from empty fields.
+      return (
+        <SignInScreen
+          key={status.purpose}
+          purpose={status.purpose}
+          account={status.account}
+          hasPlainData={status.hasPlainData}
+          problem={status.problem}
+          onDone={done}
+        />
+      );
+    case 'check-email':
+      return (
+        <CheckEmailScreen
+          email={status.email}
+          purpose={status.purpose}
+          problem={status.problem}
+          onDone={done}
+        />
+      );
+    case 'browser':
+      return <BrowserScreen onDone={done} />;
+    case 'choose-password':
+      return (
+        <ChoosePasswordScreen
+          account={status.account}
+          hasPlainData={status.hasPlainData}
+          onDone={done}
+        />
+      );
+    case 'new-password':
+      return <NewPasswordScreen account={status.account} hasData={status.hasData} onDone={done} />;
+    case 'password-changed':
+      return <PasswordChangedScreen account={status.account} onDone={done} />;
+    case 'locked':
+      return <UnlockScreen account={status.account} onDone={done} />;
+    case 'error':
+      return <LockErrorScreen message={status.message} />;
+    case 'unlocked':
+      if (status.recoveryKey) {
+        return <RecoveryKeyScreen recoveryKey={status.recoveryKey} onDone={done} />;
+      }
   }
   // Loading, or unlocked: the app window is about to replace this one.
   return <div className="h-full w-full bg-bg" />;

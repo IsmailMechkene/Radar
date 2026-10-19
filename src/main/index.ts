@@ -9,6 +9,7 @@ import {
   Notification,
   clipboard,
   powerMonitor,
+  safeStorage,
   session as electronSession,
   shell,
   Tray,
@@ -38,7 +39,7 @@ import { parseRules } from '../core/rules/schema';
 import { getAllSettings, getSetting, seedDefaultSettings } from '../core/settings/store';
 import { parseSeedSources } from '../core/sources/seeds';
 import { syncSeedSources } from '../core/sources/sync';
-import { IPC_EVENTS, type WindowInfo } from '../shared/ipc';
+import { IPC_EVENTS, type AuthStatus, type WindowInfo } from '../shared/ipc';
 import {
   LOCK_TITLEBAR_HEIGHT,
   TITLE_BAR_OVERLAY,
@@ -48,7 +49,11 @@ import {
   type ThemePreference,
 } from '../shared/theme';
 import { registerIpcHandlers, registerShellHandlers } from './ipc';
-import { createVault, type Vault } from './vault';
+import { createVault } from './vault';
+import { createAuth, type Auth } from './auth';
+import { CALLBACK_URL, startCallbackServer } from './account/callback-server';
+import { createSupabaseAccount, type AccountService } from './account/service';
+import { createSessionStore } from './account/session-store';
 import { prepareEncryptedDatabase } from '../core/vault/encrypt';
 import { applyAutostart, createLifecycle, type WindowKind } from './lifecycle';
 import { createScanService, type ScanService } from './scan';
@@ -88,13 +93,13 @@ const lifecycle = createLifecycle({
   createWindow,
   // The login window until unlocked and the recovery key is saved; then the app window.
   windowKind: () => {
-    const s = vault?.status();
+    const s = auth?.status();
     return s?.state === 'unlocked' && !s.recoveryKey ? 'app' : 'lock';
   },
   lock: {
-    available: () => vault?.isUnlocked() ?? false,
+    available: () => auth?.status().state === 'unlocked',
     run: () =>
-      void vault?.lock().catch((err: unknown) => console.error('[radar] lock failed:', err)),
+      void auth?.lock().catch((err: unknown) => console.error('[radar] lock failed:', err)),
   },
 });
 
@@ -634,7 +639,27 @@ async function stopUnlocked(): Promise<void> {
   console.log('[radar] locked: database closed');
 }
 
-let vault: Vault | null = null;
+let auth: Auth | null = null;
+let lastAuthState: AuthStatus['state'] | null = null;
+
+/**
+ * The Supabase account service from .env (MAIN_VITE_SUPABASE_URL / _KEY), or why there is none.
+ * Screenshots run without accounts. Tokens are kept by main, encrypted with safeStorage.
+ */
+function accountService(): AccountService | string | null {
+  if (SHOT_MODE) return null;
+  const url = import.meta.env.MAIN_VITE_SUPABASE_URL;
+  const key = import.meta.env.MAIN_VITE_SUPABASE_KEY;
+  if (!url || !key) {
+    return 'Radar needs its account settings: copy .env.example to .env and fill in the Supabase URL and key.';
+  }
+  const storage = createSessionStore(join(app.getPath('userData'), 'session.bin'), {
+    available: () => safeStorage.isEncryptionAvailable(),
+    encrypt: (plain) => safeStorage.encryptString(plain),
+    decrypt: (data) => safeStorage.decryptString(data),
+  });
+  return createSupabaseAccount({ url, key, storage, redirectTo: CALLBACK_URL });
+}
 
 function refreshTray(): void {
   tray?.setContextMenu(Menu.buildFromTemplate(lifecycle.trayMenuTemplate()));
@@ -648,17 +673,30 @@ function startShell(): void {
   );
   electronSession.defaultSession.setPermissionCheckHandler(() => false);
 
-  const v = createVault({
+  const vault = createVault({
     dataDir: app.getPath('userData'),
     open: startUnlocked,
     close: stopUnlocked,
+    onChange: () => auth?.notify(),
+  });
+  const service = accountService();
+  const v = createAuth({
+    vault,
+    account: typeof service === 'string' ? null : service,
+    unavailable: typeof service === 'string' ? service : undefined,
+    startCallbackServer: (onResult) => startCallbackServer(onResult),
+    openExternal: (url) => shell.openExternal(url),
     onChange: (status) => {
       refreshTray();
       broadcast(IPC_EVENTS.authChanged, status);
       lifecycle.syncWindowKind();
+      // A browser sign-in or email link finished: bring Radar back in front of the browser.
+      const waited = lastAuthState === 'browser' || lastAuthState === 'check-email';
+      if (waited && status.state !== lastAuthState) lifecycle.showWindow();
+      lastAuthState = status.state;
     },
   });
-  vault = v;
+  auth = v;
   registerShellHandlers({
     ipcMain,
     windowInfo,
@@ -705,6 +743,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {});
   app.on('before-quit', () => lifecycle.handleBeforeQuit());
   app.on('will-quit', () => {
+    void auth?.dispose();
     void session?.scheduler.stop();
     tray?.destroy();
     session?.database.close();

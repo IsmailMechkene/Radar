@@ -1,12 +1,24 @@
-import type { AuthStatus } from '../../../shared/ipc';
+import type { AuthStatus, SessionState } from '../../../shared/ipc';
 
 /** Which screen the lock state calls for; 'app' renders the app itself. */
-export type LockView = 'loading' | 'setup' | 'recovery-key' | 'locked' | 'error' | 'app';
+export type LockView =
+  'loading' | Exclude<AuthStatus['state'], 'unlocked'> | 'recovery-key' | 'app';
 
 export function lockView(status: AuthStatus | null): LockView {
   if (!status) return 'loading';
   if (status.state === 'unlocked') return status.recoveryKey ? 'recovery-key' : 'app';
   return status.state;
+}
+
+/** How Settings describes the account session. */
+export function sessionLabel(session: SessionState | null): {
+  text: string;
+  tone: 'green' | 'amber' | 'red' | 'gray';
+} {
+  if (session === 'online') return { text: 'Connected', tone: 'green' };
+  if (session === 'offline') return { text: 'Offline, reconnects by itself', tone: 'amber' };
+  if (session === 'expired') return { text: 'Session ended: sign in again', tone: 'red' };
+  return { text: 'Not connected', tone: 'gray' };
 }
 
 /** "Did you know?" on the login window: only things Radar really does. */

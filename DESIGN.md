@@ -337,7 +337,25 @@ Layout (a split page, after a reference the user chose; colors, type and compone
      the panel wide, sunk `--glow-bottom` below it, so only its top arc shows, and it turns once
      every 24 s (`motion-safe` only), so the colors drift. Decoration only.
 
-Screens:
+Screens (with accounts; see `AccountScreens.tsx`):
+
+- **Sign in to Radar / Create your account** (first run; the top-right link switches between them,
+  as in the reference): **Continue with Google** (secondary `lg`, Google's "G" from `--google-*`
+  tokens, required by Google's branding rules), an "or" hairline divider, Email, Password (twice
+  when creating), a small `plain` **Forgot password?** under the password, and the primary button.
+  **Connect an account** (data from before accounts, after unlocking) and **Sign in again** (data
+  linked to an account, no session; only that account) use the same form.
+- **Check your email:** after sign-up (I’ve confirmed my email, Send the email again, Use another
+  email) or a reset request (Back to sign in); the link must be opened on this computer.
+- **Continue in your browser:** while Google sign-in is open; Cancel.
+- **Choose a Radar password** (first Google sign-in): says it is not the Google password.
+- **Choose a new password** (from the reset link): the recovery key first when data is kept here.
+- **Your password changed:** the recovery key once, after the password was changed elsewhere.
+- **Welcome back:** "Signed in as …"; Google users type their _Radar password_. Forgot: email users
+  get **Reset your password** (sends the link to their address), Google users and data from before
+  accounts the recovery-key form.
+
+Without accounts (screenshot runs only) the screens are:
 
 1. **Set up Radar** (first run, the "register" step): password twice; the problem shows inline in
    red once the second field is typed (at least 8 characters, at most 72 bytes, both equal). With an
@@ -356,6 +374,11 @@ Errors ("Wrong password") show under the field in red with the triangle icon; th
 invalid. The login window uses the theme last applied in the app (remembered in local storage,
 since settings are unreadable while locked). **Lock Radar** is a toolbar icon button (Lucide `lock`)
 after the theme button; the tray menu has **Lock** while unlocked.
+
+**Settings → Account** (first group): the email with "Signed in with Google/email" and what opens
+the data here, a session badge (Connected green, Offline amber, Session ended red), and **Sign out**
+(locks; the same account signs in again), which becomes a primary **Sign in again** when the session
+ended.
 
 ## 7. Do / Don't
 

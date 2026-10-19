@@ -31,6 +31,17 @@ export const DEFAULT_SCRYPT: ScryptParams = { N: 2 ** 17, r: 8, p: 1 };
 
 const b64 = z.string().regex(/^[A-Za-z0-9+/]+=*$/);
 const wrappedSchema = z.strictObject({ iv: b64, tag: b64, data: b64 });
+/** The online account this computer's data belongs to (Phase 2); absent before one is linked. */
+const accountSchema = z.strictObject({
+  userId: z.uuid(),
+  email: z.email(),
+  /** How the user signs in. Email users unlock with their account password; Google users with
+   * a separate password chosen for this computer. */
+  provider: z.enum(['email', 'google']),
+  linkedAt: z.iso.datetime(),
+});
+export type LinkedAccount = z.output<typeof accountSchema>;
+
 const keyFileSchema = z.strictObject({
   version: z.literal(1),
   createdAt: z.iso.datetime(),
@@ -49,6 +60,7 @@ const keyFileSchema = z.strictObject({
     /** When the user confirmed they saved this recovery key; null until then. */
     confirmedAt: z.iso.datetime().nullable(),
   }),
+  account: accountSchema.optional(),
 });
 export type KeyFile = z.output<typeof keyFileSchema>;
 type Wrapped = z.output<typeof wrappedSchema>;
@@ -239,6 +251,15 @@ export function reissueRecoveryKey(
 ): { file: KeyFile; recoveryKey: string } {
   const { part, recoveryKey } = recoveryPart(dataKey);
   return { file: { ...file, recovery: part }, recoveryKey };
+}
+
+/** Records the account the data belongs to; another account can then not open it. */
+export function linkAccount(
+  file: KeyFile,
+  account: Omit<LinkedAccount, 'linkedAt'>,
+  now: Date,
+): KeyFile {
+  return { ...file, account: { ...account, linkedAt: now.toISOString() } };
 }
 
 export function confirmRecoveryKey(file: KeyFile, now: Date): KeyFile {

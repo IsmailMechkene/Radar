@@ -25,19 +25,45 @@ npm run dev
 
 Closing the window keeps Radar running in the tray. Use the tray menu's **Open** to bring it back and **Quit** to exit.
 
+## Accounts
+
+Radar needs an account (Supabase Auth): sign up with email and password, or **Continue with
+Google**. The Supabase URL and publishable key go in an uncommitted `.env` (copy
+[.env.example](.env.example)). Sign-ins that go through the browser (Google, the email confirmation
+link, the password reset link) come back to Radar at `http://127.0.0.1:47319/auth/callback`, a small
+server that runs only while such a step waits. Open those links on the computer running Radar.
+
+One-time project setup in the Supabase dashboard:
+
+1. **Authentication → URL Configuration → Redirect URLs:** add
+   `http://127.0.0.1:47319/auth/callback`.
+2. **Google** (optional): in Google Cloud Console create an OAuth client of type _Web application_
+   with the authorized redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`, then paste
+   its client ID and secret in **Authentication → Providers → Google** and enable it. Until then,
+   Continue with Google says it is not set up.
+3. **Email:** Supabase's built-in email sender is limited to a few messages per hour; set up custom
+   SMTP (**Authentication → Emails**) before real use.
+
+Email accounts: the account password also encrypts Radar's data on this computer. Google accounts:
+after the first Google sign-in you choose a separate Radar password for this computer. Either way
+Radar unlocks offline once you have signed in, and renews the session in the background when
+online. Sign-in tokens stay in Radar's main process, encrypted with the system's secure storage
+(DPAPI on Windows); the page never sees them. **Settings → Account** shows the account and signs
+out.
+
 ## Password and encryption
 
-Radar's database is encrypted on disk. On first start Radar asks for a password (at least 8
-characters) and then shows a **recovery key** once: save it somewhere safe, it is the only way back
-in if you forget the password (**Forgot password?** on the lock screen). A database from an earlier
+Radar's database is encrypted on disk with your password (above) and shows a **recovery key**
+once: save it somewhere safe. If you forget your password, the reset email restores your account
+and the recovery key restores the data on this computer; without it that data cannot be opened.
+If you change your password on another computer, Radar asks for the recovery key once here. A database from an earlier
 version is encrypted at that moment; the unencrypted file is deleted only after the encrypted copy
 has been checked.
 
 **Lock** (the padlock in the toolbar, or the tray menu) closes the database and stops everything:
 no scans, reminders or backups run until you unlock again. Backups are encrypted with the same key
 and open with the same password. The key file is `keys.json` next to `radar.db`
-(`%APPDATA%
-adar` on Windows); without it the data cannot be opened, so back it up with the
+(`%APPDATA%\radar` on Windows); without it the data cannot be opened, so back it up with the
 database.
 
 In development, an empty Opportunities page offers **Load sample data** so the page can be tried before any source exists. Sample rows are labeled as such and can be removed from the same page.
