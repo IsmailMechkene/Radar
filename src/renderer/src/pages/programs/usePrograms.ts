@@ -3,6 +3,7 @@ import { notifyDataChanged } from '../../lib/data-events';
 import type { ProgramItem, ProgramNew, ProgramPatch } from '../../../../shared/ipc';
 import { useToast } from '../../../components/Toast';
 import { cleanIpcError } from '../../lib/settings-helpers';
+import { useSyncVersion } from '../../state/sync-version';
 
 /** Loads programs over IPC; every action is confirmed with a toast. */
 export function usePrograms() {
@@ -35,9 +36,10 @@ export function usePrograms() {
     [],
   );
 
+  const synced = useSyncVersion();
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, synced]);
 
   const save = useCallback(
     async (id: number, patch: ProgramPatch, name: string): Promise<boolean> => {

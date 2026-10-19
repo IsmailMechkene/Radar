@@ -76,6 +76,8 @@ import {
   authPasswordPayloadSchema,
   authRecoverPayloadSchema,
   authRecoveryKeyPayloadSchema,
+  syncNoPayloadSchema,
+  syncRecoveryKeyPayloadSchema,
   SHELL_CHANNELS as S,
   dataNoPayloadSchema,
   appCopyTextPayloadSchema,
@@ -125,10 +127,12 @@ import {
   settingsSetPayloadSchema,
   type AuthStatus,
   type IpcChannel,
+  type SyncStatus,
   type WindowInfo,
 } from '../shared/ipc';
 import type { ResolvedTheme, ThemePreference } from '../shared/theme';
 import type { ScanService } from './scan';
+import type { SyncService } from './sync';
 
 type IpcMainLike = Pick<IpcMain, 'handle' | 'removeHandler'>;
 
@@ -174,6 +178,8 @@ export interface IpcDeps {
   chooseFolder?: (title: string, defaultPath?: string) => Promise<string | null>;
   /** Shows a folder in the file manager. */
   openFolder?: (path: string) => Promise<void>;
+  /** End-to-end encrypted sync; absent when accounts are off. */
+  sync?: Pick<SyncService, 'status' | 'now' | 'useRecoveryKey'> | null;
   now?: () => Date;
   /**
    * Accepts only messages from Radar's own page (the URL of the sending frame). Without it,
@@ -257,6 +263,8 @@ export interface ShellIpcDeps {
     choosePassword: (password: string) => Promise<AuthStatus>;
     finishPasswordChange: (recoveryKey: string) => Promise<AuthStatus>;
     signOut: () => Promise<AuthStatus>;
+    join: (recoveryKey: string) => Promise<AuthStatus>;
+    skipJoin: () => Promise<AuthStatus>;
   };
   isTrustedSender?: (senderUrl: string | undefined) => boolean;
 }
@@ -300,6 +308,10 @@ export function registerShellHandlers(deps: ShellIpcDeps): void {
     auth.finishPasswordChange(recoveryKey),
   );
   handle(ipcMain, S.authSignOut, authNoPayloadSchema, () => auth.signOut());
+  handle(ipcMain, S.authJoin, authRecoveryKeyPayloadSchema, ({ recoveryKey }) =>
+    auth.join(recoveryKey),
+  );
+  handle(ipcMain, S.authSkipJoin, authNoPayloadSchema, () => auth.skipJoin());
 }
 
 /**
@@ -611,6 +623,14 @@ export function registerIpcHandlers(deps: IpcDeps): () => void {
   handle(ipcMain, C.scanRun, scanRunPayloadSchema, (p) => deps.scan.run('manual', p?.sources));
 
   handle(ipcMain, C.scanStatus, scanStatusPayloadSchema, () => deps.scan.status());
+
+  const syncOff: SyncStatus = { state: 'off', lastSyncedAt: null, pending: 0, message: null };
+  handle(ipcMain, C.syncStatus, syncNoPayloadSchema, () => deps.sync?.status() ?? syncOff);
+  handle(ipcMain, C.syncNow, syncNoPayloadSchema, () => deps.sync?.now() ?? syncOff);
+  handle(ipcMain, C.syncUseRecoveryKey, syncRecoveryKeyPayloadSchema, ({ recoveryKey }) => {
+    if (!deps.sync) throw new Error('Sync needs an account');
+    return deps.sync.useRecoveryKey(recoveryKey);
+  });
 
   const devOnly = () => {
     if (windowInfo().isPackaged) throw new Error('Sample data is only available in development');

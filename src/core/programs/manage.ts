@@ -112,7 +112,7 @@ const TOS =
   'Program page, fetched about once a day through the shared fetch layer (robots.txt, 1 request/s per host).';
 
 /** Points the program's watched page at `url` (creating the source), or disables it. */
-function setWatchedPage(
+export function setWatchedPage(
   db: Database.Database,
   id: number,
   name: string,

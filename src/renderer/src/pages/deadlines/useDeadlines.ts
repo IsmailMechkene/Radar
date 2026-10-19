@@ -5,6 +5,7 @@ import { useToast } from '../../../components/Toast';
 import type { DueItem } from '../../lib/deadlines';
 import { cleanIpcError } from '../../lib/settings-helpers';
 import { useScan } from '../../state/scan';
+import { useSyncVersion } from '../../state/sync-version';
 
 const targetOf = (item: DueItem): ReminderTarget =>
   item.kind === 'followup'
@@ -46,9 +47,10 @@ export function useDeadlines() {
   );
 
   // First load, and again after every scan (new postings may bring deadlines).
+  const synced = useSyncVersion();
   useEffect(() => {
     void reload();
-  }, [reload, scan.version]);
+  }, [reload, scan.version, synced]);
 
   const snooze = useCallback(
     async (item: DueItem) => {

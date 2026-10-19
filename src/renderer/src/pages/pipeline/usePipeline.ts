@@ -4,6 +4,7 @@ import type { PipelineItem, PipelineNew, PipelinePatch } from '../../../../share
 import { useToast } from '../../../components/Toast';
 import { STATUS_META } from '../../lib/pipeline';
 import { cleanIpcError } from '../../lib/settings-helpers';
+import { useSyncVersion } from '../../state/sync-version';
 
 /** Loads the pipeline over IPC; every change is confirmed with a toast (Undo where possible). */
 export function usePipeline() {
@@ -39,9 +40,10 @@ export function usePipeline() {
     [],
   );
 
+  const synced = useSyncVersion();
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, synced]);
 
   const replace = (row: PipelineItem) => {
     setItems((list) => (list ?? []).map((i) => (i.id === row.id ? row : i)));

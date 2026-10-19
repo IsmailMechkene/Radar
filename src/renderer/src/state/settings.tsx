@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 import type { SettingKey, Settings } from '../../../core/settings/schema';
 import { useToast } from '../../components/Toast';
 import { cleanIpcError } from '../lib/settings-helpers';
+import { useSyncVersion } from './sync-version';
 
 interface UpdateOptions {
   /** Toast text on success; false for no toast. Default "Saved" with Undo. */
@@ -49,12 +50,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     current.current = settings;
   }, [settings]);
 
+  // First load, and after settings arrive from another device.
+  const synced = useSyncVersion();
   useEffect(() => {
     window.radar.settings.getAll().then(setSettings, (err: unknown) => {
       console.error('[settings] load failed', err);
       setLoadError(cleanIpcError(err));
     });
-  }, []);
+  }, [synced]);
 
   const update = useCallback<UpdateFn>(
     async (key, value, opts = {}) => {

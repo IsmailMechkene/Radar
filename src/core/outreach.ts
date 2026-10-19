@@ -91,7 +91,9 @@ export const templateInputSchema = z.strictObject({
 });
 export type TemplateInput = z.input<typeof templateInputSchema>;
 
-export const templateRowSchema = templateInputSchema.extend({
+// Not strict: rows carry columns the page does not use (the sync UUID).
+export const templateRowSchema = z.object({
+  ...templateInputSchema.shape,
   id: z.int(),
   created_at: utcTimestampSchema,
   updated_at: utcTimestampSchema,

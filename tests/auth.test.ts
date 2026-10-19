@@ -4,7 +4,14 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { migrate } from '../src/core/db/migrate';
 import { isPlainDatabase, openDatabase, resolveDbPath } from '../src/core/db/open';
-import { readKeyFile, type ScryptParams } from '../src/core/vault/keys';
+import {
+  readKeyFile,
+  recoveryPartOf,
+  sameRecoveryPart,
+  unlockWithPassword,
+  type RecoveryPart,
+  type ScryptParams,
+} from '../src/core/vault/keys';
 import { prepareEncryptedDatabase } from '../src/core/vault/encrypt';
 import type { CallbackResult } from '../src/main/account/callback-server';
 import { AccountError, type AccountService, type AccountUser } from '../src/main/account/service';
@@ -126,14 +133,25 @@ function fakeAccount() {
 }
 
 let dir: string;
+let defaultDir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'radar-auth-'));
+  dir = defaultDir = mkdtempSync(join(tmpdir(), 'radar-auth-'));
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function setup(opts: { accounts?: boolean; unavailable?: string } = {}) {
+function setup(
+  opts: {
+    accounts?: boolean;
+    unavailable?: string;
+    /** Another computer: its own data folder. */
+    dataDir?: string;
+    /** The account's synced vault (sync on). */
+    synced?: { part: RecoveryPart | null };
+  } = {},
+) {
+  const dir = opts.dataDir ?? defaultDir;
   const account = fakeAccount();
   let callback: ((r: CallbackResult) => void) | null = null;
   let serverOpen = false;
@@ -155,6 +173,7 @@ function setup(opts: { accounts?: boolean; unavailable?: string } = {}) {
   const auth = createAuth({
     vault,
     account: opts.accounts === false ? null : account.service,
+    remote: opts.synced ? { getVault: async () => opts.synced!.part } : null,
     unavailable: opts.unavailable,
     startCallbackServer: async (onResult) => {
       callback = onResult;
@@ -474,5 +493,98 @@ describe('auth: without accounts', () => {
       state: 'error',
       message: 'Radar needs its account settings: copy .env.example to .env',
     });
+  });
+});
+
+describe('auth: another computer of a synced account', () => {
+  /** Alice set up on her first computer, which synced: the account keeps its recovery part. */
+  async function firstComputer() {
+    const a = setup();
+    const recoveryKey = await aliceSetUp(a);
+    const file = readKeyFile(dir)!;
+    const userId = file.account!.userId;
+    const dataKey = await unlockWithPassword(file, PW);
+    return { recoveryKey, part: recoveryPartOf(file), userId, dataKey };
+  }
+
+  function secondComputer(first: { part: RecoveryPart; userId: string }, provider = 'email') {
+    const other = mkdtempSync(join(tmpdir(), 'radar-auth-b-'));
+    const t = setup({ dataDir: other, synced: { part: first.part } });
+    t.account.users.set(ALICE, {
+      id: first.userId,
+      password: provider === 'email' ? PW : null,
+      provider: provider as 'email' | 'google',
+      confirmed: true,
+    });
+    return { t, other, cleanup: () => rmSync(other, { recursive: true, force: true }) };
+  }
+
+  it('asks for the recovery key once and opens the same data key here', async () => {
+    const first = await firstComputer();
+    const b = secondComputer(first);
+    try {
+      expect(await b.t.auth.signIn(ALICE, PW)).toEqual({
+        state: 'join',
+        account: { email: ALICE, provider: 'email' },
+        problem: null,
+      });
+      await expect(b.t.auth.join('AAAA-BBBB')).rejects.toThrow(/Wrong recovery key/);
+      // Nothing is set up until the key is right.
+      expect(readKeyFile(b.other)).toBeNull();
+
+      const s = await b.t.auth.join(first.recoveryKey.toLowerCase());
+      // The recovery key is the account's, already saved: straight into the app.
+      expect(s).toMatchObject({ state: 'unlocked', recoveryKey: null, session: 'online' });
+      const file = readKeyFile(b.other)!;
+      expect(sameRecoveryPart(recoveryPartOf(file), first.part)).toBe(true);
+      expect(file.recovery.confirmedAt).not.toBeNull();
+      expect(file.account).toMatchObject({ email: ALICE, userId: first.userId });
+      expect((await unlockWithPassword(file, PW)).equals(first.dataKey)).toBe(true);
+    } finally {
+      b.cleanup();
+    }
+  });
+
+  it('"Start empty" makes a new key here (sync waits for the recovery key in Settings)', async () => {
+    const first = await firstComputer();
+    const b = secondComputer(first);
+    try {
+      await b.t.auth.signIn(ALICE, PW);
+      const s = await b.t.auth.skipJoin();
+      expect(s).toMatchObject({ state: 'unlocked' });
+      expect(s.state === 'unlocked' && s.recoveryKey).toBeTruthy();
+      const file = readKeyFile(b.other)!;
+      expect(sameRecoveryPart(recoveryPartOf(file), first.part)).toBe(false);
+    } finally {
+      b.cleanup();
+    }
+  });
+
+  it('Google: the Radar password first, then the recovery key', async () => {
+    const first = await firstComputer();
+    const b = secondComputer(first, 'google');
+    try {
+      await b.t.auth.google();
+      await b.t.browserReturns({ code: b.t.account.codeFor(ALICE, 'google') });
+      expect(b.t.auth.status()).toMatchObject({ state: 'choose-password' });
+      expect(await b.t.auth.choosePassword('my radar password')).toMatchObject({
+        state: 'join',
+        account: { provider: 'google' },
+      });
+      await b.t.auth.join(first.recoveryKey);
+      const file = readKeyFile(b.other)!;
+      expect(file.account?.provider).toBe('google');
+      expect((await unlockWithPassword(file, 'my radar password')).equals(first.dataKey)).toBe(
+        true,
+      );
+    } finally {
+      b.cleanup();
+    }
+  });
+
+  it('an account that has not synced yet sets up as before', async () => {
+    const t = setup({ synced: { part: null } });
+    await aliceSetUp(t);
+    expect(t.auth.status()).toMatchObject({ state: 'unlocked', recoveryKey: null });
   });
 });

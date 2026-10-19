@@ -49,10 +49,19 @@ import {
   type ThemePreference,
 } from '../shared/theme';
 import { registerIpcHandlers, registerShellHandlers } from './ipc';
-import { createVault } from './vault';
+import { createVault, type Vault } from './vault';
 import { createAuth, type Auth } from './auth';
 import { CALLBACK_URL, startCallbackServer } from './account/callback-server';
-import { createSupabaseAccount, type AccountService } from './account/service';
+import {
+  createSupabaseAccount,
+  createSupabaseClient,
+  type AccountService,
+} from './account/service';
+import { createSupabaseRemote, type AccountRemote } from './account/remote';
+import { createSyncService, type SyncService } from './sync';
+import type { SyncResult } from '../core/sync/engine';
+import { relinkPipeline } from '../core/sync/entities';
+import { quietly } from '../core/sync/state';
 import { createSessionStore } from './account/session-store';
 import { prepareEncryptedDatabase } from '../core/vault/encrypt';
 import { applyAutostart, createLifecycle, type WindowKind } from './lifecycle';
@@ -449,9 +458,49 @@ interface Session {
   database: Database.Database;
   scan: ScanService;
   scheduler: Scheduler;
+  sync: SyncService | null;
   unregisterIpc: () => void;
 }
 let session: Session | null = null;
+let vault: Vault | null = null;
+/** The account's encrypted store (null: accounts off). */
+let accountRemote: AccountRemote | null = null;
+
+/** Re-plans reminders after pipeline rows, deadlines or programs changed. */
+function remindersChanged(database: Database.Database): void {
+  try {
+    syncReminders(database, new Date(), getSetting(database, 'timezone'));
+  } catch (err) {
+    console.error('[radar] planning follow-ups failed:', err);
+  }
+}
+
+/** A setting changed (here or on another device): what depends on it follows. */
+function settingChanged(database: Database.Database, key: string): void {
+  if (key === 'timezone') {
+    // Local calendar days moved: expected program dates and parsed deadlines follow.
+    syncPrograms(database);
+    void refreshDeadlines(database, 'setting timezone');
+    void rescoreQuietly(database, 'setting timezone');
+  } else if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
+    void rescoreQuietly(database, `setting ${key}`);
+  }
+}
+
+/** Rows from another device were written: refresh what depends on them, then the pages. */
+function syncApplied(database: Database.Database, r: SyncResult): void {
+  if (r.changed.has('pipeline') || r.changed.has('manual') || r.changed.has('program')) {
+    remindersChanged(database);
+  }
+  if (r.changed.has('rules')) {
+    void queued(() => {
+      applyRules(database);
+      return rescoreJob(database, 'rules synced');
+    }).catch(() => undefined); // logged by rescoreJob
+  }
+  for (const key of r.settings) settingChanged(database, key);
+  broadcast(IPC_EVENTS.syncApplied, null);
+}
 
 /**
  * Unlocked part of the app: encrypts a plain database left from before (or finishes an
@@ -466,6 +515,7 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
   if (prepared.cleanedUp) console.log('[radar] removed a plain copy left by an interrupted run');
   const database = openDatabase(dbPath, dataKey);
   let unregisterIpc: (() => void) | null = null;
+  let syncService: SyncService | null = null;
   try {
     const result = migrate(database);
     const seeded = seedDefaultSettings(database);
@@ -477,7 +527,8 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
     nativeTheme.themeSource = getSetting(database, 'theme');
     syncSeeds(database);
     syncPrograms(database);
-    ensureDefaultTemplates(database, new Date());
+    // Every device inserts the same defaults: not a change to sync.
+    quietly(database, () => ensureDefaultTemplates(database, new Date()));
     defaultRules = loadDefaultRules();
     applyRules(database);
     // Queued, not awaited: the window opens while stored rows are refreshed.
@@ -489,6 +540,8 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       http,
       onProgress: (p) => broadcast(IPC_EVENTS.scanProgress, p),
       afterScan: async () => {
+        // Pipeline rows synced from another device link to postings this scan found.
+        quietly(database, () => relinkPipeline(database));
         await refreshDeadlines(database, 'after scan');
         await rescoreQuietly(database, 'after scan');
       },
@@ -508,6 +561,20 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       notify: showNotice,
       deliverMatches: () => deliverMatchAlerts(database),
     });
+    const v = vault;
+    syncService =
+      accountRemote && v && !SHOT_MODE
+        ? createSyncService({
+            db: database,
+            remote: accountRemote,
+            linked: () => v.account() !== null,
+            recoveryInfo: () => v.recoveryInfo(),
+            dataKey,
+            adoptRecoveryKey: (recoveryKey) => v.adoptRecoveryKey(recoveryKey),
+            onApplied: (r) => syncApplied(database, r),
+            onStatus: (s) => broadcast(IPC_EVENTS.syncChanged, s),
+          })
+        : null;
     unregisterIpc = registerIpcHandlers({
       ipcMain,
       db: database,
@@ -596,33 +663,21 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
         const error = await shell.openPath(path);
         if (error) throw new Error(error);
       },
-      onRemindersChanged: () => {
-        try {
-          syncReminders(database, new Date(), getSetting(database, 'timezone'));
-        } catch (err) {
-          console.error('[radar] planning follow-ups failed:', err);
-        }
-      },
-      onSettingChanged: (key) => {
-        if (key === 'timezone') {
-          // Local calendar days moved: expected program dates and parsed deadlines follow.
-          syncPrograms(database);
-          void refreshDeadlines(database, 'setting timezone');
-          void rescoreQuietly(database, 'setting timezone');
-        } else if ((SCORING_SETTING_KEYS as readonly string[]).includes(key)) {
-          void rescoreQuietly(database, `setting ${key}`);
-        }
-      },
+      onRemindersChanged: () => remindersChanged(database),
+      onSettingChanged: (key) => settingChanged(database, key),
+      sync: syncService,
     });
-    session = { database, scan, scheduler, unregisterIpc };
+    session = { database, scan, scheduler, sync: syncService, unregisterIpc };
   } catch (err) {
     unregisterIpc?.();
+    await syncService?.stop();
     await jobs; // startup re-scoring may already be queued on this database
     database.close();
     throw err;
   }
   // Hourly tick and now (startup catch-up); wake from sleep ticks too (see startShell).
   if (!SHOT_MODE) session.scheduler.start();
+  session.sync?.start();
 }
 
 /** Lock: data IPC goes first, then background work drains, then the database closes. */
@@ -631,6 +686,7 @@ async function stopUnlocked(): Promise<void> {
   if (!s) return;
   session = null;
   s.unregisterIpc();
+  await s.sync?.stop();
   await s.scheduler.stop();
   await s.scan.stop();
   await jobs;
@@ -643,10 +699,11 @@ let auth: Auth | null = null;
 let lastAuthState: AuthStatus['state'] | null = null;
 
 /**
- * The Supabase account service from .env (MAIN_VITE_SUPABASE_URL / _KEY), or why there is none.
- * Screenshots run without accounts. Tokens are kept by main, encrypted with safeStorage.
+ * The Supabase account service and encrypted store from .env (MAIN_VITE_SUPABASE_URL / _KEY), or
+ * why there is none. Screenshots run without accounts. Tokens are kept by main, encrypted with
+ * safeStorage.
  */
-function accountService(): AccountService | string | null {
+function accountService(): { account: AccountService; remote: AccountRemote } | string | null {
   if (SHOT_MODE) return null;
   const url = import.meta.env.MAIN_VITE_SUPABASE_URL;
   const key = import.meta.env.MAIN_VITE_SUPABASE_KEY;
@@ -658,7 +715,9 @@ function accountService(): AccountService | string | null {
     encrypt: (plain) => safeStorage.encryptString(plain),
     decrypt: (data) => safeStorage.decryptString(data),
   });
-  return createSupabaseAccount({ url, key, storage, redirectTo: CALLBACK_URL });
+  const config = { url, key, storage, redirectTo: CALLBACK_URL };
+  const client = createSupabaseClient(config);
+  return { account: createSupabaseAccount(config, client), remote: createSupabaseRemote(client) };
 }
 
 function refreshTray(): void {
@@ -673,16 +732,19 @@ function startShell(): void {
   );
   electronSession.defaultSession.setPermissionCheckHandler(() => false);
 
-  const vault = createVault({
+  vault = createVault({
     dataDir: app.getPath('userData'),
     open: startUnlocked,
     close: stopUnlocked,
     onChange: () => auth?.notify(),
   });
   const service = accountService();
+  accountRemote = service && typeof service !== 'string' ? service.remote : null;
+  let syncReady = false;
   const v = createAuth({
     vault,
-    account: typeof service === 'string' ? null : service,
+    account: service && typeof service !== 'string' ? service.account : null,
+    remote: accountRemote,
     unavailable: typeof service === 'string' ? service : undefined,
     startCallbackServer: (onResult) => startCallbackServer(onResult),
     openExternal: (url) => shell.openExternal(url),
@@ -694,6 +756,11 @@ function startShell(): void {
       const waited = lastAuthState === 'browser' || lastAuthState === 'check-email';
       if (waited && status.state !== lastAuthState) lifecycle.showWindow();
       lastAuthState = status.state;
+      // Signed in and in the app: sync now rather than at the next minute.
+      const ready =
+        status.state === 'unlocked' && !status.recoveryKey && status.session === 'online';
+      if (ready && !syncReady) void session?.sync?.now();
+      syncReady = ready;
     },
   });
   auth = v;
@@ -729,7 +796,10 @@ function startShell(): void {
   createTray();
   lifecycle.showWindow();
   app.on('activate', () => lifecycle.showWindow());
-  powerMonitor.on('resume', () => void session?.scheduler.tick('resume'));
+  powerMonitor.on('resume', () => {
+    void session?.scheduler.tick('resume');
+    void session?.sync?.now();
+  });
 }
 
 if (!app.requestSingleInstanceLock()) {

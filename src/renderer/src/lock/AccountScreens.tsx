@@ -460,3 +460,57 @@ export function PasswordChangedScreen({ account, onDone }: { account: AccountInf
     </LockFrame>
   );
 }
+
+/**
+ * First sign-in on another computer of an account that syncs: the account's recovery key opens
+ * its data key here (once). Without it, Radar starts empty here and syncs once the key is entered
+ * in Settings.
+ */
+export function JoinScreen({
+  account,
+  problem,
+  onDone,
+}: {
+  account: AccountInfo;
+  problem: string | null;
+  onDone: Done;
+}) {
+  const [recoveryKey, setRecoveryKey] = useState('');
+  const { busy, error, run } = useAuthAction(onDone);
+  const skip = useAuthAction(onDone);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (recoveryKey.trim()) run(() => window.radar.auth.join(recoveryKey));
+  };
+
+  return (
+    <LockFrame
+      topRight={
+        <TopLink
+          question="Don't have it here?"
+          action="Start empty"
+          onClick={() => skip.run(() => window.radar.auth.skipJoin())}
+        />
+      }
+    >
+      <Heading title="Bring your data here">
+        {account.email} already syncs from another computer. Enter the recovery key you saved when
+        you set it up: your data is encrypted with it, and the server cannot read it.
+      </Heading>
+      <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
+        <RecoveryKeyField value={recoveryKey} onChange={setRecoveryKey} autoFocus />
+        <ErrorLine message={error ?? skip.error ?? problem} />
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          disabled={busy || skip.busy || !recoveryKey.trim()}
+          className="mt-1 w-full"
+        >
+          {busy ? 'Opening your data…' : 'Continue'}
+        </Button>
+      </form>
+    </LockFrame>
+  );
+}

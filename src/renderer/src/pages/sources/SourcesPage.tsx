@@ -36,6 +36,7 @@ import {
 import { useScan } from '../../state/scan';
 import { PageTitle } from '../PageTitle';
 import { AddSourceSheet, TestSheet } from './SourceSheets';
+import { useSyncVersion } from '../../state/sync-version';
 
 const GROUP_ICON: Record<AccessMethod, LucideIcon> = {
   api: Braces,
@@ -176,9 +177,10 @@ export function SourcesPage() {
   );
 
   // First load, and after every scan (health and counts change).
+  const synced = useSyncVersion();
   useEffect(() => {
     void reload();
-  }, [reload, scan.version]);
+  }, [reload, scan.version, synced]);
 
   const openLink = (url: string) =>
     void window.radar.app.openExternal(url).catch((err: unknown) => fail('Open link', err));

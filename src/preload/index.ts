@@ -39,6 +39,8 @@ const api: RadarApi = {
     finishPasswordChange: (recoveryKey) =>
       ipcRenderer.invoke(S.authFinishPasswordChange, { recoveryKey }),
     signOut: () => ipcRenderer.invoke(S.authSignOut),
+    join: (recoveryKey) => ipcRenderer.invoke(S.authJoin, { recoveryKey }),
+    skipJoin: () => ipcRenderer.invoke(S.authSkipJoin),
   },
   settings: {
     getAll: () => ipcRenderer.invoke(C.settingsGetAll),
@@ -123,6 +125,13 @@ const api: RadarApi = {
     status: () => ipcRenderer.invoke(C.scanStatus),
     onProgress: (listener) => subscribe(E.scanProgress, listener),
     onFinished: (listener) => subscribe(E.scanFinished, listener),
+  },
+  sync: {
+    status: () => ipcRenderer.invoke(C.syncStatus),
+    now: () => ipcRenderer.invoke(C.syncNow),
+    useRecoveryKey: (recoveryKey) => ipcRenderer.invoke(C.syncUseRecoveryKey, { recoveryKey }),
+    onChanged: (listener) => subscribe(E.syncChanged, listener),
+    onApplied: (listener) => subscribe(E.syncApplied, listener),
   },
   dev: {
     loadSampleData: () => ipcRenderer.invoke(C.devLoadSample),

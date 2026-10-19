@@ -76,6 +76,8 @@ export const SHELL_CHANNELS = {
   authChoosePassword: 'auth:choose-password',
   authFinishPasswordChange: 'auth:finish-password-change',
   authSignOut: 'auth:sign-out',
+  authJoin: 'auth:join',
+  authSkipJoin: 'auth:skip-join',
 } as const;
 
 /** Data channels: registered on unlock, removed on lock. */
@@ -137,6 +139,9 @@ export const IPC_CHANNELS = {
   devClearSample: 'dev:clear-sample',
   scanRun: 'scan:run',
   scanStatus: 'scan:status',
+  syncStatus: 'sync:status',
+  syncNow: 'sync:now',
+  syncUseRecoveryKey: 'sync:use-recovery-key',
 } as const;
 
 /** Events main sends to the renderer (no payload validation needed: main is trusted). */
@@ -145,6 +150,9 @@ export const IPC_EVENTS = {
   scanFinished: 'scan:finished',
   matchAlert: 'app:match-alert',
   authChanged: 'auth:changed',
+  syncChanged: 'sync:changed',
+  /** Rows from another device were written here: pages reload their data. */
+  syncApplied: 'sync:applied',
 } as const;
 
 /** Where the lock stands (main -> page). */
@@ -183,6 +191,8 @@ export type AuthStatus =
   | { state: 'new-password'; account: AccountInfo; hasData: boolean }
   /** The account password changed (elsewhere): the recovery key re-encrypts the data here. */
   | { state: 'password-changed'; account: AccountInfo }
+  /** First sign-in on another computer of an account with synced data: its recovery key. */
+  | { state: 'join'; account: AccountInfo; problem: string | null }
   /** Unlock with a password. `account` null: data from before accounts (linked after unlock). */
   | { state: 'locked'; account: AccountInfo | null }
   /** `recoveryKey` is set until the user confirms they saved it (shown once). */
@@ -194,6 +204,19 @@ export type AuthStatus =
     }
   /** The data cannot be opened (damaged or missing keys.json, accounts not configured). */
   | { state: 'error'; message: string };
+
+/**
+ * End-to-end encrypted sync of the user's own rows (main -> page). `needs-recovery-key`: this
+ * computer's data was encrypted before it joined the account; the account's recovery key links it.
+ */
+export interface SyncStatus {
+  state: 'off' | 'syncing' | 'synced' | 'offline' | 'signed-out' | 'needs-recovery-key' | 'error';
+  lastSyncedAt: string | null;
+  /** Local changes not uploaded yet. */
+  pending: number;
+  /** Why it is not syncing, or what could not be applied. */
+  message: string | null;
+}
 
 /** New strong matches found by a scan (main -> page). */
 export interface MatchAlertEvent {
@@ -236,6 +259,8 @@ export const authNewPasswordPayloadSchema = z.strictObject({
   recoveryKey: z.string().max(512),
 });
 export const authRecoveryKeyPayloadSchema = z.strictObject({ recoveryKey: secret });
+export const syncNoPayloadSchema = noPayload;
+export const syncRecoveryKeyPayloadSchema = authRecoveryKeyPayloadSchema;
 /** Only web links leave the app; file:, javascript: and custom schemes are refused. */
 function isWebUrl(value: string): boolean {
   try {
@@ -455,6 +480,10 @@ export interface RadarApi {
     finishPasswordChange(recoveryKey: string): Promise<AuthStatus>;
     /** Forgets the session on this computer and locks. */
     signOut(): Promise<AuthStatus>;
+    /** Another computer of a synced account: the account's recovery key opens its data here. */
+    join(recoveryKey: string): Promise<AuthStatus>;
+    /** No recovery key at hand: start with empty data here (sync waits for the key). */
+    skipJoin(): Promise<AuthStatus>;
   };
   settings: {
     getAll(): Promise<Settings>;
@@ -577,6 +606,16 @@ export interface RadarApi {
     onProgress(listener: (p: ScanProgress) => void): () => void;
     /** Subscribe to finished scans (from any trigger); returns an unsubscribe function. */
     onFinished(listener: (s: ScanSummary) => void): () => void;
+  };
+  sync: {
+    status(): Promise<SyncStatus>;
+    /** Syncs right away. */
+    now(): Promise<SyncStatus>;
+    /** Links data encrypted before joining to the account (see SyncStatus). */
+    useRecoveryKey(recoveryKey: string): Promise<SyncStatus>;
+    onChanged(listener: (s: SyncStatus) => void): () => void;
+    /** Rows from another device arrived; returns the unsubscribe function. */
+    onApplied(listener: () => void): () => void;
   };
   /** Development builds only; rejects in packaged builds. */
   dev: {

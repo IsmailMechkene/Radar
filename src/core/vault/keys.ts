@@ -220,16 +220,89 @@ export async function unlockWithPassword(file: KeyFile, password: string): Promi
 }
 
 export function unlockWithRecoveryKey(file: KeyFile, recoveryKey: string): Buffer {
+  return unwrapRecoveryPart(file.recovery, recoveryKey);
+}
+
+/**
+ * The data key wrapped by the recovery key, without local state: what the account keeps online
+ * so a new device can join with the recovery key (it opens nothing without it).
+ */
+export const recoveryPartSchema = z.strictObject({
+  kdf: z.literal('hkdf-sha256'),
+  salt: b64,
+  wrapped: wrappedSchema,
+});
+export type RecoveryPart = z.output<typeof recoveryPartSchema>;
+
+export function recoveryPartOf(file: KeyFile): RecoveryPart {
+  const { kdf, salt, wrapped } = file.recovery;
+  return { kdf, salt, wrapped };
+}
+
+export function sameRecoveryPart(a: RecoveryPart, b: RecoveryPart): boolean {
+  return (
+    a.salt === b.salt &&
+    a.wrapped.iv === b.wrapped.iv &&
+    a.wrapped.tag === b.wrapped.tag &&
+    a.wrapped.data === b.wrapped.data
+  );
+}
+
+export function unwrapRecoveryPart(part: RecoveryPart, recoveryKey: string): Buffer {
   const bytes = parseRecoveryKey(recoveryKey);
   if (!bytes) throw new WrongSecretError('recovery key');
-  const r = file.recovery;
   const key = unwrap(
-    recoveryWrappingKey(bytes, Buffer.from(r.salt, 'base64')),
-    r.wrapped,
+    recoveryWrappingKey(bytes, Buffer.from(part.salt, 'base64')),
+    part.wrapped,
     'radar:recovery',
   );
   if (!key) throw new WrongSecretError('recovery key');
   return key;
+}
+
+/**
+ * A device joining an account: the account's data key (opened with the recovery key) under this
+ * computer's password, and the account's recovery part (already saved, so confirmed).
+ */
+export async function createKeysFrom(
+  dataKey: Buffer,
+  password: string,
+  recovery: RecoveryPart,
+  now: Date,
+  params: ScryptParams = DEFAULT_SCRYPT,
+): Promise<KeyFile> {
+  const problem = passwordProblem(password);
+  if (problem) throw new Error(problem);
+  return {
+    version: 1,
+    createdAt: now.toISOString(),
+    password: await passwordPart(dataKey, password, params),
+    recovery: { ...recovery, confirmedAt: now.toISOString() },
+  };
+}
+
+/**
+ * This computer's data key under a recovery key the user already has (the account's), so one
+ * recovery key opens every device. The previous recovery key stops working here.
+ */
+export function rewrapRecovery(
+  file: KeyFile,
+  dataKey: Buffer,
+  recoveryKey: string,
+  now: Date,
+): KeyFile {
+  const bytes = parseRecoveryKey(recoveryKey);
+  if (!bytes) throw new WrongSecretError('recovery key');
+  const salt = randomBytes(16);
+  return {
+    ...file,
+    recovery: {
+      kdf: 'hkdf-sha256',
+      salt: salt.toString('base64'),
+      wrapped: wrap(recoveryWrappingKey(bytes, salt), dataKey, 'radar:recovery'),
+      confirmedAt: now.toISOString(),
+    },
+  };
 }
 
 /** The same data key under a new password (after a reset); the recovery wrapping is kept. */

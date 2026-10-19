@@ -351,6 +351,9 @@ Screens (with accounts; see `AccountScreens.tsx`):
 - **Choose a Radar password** (first Google sign-in): says it is not the Google password.
 - **Choose a new password** (from the reset link): the recovery key first when data is kept here.
 - **Your password changed:** the recovery key once, after the password was changed elsewhere.
+- **Bring your data here** (first sign-in on another computer of an account that syncs): the
+  recovery key; top-right "Don't have it here? **Start empty**" (a new key here; Settings links the
+  data later).
 - **Welcome back:** "Signed in as …"; Google users type their _Radar password_. Forgot: email users
   get **Reset your password** (sends the link to their address), Google users and data from before
   accounts the recovery-key form.
@@ -378,7 +381,10 @@ after the theme button; the tray menu has **Lock** while unlocked.
 **Settings → Account** (first group): the email with "Signed in with Google/email" and what opens
 the data here, a session badge (Connected green, Offline amber, Session ended red), and **Sign out**
 (locks; the same account signs in again), which becomes a primary **Sign in again** when the session
-ended.
+ended. Between them, **Sync** (sky tile, `refresh-cw`): "Last synced 3 min ago" and changes waiting,
+a badge (Up to date green, Syncing gray, Offline amber, Paused red when signed out, Not syncing red)
+and **Sync now**. When this computer's data was encrypted before joining, a **Link this computer**
+row (indigo tile, `key-round`) holds the recovery key field (mono) and a primary **Link** button.
 
 ## 7. Do / Don't
 

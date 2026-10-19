@@ -130,6 +130,8 @@ describe('IPC handlers', () => {
         choosePassword: flow,
         finishPasswordChange: flow,
         signOut: flow,
+        join: flow,
+        skipJoin: flow,
       },
     });
     unregister = registerIpcHandlers({

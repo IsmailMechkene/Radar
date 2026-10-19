@@ -51,6 +51,17 @@ online. Sign-in tokens stay in Radar's main process, encrypted with the system's
 (DPAPI on Windows); the page never sees them. **Settings → Account** shows the account and signs
 out.
 
+### Sync
+
+Your pipeline, outreach templates and drafts, manual deadlines, rules, profile settings, and the
+programs and sources you added or edited follow your account to every computer. Each row is
+encrypted on your computer before it is uploaded; Supabase stores ciphertext only and cannot read
+it. Postings are not synced: each computer scans for itself. On a new computer, sign in and enter
+your **recovery key** once. A computer that already had its own data links it in **Settings →
+Account** with the same recovery key; afterwards that one key opens every computer. The database
+side is in [supabase/migrations](supabase/migrations) (tables with row-level security, applied to
+the project once).
+
 ## Password and encryption
 
 Radar's database is encrypted on disk with your password (above) and shows a **recovery key**

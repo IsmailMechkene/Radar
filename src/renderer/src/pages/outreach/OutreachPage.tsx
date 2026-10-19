@@ -39,6 +39,7 @@ import { cleanIpcError } from '../../lib/settings-helpers';
 import { useSettings } from '../../state/settings';
 import { PageTitle } from '../PageTitle';
 import { TemplatesDrawer } from './TemplatesDrawer';
+import { useSyncVersion } from '../../state/sync-version';
 
 type Mode = 'fields' | 'preview';
 
@@ -99,9 +100,10 @@ export function OutreachPage() {
     [],
   );
 
+  const synced = useSyncVersion();
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, synced]);
 
   const visible = (items ?? []).filter((i) =>
     `${i.row.org} ${roleOf(i.row)}`.toLowerCase().includes(filter.trim().toLowerCase()),

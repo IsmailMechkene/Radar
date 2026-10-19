@@ -6,6 +6,9 @@ import { isPlainDatabase, resolveDbPath } from '../core/db/open';
 import {
   confirmRecoveryKey,
   createKeys,
+  createKeysFrom,
+  recoveryPartOf,
+  rewrapRecovery,
   linkAccount,
   readKeyFile,
   reissueRecoveryKey,
@@ -14,6 +17,7 @@ import {
   unlockWithRecoveryKey,
   writeKeyFile,
   type LinkedAccount,
+  type RecoveryPart,
   type ScryptParams,
 } from '../core/vault/keys';
 
@@ -100,16 +104,31 @@ export function createVault(deps: VaultDeps) {
 
     /**
      * First run: a password, a new data key and recovery key; existing data gets encrypted. With an
-     * account, the data is linked to it from the start.
+     * account, the data is linked to it from the start. `join`: another computer of a synced
+     * account, whose data key (opened with its recovery key) is used here too; nothing new to save.
      */
-    setup: (password: string, account?: AccountLink) =>
+    setup: (
+      password: string,
+      account?: AccountLink,
+      join?: { dataKey: Buffer; recovery: RecoveryPart },
+    ) =>
       serial(async () => {
         const s = status();
         if (s.state !== 'setup') throw new Error('Radar already has a password');
-        const keys = await createKeys(password, now(), deps.scrypt);
-        writeKeyFile(deps.dataDir, account ? linkAccount(keys.file, account, now()) : keys.file);
-        pendingRecovery = keys.recoveryKey;
-        await openWith(keys.dataKey);
+        let file;
+        let key: Buffer;
+        if (join) {
+          file = await createKeysFrom(join.dataKey, password, join.recovery, now(), deps.scrypt);
+          key = join.dataKey;
+          pendingRecovery = null;
+        } else {
+          const keys = await createKeys(password, now(), deps.scrypt);
+          file = keys.file;
+          key = keys.dataKey;
+          pendingRecovery = keys.recoveryKey;
+        }
+        writeKeyFile(deps.dataDir, account ? linkAccount(file, account, now()) : file);
+        await openWith(key);
         return changed();
       }),
 
@@ -187,6 +206,30 @@ export function createVault(deps: VaultDeps) {
         );
         return status();
       }),
+
+    /**
+     * While unlocked: this computer's data key under the account's recovery key (sync), so one
+     * recovery key opens every computer. The recovery key shown here before stops working.
+     */
+    adoptRecoveryKey: (recoveryKey: string) =>
+      serial(async () => {
+        if (!dataKey) throw new Error('Radar is locked');
+        writeKeyFile(deps.dataDir, rewrapRecovery(keyFileOrThrow(), dataKey, recoveryKey, now()));
+        pendingRecovery = null;
+        return changed();
+      }),
+
+    /** keys.json's recovery wrapping (what the account keeps for new devices), if saved. */
+    recoveryInfo: (): { part: RecoveryPart; confirmed: boolean } | null => {
+      try {
+        const file = readKeyFile(deps.dataDir);
+        return file
+          ? { part: recoveryPartOf(file), confirmed: file.recovery.confirmedAt !== null }
+          : null;
+      } catch {
+        return null;
+      }
+    },
 
     /** Throws WrongSecretError unless this recovery key opens the data. Opens nothing. */
     checkRecoveryKey: (recoveryKey: string) => {

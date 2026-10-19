@@ -10,10 +10,19 @@
 // - Data linked to one account never opens for another.
 // - Forgot password (email users): the reset link sets the account password; the recovery key
 //   re-encrypts the data here with it. The server never sees anything that opens the data.
-import { WrongSecretError, passwordProblem, type LinkedAccount } from '../core/vault/keys';
+// - Sync: an account whose data is synced keeps its data key wrapped by the recovery key. A new
+//   computer signing in to it asks for that recovery key once (join) and uses the same key.
+import {
+  WrongSecretError,
+  passwordProblem,
+  unwrapRecoveryPart,
+  type LinkedAccount,
+  type RecoveryPart,
+} from '../core/vault/keys';
 import type { AccountInfo, AuthStatus, SessionState } from '../shared/ipc';
 import { AccountError, type AccountService, type AccountUser } from './account/service';
 import type { CallbackResult, CallbackServer } from './account/callback-server';
+import type { AccountRemote } from './account/remote';
 import type { Vault } from './vault';
 
 /** Renew the session this often while unlocked, and retry this often while offline. */
@@ -26,12 +35,21 @@ type Pending =
   | { kind: 'reset'; email: string }
   | { kind: 'choose-password'; user: AccountUser }
   | { kind: 'new-password'; user: AccountUser }
-  | { kind: 'password-changed'; password: string };
+  | { kind: 'password-changed'; password: string }
+  | {
+      kind: 'join';
+      user: AccountUser;
+      provider: 'email' | 'google';
+      password: string;
+      recovery: RecoveryPart;
+    };
 
 export interface AuthDeps {
   vault: Vault;
   /** null: accounts are off (screenshots): the local password alone, as before accounts. */
   account: AccountService | null;
+  /** The account's synced vault (null: sync off, every computer keeps its own key). */
+  remote?: Pick<AccountRemote, 'getVault'> | null;
   /** Accounts are required but not configured: shown as an error instead of any screen. */
   unavailable?: string;
   startCallbackServer: (onResult: (r: CallbackResult) => void) => Promise<CallbackServer>;
@@ -93,6 +111,12 @@ export function createAuth(deps: AuthDeps) {
       case 'password-changed':
         if (linked) return { state: 'password-changed', account: info(linked) };
         break;
+      case 'join':
+        return {
+          state: 'join',
+          account: info({ email: pending.user.email, provider: pending.provider }),
+          problem,
+        };
     }
     if (v.state === 'setup') {
       return { state: 'signin', purpose: 'new', account: null, hasPlainData, problem };
@@ -181,9 +205,27 @@ export function createAuth(deps: AuthDeps) {
     }
   }
 
+  /**
+   * First sign-in here to an account that already syncs: ask for its recovery key (join) instead
+   * of making a new data key. Returns false when the account has no synced data yet.
+   */
+  async function startJoin(
+    user: AccountUser,
+    provider: 'email' | 'google',
+    password: string,
+  ): Promise<boolean> {
+    if (!deps.remote) return false;
+    const recovery = await deps.remote.getVault();
+    if (!recovery) return false;
+    pending = { kind: 'join', user, provider, password, recovery };
+    problem = null;
+    return true;
+  }
+
   async function finishEmail(user: AccountUser, password: string): Promise<void> {
     const v = vault.status();
     if (v.state === 'setup') {
+      if (await startJoin(user, 'email', password)) return;
       await vault.setup(password, link(user, 'email'));
     } else if (v.state === 'unlocked' && !vault.account()) {
       // Data from before accounts: from now on the account password encrypts it.
@@ -387,7 +429,11 @@ export function createAuth(deps: AuthDeps) {
           await vault.recover(recoveryKey, password);
         } else {
           await account().updatePassword(password);
-          if (v.state === 'setup') await vault.setup(password, link(user, 'email'));
+          if (v.state === 'setup') {
+            pending = null;
+            if (await startJoin(user, 'email', password)) return notify();
+            await vault.setup(password, link(user, 'email'));
+          }
         }
         pending = null;
         session = 'online';
@@ -399,6 +445,9 @@ export function createAuth(deps: AuthDeps) {
     choosePassword: (password: string) =>
       serial(async () => {
         const { user } = requirePending('choose-password');
+        const weak = passwordProblem(password);
+        if (weak) throw new Error(weak);
+        if (await startJoin(user, 'google', password)) return notify();
         await vault.setup(password, link(user, 'google'));
         pending = null;
         session = 'online';
@@ -454,6 +503,34 @@ export function createAuth(deps: AuthDeps) {
         }
         session = null;
         await vault.lock();
+        return notify();
+      }),
+
+    /** Another computer of a synced account: its recovery key opens the account's data key. */
+    join: (recoveryKey: string) =>
+      serial(async () => {
+        const flow = requirePending('join');
+        const dataKey = unwrapRecoveryPart(flow.recovery, recoveryKey);
+        await vault.setup(flow.password, link(flow.user, flow.provider), {
+          dataKey,
+          recovery: flow.recovery,
+        });
+        pending = null;
+        problem = null;
+        session = 'online';
+        afterUnlock();
+        return notify();
+      }),
+
+    /** No recovery key at hand: a new key here; the data joins the account later (Settings). */
+    skipJoin: () =>
+      serial(async () => {
+        const flow = requirePending('join');
+        await vault.setup(flow.password, link(flow.user, flow.provider));
+        pending = null;
+        problem = null;
+        session = 'online';
+        afterUnlock();
         return notify();
       }),
 

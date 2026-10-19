@@ -115,8 +115,11 @@ export interface SupabaseConfig {
   fetch?: typeof fetch;
 }
 
-export function createSupabaseAccount(config: SupabaseConfig): AccountService {
-  const supabase = createClient(config.url, config.key, {
+export type RadarSupabase = ReturnType<typeof createSupabaseClient>;
+
+/** One client for the account and sync: data requests carry the signed-in session. */
+export function createSupabaseClient(config: SupabaseConfig) {
+  return createClient(config.url, config.key, {
     auth: {
       flowType: 'pkce',
       storage: config.storage,
@@ -128,6 +131,12 @@ export function createSupabaseAccount(config: SupabaseConfig): AccountService {
     },
     ...(config.fetch ? { global: { fetch: config.fetch } } : {}),
   });
+}
+
+export function createSupabaseAccount(
+  config: SupabaseConfig,
+  supabase: RadarSupabase = createSupabaseClient(config),
+): AccountService {
   const auth = supabase.auth;
 
   async function call<R extends { data: unknown; error: unknown }>(

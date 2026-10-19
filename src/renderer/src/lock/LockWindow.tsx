@@ -6,6 +6,7 @@ import {
   BrowserScreen,
   CheckEmailScreen,
   ChoosePasswordScreen,
+  JoinScreen,
   NewPasswordScreen,
   PasswordChangedScreen,
   SignInScreen,
@@ -74,6 +75,8 @@ export function LockWindow() {
       return <NewPasswordScreen account={status.account} hasData={status.hasData} onDone={done} />;
     case 'password-changed':
       return <PasswordChangedScreen account={status.account} onDone={done} />;
+    case 'join':
+      return <JoinScreen account={status.account} problem={status.problem} onDone={done} />;
     case 'locked':
       return <UnlockScreen account={status.account} onDone={done} />;
     case 'error':

@@ -9,6 +9,7 @@ import { sql as sourceControls } from './008_source_controls';
 import { sql as outreach } from './009_outreach';
 import { sql as userRules } from './010_user_rules';
 import { sql as matchAlerts } from './011_match_alerts';
+import { sql as sync } from './012_sync';
 
 export interface Migration {
   version: number;
@@ -29,4 +30,5 @@ export const migrations: readonly Migration[] = [
   { version: 9, name: 'outreach', sql: outreach },
   { version: 10, name: 'user_rules', sql: userRules },
   { version: 11, name: 'match_alerts', sql: matchAlerts },
+  { version: 12, name: 'sync', sql: sync },
 ];
