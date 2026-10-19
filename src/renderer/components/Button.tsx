@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { cn } from './lib/cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'plain' | 'destructive';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
 interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant;
@@ -27,11 +27,13 @@ const SIZES: Record<ButtonSize, string> = {
   sm: 'h-6 rounded-xs text-footnote',
   md: 'h-7 rounded-sm text-body',
   lg: 'h-7.5 rounded-md text-body',
+  /** The login window's full-width buttons (34 px). */
+  xl: 'h-8.5 rounded-md text-body',
 };
 
 // Secondary/plain padding (solid buttons are wider, see below). lg = drawer actions, 10 px.
-const PADDING: Record<ButtonSize, string> = { sm: 'px-2.5', md: 'px-3', lg: 'px-2.5' };
-const SQUARE: Record<ButtonSize, string> = { sm: 'w-6', md: 'w-7', lg: 'w-7.5' };
+const PADDING: Record<ButtonSize, string> = { sm: 'px-2.5', md: 'px-3', lg: 'px-2.5', xl: 'px-3' };
+const SQUARE: Record<ButtonSize, string> = { sm: 'w-6', md: 'w-7', lg: 'w-7.5', xl: 'w-8.5' };
 
 export function Button({
   variant = 'secondary',

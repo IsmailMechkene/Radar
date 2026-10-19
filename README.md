@@ -43,6 +43,10 @@ One-time project setup in the Supabase dashboard:
    Continue with Google says it is not set up.
 3. **Email:** Supabase's built-in email sender is limited to a few messages per hour; set up custom
    SMTP (**Authentication → Emails**) before real use.
+4. **Confirmation code:** Radar's Verify your email screen takes the 6-digit code from the
+   confirmation email. In **Authentication → Emails → Confirm signup**, add the code to the template
+   (for example `Your code: {{ .Token }}`) and keep the email OTP length at 6. The link in the
+   email keeps working too.
 
 Email accounts: the account password also encrypts Radar's data on this computer. Google accounts:
 after the first Google sign-in you choose a separate Radar password for this computer. Either way

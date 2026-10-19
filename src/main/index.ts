@@ -121,7 +121,7 @@ function chromeOptions(kind: WindowKind): BrowserWindowConstructorOptions {
   if (kind === 'lock') {
     // Its own top rows are the drag region; the buttons sit above the radar panel.
     return process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 20, y: 18 } }
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 20, y: 15 } }
       : { titleBarStyle: 'hidden', backgroundColor: windowBackground() };
   }
   if (process.platform === 'darwin') {

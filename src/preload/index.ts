@@ -31,6 +31,7 @@ const api: RadarApi = {
     google: () => ipcRenderer.invoke(S.authGoogle),
     cancel: () => ipcRenderer.invoke(S.authCancel),
     emailConfirmed: () => ipcRenderer.invoke(S.authEmailConfirmed),
+    confirmCode: (code) => ipcRenderer.invoke(S.authConfirmCode, { code }),
     resendEmail: () => ipcRenderer.invoke(S.authResendEmail),
     requestReset: (email) => ipcRenderer.invoke(S.authRequestReset, { email }),
     setNewPassword: (password, recoveryKey) =>

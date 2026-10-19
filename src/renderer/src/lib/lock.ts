@@ -28,6 +28,7 @@ export const LOGIN_TIPS: readonly string[] = [
   'Every point in a score traces back to one rule you can change on the Rules page.',
   'Press J and K to move through results, S to star one and X to dismiss it.',
   'Marking a Pipeline entry as Sent plans follow-ups 7 and 14 days later.',
+  'Your pipeline, rules and drafts sync between your computers, encrypted before they leave this one.',
   'Your data and its daily backups are encrypted on this computer with your password.',
 ];
 

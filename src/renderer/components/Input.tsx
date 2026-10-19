@@ -10,8 +10,11 @@ import { cn } from './lib/cn';
 
 interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   invalid?: boolean;
-  /** 'sm' is the compact 24 px field used inline in settings rows (quiet hours, grade). */
-  size?: 'sm' | 'md';
+  /**
+   * 'sm' is the compact 24 px field used inline in settings rows (quiet hours, grade); 'lg' the
+   * 34 px field of the login window.
+   */
+  size?: 'sm' | 'md' | 'lg';
 }
 
 /**
@@ -32,7 +35,9 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
         'transition-[box-shadow,border-color,background-color] duration-(--duration-base) ease-out',
         size === 'sm'
           ? 'h-6 rounded-xs bg-fill px-2 text-subhead tabular-nums focus:bg-surface'
-          : 'h-8 rounded-md bg-surface px-2.5 text-body',
+          : size === 'lg'
+            ? 'h-8.5 rounded-md bg-surface px-2.75 text-body'
+            : 'h-8 rounded-md bg-surface px-2.5 text-body',
         invalid
           ? 'border border-red-fill text-red'
           : size === 'sm'

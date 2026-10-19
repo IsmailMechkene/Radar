@@ -1,31 +1,41 @@
-import { useState, type FormEvent } from 'react';
+import { Globe, Mail } from 'lucide-react';
+import { useRef, useState, type FormEvent } from 'react';
 import type { AccountInfo, AuthStatus } from '../../../shared/ipc';
 import { newPasswordProblem } from '../../../shared/password';
 import { GoogleMark } from '../../components/Brand';
 import { Button } from '../../components/Button';
 import { TextInput } from '../../components/Input';
+import { cn } from '../../components/lib/cn';
+import { cleanIpcError } from '../lib/settings-helpers';
 import {
   ErrorLine,
   Field,
   Heading,
   LockFrame,
-  NewPasswordFields,
-  Step,
-  TopLink,
+  NewPasswordField,
+  PasswordInput,
+  RecoveryKeyField,
+  SubmitButton,
   useAuthAction,
+  useCountdown,
 } from './LockScreens';
 
 type Done = (s: AuthStatus) => void;
+
+/** Supabase lets a confirmation or reset email go out again after a minute. */
+const RESEND_SECONDS = 60;
+/** Digits in the code of a confirmation email (Supabase's default OTP length). */
+const CODE_LENGTH = 6;
 
 /** "Continue with Google": secondary, full width, Google's mark (Google's branding rules). */
 function GoogleButton({ onDone }: { onDone: Done }) {
   const { busy, error, run } = useAuthAction(onDone);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="mt-1 flex flex-col gap-2">
       <Button
-        size="lg"
+        size="xl"
         disabled={busy}
-        className="w-full gap-2"
+        className="w-full gap-2.5"
         onClick={() => run(() => window.radar.auth.google())}
       >
         <GoogleMark />
@@ -36,45 +46,58 @@ function GoogleButton({ onDone }: { onDone: Done }) {
   );
 }
 
-function Or() {
+function OrWithEmail() {
   return (
-    <div className="my-1 flex items-center gap-3 text-footnote text-fg-3" aria-hidden="true">
-      <span className="h-px flex-1 hairline-t border-line" />
-      or
-      <span className="h-px flex-1 hairline-t border-line" />
+    <div className="mt-4 flex items-center gap-2.5 text-caption text-fg-3" aria-hidden="true">
+      <span className="h-px flex-1 hairline-t border-line-2" />
+      or with email
+      <span className="h-px flex-1 hairline-t border-line-2" />
     </div>
   );
 }
 
-function RecoveryKeyField({
-  value,
-  onChange,
-  invalid,
-  autoFocus,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  invalid?: boolean;
-  autoFocus?: boolean;
-}) {
+/** "Didn't get it? Resend in 0:42", then a Resend link. */
+function Resend({ label, onResend }: { label: string; onResend: () => Promise<unknown> }) {
+  const countdown = useCountdown(RESEND_SECONDS);
+  const [again, setAgain] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Field label="Recovery key">
-      {(id) => (
-        <TextInput
-          id={id}
-          autoFocus={autoFocus}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="XXXX-XXXX-XXXX-…"
-          className="font-mono"
-          value={value}
-          invalid={invalid}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-    </Field>
+    <>
+      <p className="mt-3.5 flex justify-center gap-1.25 text-center text-footnote text-fg-3">
+        {countdown.left > 0 ? (
+          <span className="tabular-nums">
+            {again ? 'Sent again. ' : 'Didn’t get it? '}Resend in {countdown.label}
+          </span>
+        ) : (
+          <>
+            <span>Didn’t get it?</span>
+            <button
+              type="button"
+              className="focus-ring rounded-2xs font-medium text-accent-text hover:underline"
+              onClick={() => {
+                setError(null);
+                onResend().then(
+                  () => {
+                    setAgain(true);
+                    countdown.restart();
+                  },
+                  (err: unknown) => setError(`Not sent: ${cleanIpcError(err)}`),
+                );
+              }}
+            >
+              {label}
+            </button>
+          </>
+        )}
+      </p>
+      <div className="mt-2 flex justify-center">
+        <ErrorLine message={error} />
+      </div>
+    </>
   );
 }
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Purpose = Extract<AuthStatus, { state: 'signin' }>['purpose'];
 
@@ -100,16 +123,16 @@ export function SignInScreen({
   );
   const [email, setEmail] = useState(account?.email ?? '');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const { busy, error, setError, run } = useAuthAction(onDone);
   const canCreate = purpose !== 'again';
-  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const emailOk = EMAIL.test(email.trim());
+  const emailError = submitted && !emailOk ? 'Enter a valid email address.' : null;
 
   const go = (next: typeof mode) => {
     setMode(next);
     setSubmitted(false);
-    setConfirm('');
+    setPassword('');
     setError(null); // an error belongs to the form it came from
   };
 
@@ -120,20 +143,11 @@ export function SignInScreen({
     const address = email.trim();
     if (mode === 'forgot') return run(() => window.radar.auth.requestReset(address));
     if (mode === 'create') {
-      if (newPasswordProblem(password, confirm)) return;
+      if (newPasswordProblem(password)) return;
       return run(() => window.radar.auth.createAccount(address, password));
     }
     if (password) run(() => window.radar.auth.signIn(address, password));
   };
-
-  const topRight =
-    mode === 'forgot' ? (
-      <TopLink question="Remember it?" action="Sign in" onClick={() => go('signin')} />
-    ) : mode === 'create' ? (
-      <TopLink question="Have an account?" action="Sign in" onClick={() => go('signin')} />
-    ) : canCreate ? (
-      <TopLink question="New to Radar?" action="Create account" onClick={() => go('create')} />
-    ) : undefined;
 
   const title =
     mode === 'forgot'
@@ -148,93 +162,162 @@ export function SignInScreen({
 
   const intro =
     mode === 'forgot'
-      ? 'Radar emails you a link. Open it on this computer to choose a new password.'
+      ? 'Enter the email you signed up with. Radar sends a link to choose a new password.'
       : purpose === 'connect'
         ? 'Radar now works with an account. Sign in or create one; your data on this computer stays encrypted and is linked to it.'
         : purpose === 'again' && account
           ? `Radar's data on this computer belongs to ${account.email}. Sign in with that account.`
           : mode === 'create'
-            ? `With an email account, its password also encrypts Radar's data on this computer.${hasPlainData ? ' Your existing data will be encrypted too.' : ''}`
-            : 'Welcome. Sign in to open Radar on this computer.';
+            ? `Your account password also encrypts Radar's data on this computer.${hasPlainData ? ' Your existing data will be encrypted too.' : ''}`
+            : 'Your pipeline, rules, drafts and settings follow you to every computer, encrypted end to end.';
+
+  const footer =
+    mode === 'create'
+      ? { question: 'Have an account?', action: 'Sign in', onClick: () => go('signin') }
+      : mode === 'signin' && canCreate
+        ? { question: 'New to Radar?', action: 'Create account', onClick: () => go('create') }
+        : undefined;
 
   return (
-    <LockFrame topRight={topRight}>
+    <LockFrame
+      back={
+        mode === 'forgot' ? { label: 'Back to sign in', onClick: () => go('signin') } : undefined
+      }
+      footer={footer}
+    >
       <Heading title={title}>{intro}</Heading>
-      <div className="flex flex-col gap-3.5">
-        {mode !== 'forgot' && (
-          <>
-            <GoogleButton onDone={onDone} />
-            <Or />
-          </>
+      {mode !== 'forgot' && (
+        <>
+          <GoogleButton onDone={onDone} />
+          <OrWithEmail />
+        </>
+      )}
+      <form className="mt-4 flex flex-col gap-3" onSubmit={submit} noValidate>
+        <Field label="Email" error={emailError}>
+          {(id) => (
+            <TextInput
+              id={id}
+              size="lg"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              autoFocus={!account}
+              value={email}
+              invalid={!!emailError}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          )}
+        </Field>
+        {mode === 'create' && (
+          <NewPasswordField value={password} onChange={setPassword} submitted={submitted} />
         )}
-        <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
-          <Field label="Email">
+        {mode === 'signin' && (
+          <Field
+            label="Password"
+            error={submitted && !password ? 'Enter your password.' : null}
+            aside={
+              <button
+                type="button"
+                onClick={() => go('forgot')}
+                className="focus-ring rounded-2xs text-footnote text-accent-text hover:underline"
+              >
+                Forgot password?
+              </button>
+            }
+          >
             {(id) => (
-              <TextInput
+              <PasswordInput
                 id={id}
-                type="email"
-                autoComplete="email"
-                autoFocus={!account}
-                value={email}
-                invalid={submitted && !emailOk}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="current-password"
+                autoFocus={!!account}
+                value={password}
+                invalid={submitted && !password}
+                onChange={setPassword}
               />
             )}
           </Field>
-          {mode === 'create' && (
-            <NewPasswordFields
-              password={password}
-              confirm={confirm}
-              onPassword={setPassword}
-              onConfirm={setConfirm}
-              showProblem={submitted || confirm.length > 0}
-            />
-          )}
-          {mode === 'signin' && (
-            <div className="flex flex-col gap-1.5">
-              <Field label="Password">
-                {(id) => (
-                  <TextInput
-                    id={id}
-                    type="password"
-                    autoComplete="current-password"
-                    autoFocus={!!account}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                )}
-              </Field>
-              <Button
-                variant="plain"
-                size="sm"
-                className="self-end px-0"
-                onClick={() => go('forgot')}
-              >
-                Forgot password?
-              </Button>
-            </div>
-          )}
-          <ErrorLine message={error ?? problem} />
-          <Button type="submit" variant="primary" size="lg" disabled={busy} className="w-full">
-            {mode === 'forgot'
+        )}
+        <ErrorLine message={error ?? problem} />
+        <SubmitButton busy={busy}>
+          {mode === 'forgot'
+            ? busy
+              ? 'Sending…'
+              : 'Send reset link'
+            : mode === 'create'
               ? busy
-                ? 'Sending…'
-                : 'Send reset link'
-              : mode === 'create'
-                ? busy
-                  ? 'Creating your account…'
-                  : 'Create account'
-                : busy
-                  ? 'Signing in…'
-                  : 'Sign in'}
-          </Button>
-        </form>
-      </div>
+                ? 'Creating account…'
+                : 'Create account'
+              : busy
+                ? 'Signing in…'
+                : 'Sign in'}
+        </SubmitButton>
+      </form>
     </LockFrame>
   );
 }
 
-/** A link was emailed: confirm the address (sign-up) or reset the password. */
+/** Six boxes over one hidden input: typing, pasting and one-time-code autofill all work. */
+function CodeBoxes({
+  value,
+  onChange,
+  onComplete,
+  invalid,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onComplete: (v: string) => void;
+  invalid: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="relative mt-2 grid grid-cols-6 gap-2">
+      {Array.from({ length: CODE_LENGTH }, (_, i) => {
+        const current = focused && i === Math.min(value.length, CODE_LENGTH - 1);
+        return (
+          <div
+            key={i}
+            aria-hidden="true"
+            className={cn(
+              'grid h-11 place-items-center rounded-md border bg-surface text-title-3 font-semibold tabular-nums',
+              'transition-[box-shadow,border-color] duration-(--duration-fast)',
+              invalid
+                ? 'border-red-fill'
+                : current
+                  ? 'border-accent shadow-focus'
+                  : 'border-line-2',
+            )}
+          >
+            {value[i] ?? ''}
+          </div>
+        );
+      })}
+      <input
+        ref={input}
+        autoFocus
+        value={value}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={CODE_LENGTH}
+        aria-label="Verification code"
+        aria-invalid={invalid || undefined}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onChange={(e) => {
+          const v = e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH);
+          onChange(v);
+          if (v.length === CODE_LENGTH) onComplete(v);
+        }}
+        className="app-no-drag absolute inset-0 size-full cursor-text opacity-0"
+      />
+    </div>
+  );
+}
+
+/**
+ * An email was sent. Sign-up: enter its code (or open its link on this computer). Reset: open
+ * its link on this computer. Either can be sent again after a minute.
+ */
 export function CheckEmailScreen({
   email,
   purpose,
@@ -247,56 +330,59 @@ export function CheckEmailScreen({
   onDone: Done;
 }) {
   const action = useAuthAction(onDone);
-  const [resent, setResent] = useState(false);
-  return (
-    <LockFrame
-      topRight={
-        <TopLink
-          question={purpose === 'signup' ? 'Wrong address?' : 'Remember it?'}
-          action={purpose === 'signup' ? 'Use another email' : 'Back to sign in'}
-          onClick={() => action.run(() => window.radar.auth.cancel())}
-        />
-      }
-    >
-      <Heading title="Check your email">
-        {purpose === 'signup'
-          ? `Radar sent a confirmation link to ${email}. Open it on this computer and Radar continues by itself.`
-          : `Radar sent a reset link to ${email}. Open it on this computer to choose a new password.`}
-      </Heading>
-      <div className="flex flex-col gap-3.5">
+  const [code, setCode] = useState('');
+  const back = () => action.run(() => window.radar.auth.cancel());
+
+  if (purpose === 'reset') {
+    return (
+      <LockFrame back={{ label: 'Back to sign in', onClick: back }}>
+        <Heading title="Check your email" icon={Mail}>
+          A reset link is on its way to {email}. Open it on this computer to choose a new password.
+        </Heading>
         <ErrorLine message={action.error ?? problem} />
-        {purpose === 'signup' && (
-          <>
-            <Button
-              variant="primary"
-              size="lg"
-              disabled={action.busy}
-              className="w-full"
-              onClick={() => action.run(() => window.radar.auth.emailConfirmed())}
-            >
-              I’ve confirmed my email
-            </Button>
-            <Button
-              size="lg"
-              disabled={action.busy || resent}
-              className="w-full"
-              onClick={() =>
-                action.run(async () => {
-                  const s = await window.radar.auth.resendEmail();
-                  setResent(true);
-                  return s;
-                })
-              }
-            >
-              {resent ? 'Sent again' : 'Send the email again'}
-            </Button>
-          </>
-        )}
-        <p className="text-footnote leading-normal text-fg-3">
-          Opened it on your phone? The link has to come back to this computer: open the email here
-          instead.
-        </p>
+        <SubmitButton busy={false} disabled={action.busy} onClick={back}>
+          Back to sign in
+        </SubmitButton>
+        <Resend
+          label="Resend link"
+          onResend={() => window.radar.auth.requestReset(email).then(onDone)}
+        />
+      </LockFrame>
+    );
+  }
+
+  const verify = (value: string) => {
+    if (value.length === CODE_LENGTH && !action.busy) {
+      action.run(() => window.radar.auth.confirmCode(value));
+    }
+  };
+
+  return (
+    <LockFrame back={{ label: 'Back', onClick: back }}>
+      <Heading title="Verify your email" icon={Mail}>
+        Radar sent a {CODE_LENGTH}-digit code to {email}. Enter it to finish creating your account,
+        or open the link in that email on this computer.
+      </Heading>
+      <CodeBoxes
+        value={code}
+        onChange={(v) => {
+          setCode(v);
+          action.setError(null);
+        }}
+        onComplete={verify}
+        invalid={!!action.error}
+      />
+      <div className="mt-2">
+        <ErrorLine message={action.error ?? problem} />
       </div>
+      <SubmitButton
+        busy={action.busy}
+        disabled={code.length < CODE_LENGTH}
+        onClick={() => verify(code)}
+      >
+        {action.busy ? 'Verifying…' : 'Verify and continue'}
+      </SubmitButton>
+      <Resend label="Resend code" onResend={() => window.radar.auth.resendEmail()} />
     </LockFrame>
   );
 }
@@ -306,21 +392,19 @@ export function BrowserScreen({ onDone }: { onDone: Done }) {
   const { busy, error, run } = useAuthAction(onDone);
   return (
     <LockFrame>
-      <Heading title="Continue in your browser">
+      <Heading title="Continue in your browser" icon={Globe}>
         Sign in with Google in the browser tab that just opened. Radar continues by itself when you
         are done.
       </Heading>
-      <div className="flex flex-col gap-3.5">
-        <ErrorLine message={error} />
-        <Button
-          size="lg"
-          disabled={busy}
-          className="w-full"
-          onClick={() => run(() => window.radar.auth.cancel())}
-        >
-          Cancel
-        </Button>
-      </div>
+      <ErrorLine message={error} />
+      <Button
+        size="xl"
+        disabled={busy}
+        className="mt-2 w-full"
+        onClick={() => run(() => window.radar.auth.cancel())}
+      >
+        Cancel
+      </Button>
     </LockFrame>
   );
 }
@@ -336,37 +420,35 @@ export function ChoosePasswordScreen({
   onDone: Done;
 }) {
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const { busy, error, run } = useAuthAction(onDone);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    if (newPasswordProblem(password, confirm)) return;
+    if (newPasswordProblem(password)) return;
     run(() => window.radar.auth.choosePassword(password));
   };
 
   return (
-    <LockFrame topRight={<Step n={1} />}>
+    <LockFrame>
       <Heading title="Choose a Radar password">
         You signed in as {account.email} with Google. This password encrypts Radar’s data on this
         computer and opens it, even offline. It is not your Google password.
         {hasPlainData && ' Your existing data will be encrypted with it.'}
       </Heading>
-      <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
-        <NewPasswordFields
-          password={password}
-          confirm={confirm}
-          onPassword={setPassword}
-          onConfirm={setConfirm}
-          showProblem={submitted || confirm.length > 0}
+      <form className="flex flex-col gap-3" onSubmit={submit} noValidate>
+        <NewPasswordField
+          label="Radar password"
+          value={password}
+          onChange={setPassword}
+          submitted={submitted}
           autoFocus
         />
         <ErrorLine message={error} />
-        <Button type="submit" variant="primary" size="lg" disabled={busy} className="mt-1 w-full">
+        <SubmitButton busy={busy}>
           {busy ? (hasPlainData ? 'Encrypting your data…' : 'Setting up…') : 'Continue'}
-        </Button>
+        </SubmitButton>
       </form>
     </LockFrame>
   );
@@ -384,14 +466,13 @@ export function NewPasswordScreen({
 }) {
   const [recoveryKey, setRecoveryKey] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const { busy, error, run } = useAuthAction(onDone);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    if ((hasData && !recoveryKey.trim()) || newPasswordProblem(password, confirm)) return;
+    if ((hasData && !recoveryKey.trim()) || newPasswordProblem(password)) return;
     run(() => window.radar.auth.setNewPassword(password, recoveryKey));
   };
 
@@ -402,7 +483,7 @@ export function NewPasswordScreen({
         {hasData &&
           ' Your data on this computer is still encrypted with the old password: your recovery key re-encrypts it with the new one.'}
       </Heading>
-      <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
+      <form className="flex flex-col gap-3" onSubmit={submit} noValidate>
         {hasData && (
           <RecoveryKeyField
             value={recoveryKey}
@@ -411,18 +492,15 @@ export function NewPasswordScreen({
             autoFocus
           />
         )}
-        <NewPasswordFields
-          password={password}
-          confirm={confirm}
-          onPassword={setPassword}
-          onConfirm={setConfirm}
-          showProblem={submitted || confirm.length > 0}
+        <NewPasswordField
+          label="New password"
+          value={password}
+          onChange={setPassword}
+          submitted={submitted}
           autoFocus={!hasData}
         />
         <ErrorLine message={error} />
-        <Button type="submit" variant="primary" size="lg" disabled={busy} className="mt-1 w-full">
-          {busy ? 'Saving…' : 'Save password and open Radar'}
-        </Button>
+        <SubmitButton busy={busy}>{busy ? 'Saving…' : 'Save password and open Radar'}</SubmitButton>
       </form>
     </LockFrame>
   );
@@ -444,18 +522,12 @@ export function PasswordChangedScreen({ account, onDone }: { account: AccountInf
         The password for {account.email} was changed, maybe on another computer. Enter your recovery
         key once: it re-encrypts the data here with the new password.
       </Heading>
-      <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
+      <form className="flex flex-col gap-3" onSubmit={submit} noValidate>
         <RecoveryKeyField value={recoveryKey} onChange={setRecoveryKey} autoFocus />
         <ErrorLine message={error} />
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          disabled={busy || !recoveryKey.trim()}
-          className="mt-1 w-full"
-        >
+        <SubmitButton busy={busy} disabled={!recoveryKey.trim()}>
           {busy ? 'Re-encrypting…' : 'Continue'}
-        </Button>
+        </SubmitButton>
       </form>
     </LockFrame>
   );
@@ -486,30 +558,22 @@ export function JoinScreen({
 
   return (
     <LockFrame
-      topRight={
-        <TopLink
-          question="Don't have it here?"
-          action="Start empty"
-          onClick={() => skip.run(() => window.radar.auth.skipJoin())}
-        />
-      }
+      footer={{
+        question: 'Don’t have it here?',
+        action: 'Start empty',
+        onClick: () => skip.run(() => window.radar.auth.skipJoin()),
+      }}
     >
       <Heading title="Bring your data here">
         {account.email} already syncs from another computer. Enter the recovery key you saved when
         you set it up: your data is encrypted with it, and the server cannot read it.
       </Heading>
-      <form className="flex flex-col gap-3.5" onSubmit={submit} noValidate>
+      <form className="flex flex-col gap-3" onSubmit={submit} noValidate>
         <RecoveryKeyField value={recoveryKey} onChange={setRecoveryKey} autoFocus />
         <ErrorLine message={error ?? skip.error ?? problem} />
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          disabled={busy || skip.busy || !recoveryKey.trim()}
-          className="mt-1 w-full"
-        >
+        <SubmitButton busy={busy} disabled={skip.busy || !recoveryKey.trim()}>
           {busy ? 'Opening your data…' : 'Continue'}
-        </Button>
+        </SubmitButton>
       </form>
     </LockFrame>
   );

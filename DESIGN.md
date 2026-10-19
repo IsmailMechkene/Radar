@@ -301,7 +301,7 @@ Your rules are stored in the database (seeds/rules.json stays the default and sh
 
 ### Lock screens
 
-Not in the design; built only from existing tokens and components (`src/renderer/src/lock/`).
+Design reference: `Radar Sign in Window.dc.html` (the user's design file), built with Radar's tokens and components (`src/renderer/src/lock/`). Its Microsoft sign-in, name field, "Continue without an account", terms line and post-sign-in sync screen are left out: there is no Microsoft provider, accounts are required, and no page exists for those yet.
 
 **Login window.** While locked, Radar shows a login window of its own instead of the app window:
 1080 × 680, centred, resizable down to 900 × 600, on `--bg`. Unlocking (once the recovery key is
@@ -310,72 +310,84 @@ window. The new window appears before the old one closes, so there is no gap. Lo
 while the window is hidden just closes it; **Open** then shows the login window. The app window
 mounts the app (providers included) only while unlocked, so locking unmounts every page.
 
-Layout (a split page, after a reference the user chose; colors, type and components are Radar's):
+Layout:
 
-1. **Left column:** a 52 px top row that drags the window, with `BrandMark sm` and "Radar"
-   (`callout` 600, `brand` tracking) on the left (moved right of the traffic lights on macOS,
-   `.lock-brand`), and a `footnote` tertiary line on the right: "Step 1 of 2" / "Step 2 of 2" during
-   setup, "Forgot your password? **Use recovery key**" when locked, "Remember it? **Use password**"
-   on the recovery form (the action is a small `plain` button). Below, the screen in a
-   `--lock-form-width` 320 px column centred in the remaining space: left-aligned `title-2` heading,
-   13 px secondary text, 14 px gaps between fields (`footnote` 600 labels, `md` `TextInput`s), a
-   full-width `lg` primary button.
-2. **Right panel** (`LockPanel`): `--lock-panel-width` 46 %, inset 12 px from the window edges and
-   starting below the 40 px native controls row, radius 16, `surface-2` with a hairline border.
-   - **Tip** at the top: "DID YOU KNOW?" (`caption-2` 600 caps, tertiary), the tip itself as a
-     centred `title-3` 600 headline (fades in when it changes), and a small `plain` **Next tip ›**
-     button. Tips rotate every 9 s and pause while the pointer or focus is on them; each one
-     describes something Radar really does (`LOGIN_TIPS`).
-   - **Icon** low in the panel: Radar's icon as three stacked tiles seen at an isometric angle
-     (CSS 3D: `rotate-x-55 rotate-z-45`, layers 12 px apart): two frosted `glass` tiles and the brand
-     gradient tile with the ring and dot on top, corners `--radius-icon` (22.5 %, the macOS icon
-     grid), and a soft contact shadow below.
-   - **Glow** along the bottom edge (`login-glow`): Apple's system blue, purple, pink and orange in
-     a conic gradient (`--glow-*`, the cycle twice so the visible arc holds all four), masked to a
-     band so the colors never meet in a muddy middle, then blurred (`--blur-glow` 40 px,
-     `saturate-150`) at `--glow-opacity` (1 light, 0.8 dark). It is a circle `--glow-size` 140 % of
-     the panel wide, sunk `--glow-bottom` below it, so only its top arc shows, and it turns once
-     every 24 s (`motion-safe` only), so the colors drift. Decoration only.
+1. **Title row**, 42 px (`--lock-titlebar-height`), the window's drag region across the full width:
+   `BrandMark sm` and "Radar" (`callout` 600, `brand` tracking) 20 px from the left (moved right of
+   the traffic lights on macOS, `.lock-brand`); the window buttons (`WindowControls`) at the right
+   end, as tall as the row.
+2. **Left column:** the screen in a `--lock-form-width` 320 px column centred in the remaining
+   space. Optional **back link** above the title (chevron-left, `subhead` secondary, `fill` on
+   hover): "Back to sign in", "Back". Optional **hero tile** (44 px, radius 12, 22 px icon) on
+   `accent-soft` / `accent-text`: Mail on the email screens, Key on Save your recovery key, Globe on
+   Continue in your browser. Title `title-login` (24 px, 600, -0.022em), one line of `body`
+   secondary text. Fields 12 px apart: `footnote` 600 labels (with an optional link at the end of
+   the label row, e.g. **Forgot password?**), `lg` 34 px `TextInput`s; password fields have a
+   show/hide eye button inside their end. Errors show under their field (`footnote` red,
+   `circle-alert` icon) and turn it invalid. The primary button is `xl` (34 px), full width, 20 px
+   below the fields, with a small spinner while busy. Optional **footer link** under a hairline:
+   "New to Radar? **Create account**", "Have an account? **Sign in**", "Forgot your password?
+   **Reset it**", "Don't have it here? **Start empty**".
+3. **Right panel** (`LockPanel`): half the window (`--lock-panel-width` 50 %), inset 12 px from the
+   right and bottom edges, below the title row; radius 14 (`2xl`), `surface-2`, hairline border.
+   - **Tip** at the top (64 px down): "DID YOU KNOW?" (`caption-2` 600 caps, tertiary), the tip as a
+     centred `title-3` 600 headline (fades in when it changes), then a row of dots (one per tip,
+     6 px; `fg-2` current, `line-2` others; clickable) and a `plain` **Next tip ›**. Tips rotate
+     every 9 s and pause while the pointer or focus is on them; each one describes something Radar
+     really does (`LOGIN_TIPS`).
+   - **Light** along the bottom 62 %: five blurred circles (`.login-blobs`: orange, red, blue,
+     purple, yellow from `--glow-*`, blur `--blur-blob` 52 px, at `--glow-opacity` 0.9 light,
+     0.7 dark). Decoration only, static.
+   - **Icon** centred 20 % from the bottom: Radar's icon as three stacked 120 px tiles seen at an
+     isometric angle (`rotate-x-58 rotate-z-45`): a frosted `glass` tile and a `surface-2` tile
+     stepping back 10 and 5 px, and the brand gradient tile (ring and dot) on top, corners
+     `--radius-icon`.
+
+New passwords (create account, Set up Radar, Choose a Radar password, Choose a new password, Use
+your recovery key) use one field with show/hide, a four-step strength bar (empty `fill-2`; Weak
+`red-fill`, Fair `amber-fill`, Good and Strong `green-fill`, with the label at its end) and three
+requirements ticked as they are met (`circle` / `circle-check`, `caption`, green when met): 10+
+characters, upper and lower case, number or symbol (`passwordChecks` in `shared/password.ts`).
+Passwords set before keep working: unlocking only needs the old 8-character minimum.
 
 Screens (with accounts; see `AccountScreens.tsx`):
 
-- **Sign in to Radar / Create your account** (first run; the top-right link switches between them,
-  as in the reference): **Continue with Google** (secondary `lg`, Google's "G" from `--google-*`
-  tokens, required by Google's branding rules), an "or" hairline divider, Email, Password (twice
-  when creating), a small `plain` **Forgot password?** under the password, and the primary button.
-  **Connect an account** (data from before accounts, after unlocking) and **Sign in again** (data
-  linked to an account, no session; only that account) use the same form.
-- **Check your email:** after sign-up (I’ve confirmed my email, Send the email again, Use another
-  email) or a reset request (Back to sign in); the link must be opened on this computer.
-- **Continue in your browser:** while Google sign-in is open; Cancel.
+- **Sign in to Radar / Create your account** (first run opens on Create): **Continue with Google**
+  (secondary `xl`, Google's "G" from `--google-*` tokens, required by Google's branding rules), an
+  "or with email" hairline divider, Email, Password (Forgot password? in its label row) or Create a
+  password, the primary button, and the footer link to the other one. **Connect an account** (data
+  from before accounts, after unlocking) and **Sign in again** (data linked to an account, no
+  session; only that account, no Create link) use the same form. **Reset your password** (back link
+  "Back to sign in"): Email and **Send reset link**.
+- **Verify your email** (after sign-up; back link "Back" returns to the form): Mail tile, six 44 px
+  code boxes over one hidden input (typing, paste and one-time-code autofill; the current box gets
+  the accent ring; red when the code is wrong), **Verify and continue** (also sent by itself at the
+  sixth digit). Opening the email's link on this computer works too. Under it "Didn't get it?
+  Resend in 0:59", then a **Resend code** link (one minute apart, Supabase's limit).
+- **Check your email** (after a reset request): Mail tile, back link and primary **Back to sign
+  in**, and the same resend line (**Resend link**).
+- **Continue in your browser:** while Google sign-in is open; Globe tile, secondary Cancel.
 - **Choose a Radar password** (first Google sign-in): says it is not the Google password.
 - **Choose a new password** (from the reset link): the recovery key first when data is kept here.
 - **Your password changed:** the recovery key once, after the password was changed elsewhere.
 - **Bring your data here** (first sign-in on another computer of an account that syncs): the
-  recovery key; top-right "Don't have it here? **Start empty**" (a new key here; Settings links the
+  recovery key; footer "Don't have it here? **Start empty**" (a new key here; Settings links the
   data later).
-- **Welcome back:** "Signed in as …"; Google users type their _Radar password_. Forgot: email users
-  get **Reset your password** (sends the link to their address), Google users and data from before
-  accounts the recovery-key form.
+- **Welcome back:** "Signed in as …"; Google users type their _Radar password_. Footer: email users
+  get **Reset it** (Reset your password: sends the link to their address), Google users and data
+  from before accounts **Use recovery key** (Use your recovery key: the key in mono, then a new
+  password).
 
-Without accounts (screenshot runs only) the screens are:
+Without accounts (screenshot runs only): **Set up Radar** (new password; with an existing
+unencrypted database the text says it will be encrypted and the button reads "Encrypting your
+data…" while it runs), **Save your recovery key** (Key tile; the key in mono on a `fill` block, two
+lines of four groups; **Copy recovery key**; a `Checkbox` "I saved my recovery key"; Continue stays
+disabled until it is checked; shown once, a key never confirmed is replaced at the next unlock),
+**Welcome back**, and **Radar can't open your data** (the reason; no buttons: nothing here may
+overwrite the data).
 
-1. **Set up Radar** (first run, the "register" step): password twice; the problem shows inline in
-   red once the second field is typed (at least 8 characters, at most 72 bytes, both equal). With an
-   existing unencrypted database the text says it will be encrypted and the button reads "Encrypting
-   your data…" while it runs.
-2. **Save your recovery key:** the key in mono on a `fill` block, two lines of four groups;
-   **Copy recovery key** (secondary, shows "Copied"); a `Checkbox` "I saved my recovery key"; Continue
-   stays disabled until it is checked. Shown once; a key never confirmed is replaced at the next
-   unlock.
-3. **Welcome back** (locked, the "log in" step): password and Unlock; the top-right link opens
-   **Use your recovery key** (recovery key in mono, new password twice, "Unlock and set password").
-4. **Radar can't open your data:** the reason (damaged keys.json, or an encrypted database without
-   it). No buttons: nothing here may overwrite the data.
-
-Errors ("Wrong password") show under the field in red with the triangle icon; the field turns
-invalid. The login window uses the theme last applied in the app (remembered in local storage,
-since settings are unreadable while locked). **Lock Radar** is a toolbar icon button (Lucide `lock`)
+The login window uses the theme last applied in the app (remembered in local storage, since
+settings are unreadable while locked). **Lock Radar** is a toolbar icon button (Lucide `lock`)
 after the theme button; the tray menu has **Lock** while unlocked.
 
 **Settings → Account** (first group): the email with "Signed in with Google/email" and what opens
@@ -480,4 +492,4 @@ The throwaway profile is set up with a random password and unlocked automaticall
 | Single-row x and s                                                                         | Toast only                                                                   | Apply immediately with a toast; Dismiss offers Undo                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Same as the design, plus Undo                                                                                           |
 | Space on a row                                                                             | Not in the design                                                            | Checks or unchecks the cursor row                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Keyboard-only multi-select                                                                                              |
 | "of 100" caption                                                                           | 10 px                                                                        | 10.5 px (`micro`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Nearest type token                                                                                                      |
-| Lock screens, toolbar Lock button                                                          | Not in the design                                                            | A split login window (form on the left; on the right a panel with a rotating tip, Radar's icon as stacked glass tiles and a multicolor glow) for Set up Radar, Save your recovery key, Welcome back / Use your recovery key and an error screen (see "Lock screens"); a padlock button at the right of the toolbar                                                                                                                                                                                   | The database is encrypted and opening it needs the password; built from existing tokens and components                  |
+| Lock screens, toolbar Lock button                                                          | Not in the design                                                            | A split login window after the user's sign-in design (form on the left; on the right a panel with a rotating tip, Radar's icon as stacked tiles and blurred color blobs) for Set up Radar, Save your recovery key, Welcome back / Use your recovery key and an error screen (see "Lock screens"); a padlock button at the right of the toolbar                                                                                                                                                       | The database is encrypted and opening it needs the password; built from existing tokens and components                  |

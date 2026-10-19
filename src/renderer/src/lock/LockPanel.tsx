@@ -5,31 +5,29 @@ import { cn } from '../../components/lib/cn';
 import { LOGIN_TIPS, nextTip, TIP_INTERVAL_MS } from '../lib/lock';
 
 /**
- * Radar's icon as a stack of glass tiles seen at an isometric angle: two frosted layers and the
- * blue app tile on top (ring and centre dot, as in BrandMark).
+ * Radar's icon as a stack of tiles seen at an isometric angle: two frosted layers stepping back
+ * and the blue app tile on top (ring and centre dot, as in BrandMark).
  */
 function IconStack() {
   const layer = 'absolute inset-0 rounded-icon';
   return (
-    <div aria-hidden="true" className="relative size-24 perspective-distant">
-      {/* Contact shadow on the "floor". */}
-      <div className="absolute inset-x-2 -bottom-5 h-6 rounded-full bg-dim blur-md" />
-      <div className="relative size-full transform-3d rotate-x-55 rotate-z-45">
-        <div className={cn(layer, 'bg-glass hairline border-glass-border opacity-60')} />
+    <div
+      aria-hidden="true"
+      className="absolute bottom-[20%] left-1/2 size-30 -translate-x-1/2 translate-y-1/2 perspective-distant"
+    >
+      <div className="relative size-full transform-3d rotate-x-58 rotate-z-45">
         <div
-          className={cn(
-            layer,
-            'translate-z-3 bg-glass hairline border-glass-border shadow-card backdrop-glass',
-          )}
+          className={cn(layer, 'translate-2.5 bg-glass hairline border-glass-border shadow-pop')}
         />
+        <div className={cn(layer, 'translate-1.25 bg-surface-2 hairline border-line')} />
         <div
           className={cn(
             layer,
-            'grid translate-z-6 place-items-center bg-linear-to-b from-(--brand-from) to-(--brand-to) shadow-pop',
+            'grid place-items-center bg-linear-135 from-(--brand-from) to-(--brand-to)',
           )}
         >
-          <div className="grid size-12 place-items-center rounded-full border-4 border-(--brand-ring)">
-            <div className="size-3 rounded-full bg-on-accent" />
+          <div className="grid size-14.5 place-items-center rounded-full border-5 border-(--brand-ring)">
+            <div className="size-4 rounded-full bg-on-accent" />
           </div>
         </div>
       </div>
@@ -37,7 +35,10 @@ function IconStack() {
   );
 }
 
-/** One tip at a time as the panel's headline; it rotates by itself, and Next skips ahead. */
+/**
+ * One tip at a time as the panel's headline, with a dot per tip and Next tip. It rotates by
+ * itself (paused while the pointer or focus is on it).
+ */
 function Tip() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -55,7 +56,7 @@ function Tip() {
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className="flex flex-col items-center px-10 text-center"
+      className="relative flex flex-col items-center px-14 pt-16 text-center"
     >
       <div className="text-caption-2 font-semibold tracking-caps text-fg-3 uppercase">
         Did you know?
@@ -63,41 +64,56 @@ function Tip() {
       <p
         key={index}
         aria-live="polite"
-        className="mt-3 min-h-26 max-w-90 text-title-3 leading-snug font-semibold tracking-title-3 text-balance animate-fade-in"
+        className="mt-3.5 min-h-18 max-w-80 text-title-3 leading-snug font-semibold tracking-title-3 text-balance animate-fade-in"
       >
         {LOGIN_TIPS[index]}
       </p>
-      <Button
-        variant="plain"
-        size="sm"
-        iconRight={ChevronRight}
-        onClick={() => setIndex((i) => nextTip(i))}
-        className="mt-1"
-      >
-        Next tip
-      </Button>
+      <div className="mt-6 flex items-center gap-3.5">
+        <div className="flex gap-1.25">
+          {LOGIN_TIPS.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Tip ${i + 1}`}
+              aria-current={i === index || undefined}
+              onClick={() => setIndex(i)}
+              className={cn(
+                'focus-ring size-1.5 rounded-full transition-colors duration-(--duration-fast)',
+                i === index ? 'bg-fg-2' : 'bg-line-2',
+              )}
+            />
+          ))}
+        </div>
+        <Button
+          variant="plain"
+          size="sm"
+          iconRight={ChevronRight}
+          onClick={() => setIndex((i) => nextTip(i))}
+        >
+          Next tip
+        </Button>
+      </div>
     </section>
   );
 }
 
 /**
- * Right side of the login window: a quiet surface with a tip at the top, Radar's icon floating
- * low, and a soft multicolor glow rising from the bottom edge.
+ * Right side of the login window: a quiet surface with a tip at the top, soft colored light
+ * rising from the bottom edge (five blurred blobs, `.login-blobs` in tokens.css) and Radar's icon
+ * floating in it.
  */
 export function LockPanel() {
   return (
-    <aside className="relative mt-(--lock-titlebar-height) mr-3 mb-3 flex w-(--lock-panel-width) shrink-0 flex-col items-center overflow-hidden rounded-3xl bg-surface-2 hairline border-line">
-      {/* A circle wider than the panel, centred below it: only its top arc shows. */}
-      <div
-        aria-hidden="true"
-        className="absolute bottom-(--glow-bottom) left-1/2 aspect-square w-(--glow-size) -translate-x-1/2 opacity-(--glow-opacity) blur-(--blur-glow) saturate-150"
-      >
-        <div className="size-full login-glow motion-safe:animate-glow-drift" />
+    <aside className="relative size-full overflow-hidden rounded-2xl bg-surface-2 hairline border-line">
+      <div aria-hidden="true" className="login-blobs absolute inset-x-0 bottom-0 h-[62%]">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
       </div>
-      <div className="relative flex flex-1 flex-col items-center justify-between pt-16 pb-24">
-        <Tip />
-        <IconStack />
-      </div>
+      <IconStack />
+      <Tip />
     </aside>
   );
 }

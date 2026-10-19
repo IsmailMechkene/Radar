@@ -72,6 +72,7 @@ export const SHELL_CHANNELS = {
   authGoogle: 'auth:google',
   authCancel: 'auth:cancel',
   authEmailConfirmed: 'auth:email-confirmed',
+  authConfirmCode: 'auth:confirm-code',
   authResendEmail: 'auth:resend-email',
   authRequestReset: 'auth:request-reset',
   authSetNewPassword: 'auth:set-new-password',
@@ -257,6 +258,8 @@ export const authRecoverPayloadSchema = z.strictObject({
 const email = z.email().max(320);
 export const authCredentialsPayloadSchema = z.strictObject({ email, password: secret });
 export const authEmailPayloadSchema = z.strictObject({ email });
+/** The code from a confirmation email (Supabase sends 6 to 10 digits). */
+export const authCodePayloadSchema = z.strictObject({ code: z.string().regex(/^\d{6,10}$/) });
 export const authNewPasswordPayloadSchema = z.strictObject({
   password: secret,
   recoveryKey: z.string().max(512),
@@ -474,6 +477,8 @@ export interface RadarApi {
     cancel(): Promise<AuthStatus>;
     /** "I've confirmed my email": signs in with the password from the sign-up. */
     emailConfirmed(): Promise<AuthStatus>;
+    /** The code from the confirmation email, instead of opening its link. */
+    confirmCode(code: string): Promise<AuthStatus>;
     resendEmail(): Promise<AuthStatus>;
     /** Emails a reset link. */
     requestReset(email: string): Promise<AuthStatus>;

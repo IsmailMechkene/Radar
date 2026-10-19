@@ -134,6 +134,7 @@ describe('IPC handlers', () => {
         choosePassword: flow,
         finishPasswordChange: flow,
         signOut: flow,
+        confirmCode: flow,
         join: flow,
         skipJoin: flow,
       },

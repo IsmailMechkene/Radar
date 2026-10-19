@@ -20,6 +20,7 @@ export type AccountErrorCode =
   | 'rate-limited'
   | 'session-expired'
   | 'provider-disabled'
+  | 'invalid-code'
   | 'other';
 
 /** A failure the sign-in screens can explain. */
@@ -39,6 +40,8 @@ export interface AccountService {
   signUp(email: string, password: string): Promise<{ user: AccountUser | null; confirm: boolean }>;
   signIn(email: string, password: string): Promise<AccountUser>;
   resendConfirmation(email: string): Promise<void>;
+  /** Confirms a sign-up with the code from the confirmation email (instead of its link). */
+  verifyEmailCode(email: string, code: string): Promise<AccountUser>;
   /** Whether Google sign-in is turned on for this project. */
   googleEnabled(): Promise<boolean>;
   /** The Google sign-in page to open in the browser; the result comes back as a code. */
@@ -65,6 +68,7 @@ const MESSAGES: Record<AccountErrorCode, string> = {
   'rate-limited': 'Too many attempts. Wait a few minutes and try again.',
   'session-expired': 'Your session ended. Sign in again.',
   'provider-disabled': 'Google sign-in is not set up for this Radar yet',
+  'invalid-code': 'That code isn’t right or has expired. Check the latest email.',
   other: 'The account server refused the request',
 };
 
@@ -80,6 +84,7 @@ export function toAccountError(err: unknown): AccountError {
     if (code === 'email_not_confirmed') return fail('email-not-confirmed');
     if (code === 'user_already_exists' || code === 'email_exists') return fail('user-exists');
     if (code === 'weak_password') return fail('weak-password');
+    if (code === 'otp_expired' || code === 'otp_invalid') return fail('invalid-code');
     if (code.startsWith('over_') || err.status === 429) return fail('rate-limited');
     if (
       code.startsWith('refresh_token') ||
@@ -174,6 +179,10 @@ export function createSupabaseAccount(
       await call(() =>
         auth.resend({ type: 'signup', email, options: { emailRedirectTo: config.redirectTo } }),
       );
+    },
+
+    async verifyEmailCode(email, code) {
+      return toUser((await call(() => auth.verifyOtp({ email, token: code, type: 'email' }))).user);
     },
 
     async googleEnabled() {

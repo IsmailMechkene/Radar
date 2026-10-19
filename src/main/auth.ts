@@ -400,6 +400,18 @@ export function createAuth(deps: AuthDeps) {
         return notify();
       }),
 
+    /** The code from the confirmation email: signs in with the password from the sign-up. */
+    confirmCode: (code: string) =>
+      serial(async () => {
+        const flow = requirePending('confirm');
+        const user = await account().verifyEmailCode(flow.email, code);
+        await stopServer();
+        pending = null;
+        await finishEmail(user, flow.password);
+        problem = null;
+        return notify();
+      }),
+
     resendEmail: () =>
       serial(async () => {
         const flow = requirePending('confirm');

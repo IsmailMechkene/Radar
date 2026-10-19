@@ -46,7 +46,7 @@
   --win:
     0 0 0 0.5px rgba(0, 0, 0, 0.22), 0 24px 80px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.06);
   --dim: rgba(0, 0, 0, 0.16);
-  --glow-opacity: 1;
+  --glow-opacity: 0.9;
   --wall: #d7dce4;
   --ctl: #ffffff;
   --track: rgba(120, 120, 128, 0.18);
@@ -92,7 +92,7 @@
     0 0 0 0.5px rgba(0, 0, 0, 0.8), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1),
     0 24px 80px rgba(0, 0, 0, 0.45);
   --dim: rgba(0, 0, 0, 0.42);
-  --glow-opacity: 0.8;
+  --glow-opacity: 0.7;
   --wall: #26292f;
   --ctl: #636366;
   --track: rgba(120, 120, 128, 0.34);
@@ -115,11 +115,12 @@
   --google-green: #34a853;
   --google-yellow: #fbbc05;
   --google-red: #ea4335;
-  /* Login panel glow (Apple system blue, purple, pink, orange). */
+  /* Login panel light: soft blurred blobs rising from the bottom edge. */
+  --glow-orange: #ff8a00;
+  --glow-red: #ff3b30;
   --glow-blue: #0a84ff;
-  --glow-purple: #bf5af2;
-  --glow-pink: #ff375f;
-  --glow-orange: #ff9f0a;
+  --glow-purple: #a27bff;
+  --glow-yellow: #ffc24b;
   --brand-ring: rgba(255, 255, 255, 0.9);
   /* Settings icon tiles (design Settings screen). */
   --tile-red: #ff3b30;
@@ -149,15 +150,12 @@
 
   --sidebar-width: 240px;
   --toolbar-height: 52px;
-  --lock-titlebar-height: 40px;
+  --lock-titlebar-height: 42px;
   /* One window button (minimize, maximize, close), as wide as the native Windows 11 ones. */
   --caption-width: 46px;
   --lock-form-width: 320px;
-  --lock-panel-width: 46%;
-  --blur-glow: 40px;
-  /* The glow is a circle this wide (of the panel), centred below the panel's bottom edge. */
-  --glow-size: 140%;
-  --glow-bottom: -80%;
+  --lock-panel-width: 50%;
+  --blur-blob: 52px;
   --drawer-width: 520px;
   --drawer-width-narrow: 440px;
   --content-max-settings: 680px;
@@ -247,6 +245,8 @@
   --text-large-title--line-height: 1.1;
   --text-title-1: 30px;
   --text-title-1--line-height: 1.1;
+  --text-title-login: 24px;
+  --text-title-login--line-height: 1.2;
   --text-title-2: 22px;
   --text-title-2--line-height: 1.22;
   --text-figure: 20px;
@@ -264,6 +264,7 @@
   --tracking-large-title: -0.03em;
   --tracking-title-1: -0.025em;
   --tracking-title-2: -0.02em;
+  --tracking-title-login: -0.022em;
   --tracking-figure: -0.02em;
   --tracking-brand: -0.015em;
   --tracking-title-3: -0.01em;
@@ -301,8 +302,6 @@
   --animate-drawer-in: drawer-in 300ms var(--ease-drawer) both;
   --animate-fade-in: fade-in 200ms ease-out both;
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
-  /* Login panel: the glow turns slowly, so its colors drift along the bottom edge. */
-  --animate-glow-drift: glow-drift 24s linear infinite;
 
   @keyframes toast-in {
     from {
@@ -324,11 +323,6 @@
   @keyframes fade-in {
     from {
       opacity: 0;
-    }
-  }
-  @keyframes glow-drift {
-    to {
-      transform: rotate(1turn);
     }
   }
   @keyframes shimmer {
@@ -431,28 +425,47 @@
   mask-image: linear-gradient(180deg, black 40%, transparent);
 }
 
-/* Login panel: a soft multicolor light rising from the bottom edge. */
-@utility login-glow {
-  /* The cycle twice, so the top half (the only part in view) holds every color. */
-  background: conic-gradient(
-    var(--glow-blue),
-    var(--glow-purple),
-    var(--glow-pink),
-    var(--glow-orange),
-    var(--glow-blue),
-    var(--glow-purple),
-    var(--glow-pink),
-    var(--glow-orange),
-    var(--glow-blue)
-  );
-  /* A band, not a disc: where the colors meet in the middle they turn muddy. The parent blurs it. */
-  mask-image: radial-gradient(
-    closest-side,
-    transparent 38%,
-    black 62%,
-    black 90%,
-    transparent 100%
-  );
+/* Login panel: five blurred blobs along the bottom edge (design: Radar Sign in Window). */
+.login-blobs > span {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(var(--blur-blob));
+  opacity: var(--glow-opacity);
+}
+.login-blobs > span:nth-child(1) {
+  width: 62%;
+  height: 90%;
+  left: -12%;
+  bottom: -30%;
+  background: var(--glow-orange);
+}
+.login-blobs > span:nth-child(2) {
+  width: 44%;
+  height: 60%;
+  left: -8%;
+  bottom: -24%;
+  background: var(--glow-red);
+}
+.login-blobs > span:nth-child(3) {
+  width: 60%;
+  height: 84%;
+  right: -10%;
+  bottom: -26%;
+  background: var(--glow-blue);
+}
+.login-blobs > span:nth-child(4) {
+  width: 38%;
+  height: 58%;
+  right: -14%;
+  bottom: -24%;
+  background: var(--glow-purple);
+}
+.login-blobs > span:nth-child(5) {
+  width: 44%;
+  height: 44%;
+  left: 28%;
+  bottom: -6%;
+  background: var(--glow-yellow);
 }
 
 /* Two-line clamp (strip card titles). */

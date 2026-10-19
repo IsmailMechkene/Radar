@@ -76,6 +76,14 @@ function fakeAccount() {
     async resendConfirmation(email) {
       calls.push(`resend ${email}`);
     },
+    async verifyEmailCode(email, code) {
+      online();
+      const u = users.get(email);
+      if (!u || code !== '123456') throw new AccountError('invalid-code', 'That code isn’t right');
+      u.confirmed = true;
+      signedIn = email;
+      return user(email);
+    },
     googleEnabled: async () => state.googleEnabled,
     googleUrl: async () => 'https://accounts.example/google',
     async exchangeCode(code) {
@@ -263,6 +271,18 @@ describe('auth: email accounts', () => {
     t.account.state.offline = true;
     t.account.state.refresh = 'offline';
     expect(await t.auth.unlock(PW)).toMatchObject({ state: 'unlocked', recoveryKey: null });
+  });
+
+  it('the code from the confirmation email finishes the sign-up', async () => {
+    const t = setup();
+    await t.auth.createAccount(ALICE, PW);
+    await expect(t.auth.confirmCode('000000')).rejects.toThrow(/isn’t right/);
+    expect(t.auth.status()).toMatchObject({ state: 'check-email', purpose: 'signup' });
+    expect(await t.auth.confirmCode('123456')).toMatchObject({
+      state: 'unlocked',
+      account: { email: ALICE, provider: 'email' },
+    });
+    expect(t.serverOpen()).toBe(false); // the link is no longer awaited
   });
 
   it('"I have confirmed" signs in with the sign-up password; an unconfirmed address waits', async () => {

@@ -73,6 +73,7 @@ import {
   windowStatePayloadSchema,
   authCredentialsPayloadSchema,
   authEmailPayloadSchema,
+  authCodePayloadSchema,
   authNewPasswordPayloadSchema,
   authNoPayloadSchema,
   authPasswordPayloadSchema,
@@ -263,6 +264,7 @@ export interface ShellIpcDeps {
     cancel: () => Promise<AuthStatus>;
     emailConfirmed: () => Promise<AuthStatus>;
     resendEmail: () => Promise<AuthStatus>;
+    confirmCode: (code: string) => Promise<AuthStatus>;
     requestReset: (email: string) => Promise<AuthStatus>;
     setNewPassword: (password: string, recoveryKey: string) => Promise<AuthStatus>;
     choosePassword: (password: string) => Promise<AuthStatus>;
@@ -309,6 +311,7 @@ export function registerShellHandlers(deps: ShellIpcDeps): void {
   handle(ipcMain, S.authCancel, authNoPayloadSchema, () => auth.cancel());
   handle(ipcMain, S.authEmailConfirmed, authNoPayloadSchema, () => auth.emailConfirmed());
   handle(ipcMain, S.authResendEmail, authNoPayloadSchema, () => auth.resendEmail());
+  handle(ipcMain, S.authConfirmCode, authCodePayloadSchema, ({ code }) => auth.confirmCode(code));
   handle(ipcMain, S.authRequestReset, authEmailPayloadSchema, ({ email }) =>
     auth.requestReset(email),
   );
