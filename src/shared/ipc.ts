@@ -193,7 +193,11 @@ export const appOpenExternalPayloadSchema = z.strictObject({
 /** "New since" for the Opportunities count: the last visit (or 3 days ago on the first). */
 export const appNavCountsPayloadSchema = z.strictObject({ newSince: z.iso.datetime() });
 /** The theme the page has just painted; the native window controls follow it. */
-export const appChromeThemePayloadSchema = z.strictObject({ theme: z.enum(['light', 'dark']) });
+export const appChromeThemePayloadSchema = z.strictObject({
+  theme: z.enum(['light', 'dark']),
+  /** A dialog scrim covers the page: dim the native controls with it. */
+  dimmed: z.boolean().optional(),
+});
 export const appCopyTextPayloadSchema = z.strictObject({ text: z.string().max(50_000) });
 /** A draft for the default mail app (mailto:). Nothing is sent. */
 export const appOpenMailPayloadSchema = z.strictObject({
@@ -390,7 +394,7 @@ export interface RadarApi {
     /** New-match alerts from scans; returns the unsubscribe function. */
     onMatchAlert(listener: (e: MatchAlertEvent) => void): () => void;
     /** Recolors the native window controls once the page shows `theme` (so they never lead). */
-    setChromeTheme(theme: ResolvedTheme): Promise<void>;
+    setChromeTheme(theme: ResolvedTheme, dimmed?: boolean): Promise<void>;
     copyText(text: string): Promise<void>;
     /** Opens a draft in the default mail app (mailto:). Radar never sends email. */
     openMail(to: string, subject: string, body: string): Promise<void>;

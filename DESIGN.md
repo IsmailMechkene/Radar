@@ -382,6 +382,11 @@ after the theme button; the tray menu has **Lock** while unlocked.
 | Linux                            | Same overlay as Windows                                                                         | None                                                                                              | Untested                                          |
 
 The overlay colors update when the theme changes (`nativeTheme.themeSource` + `setTitleBarOverlay`).
+While a dialog's scrim dims the page (`ConfirmDialog`, counted by `useScrim` in
+`components/lib/scrim.ts`), the overlay is dimmed the same way (`titleBarOverlay(theme, true)`: the
+overlay colors under the `--dim` black), since the page's scrim cannot cover native controls.
+The material choice is a pure function (`src/main/window-material.ts`), exposed to the page as
+`<html data-material>` through `window.radar.app.getWindowInfo()`.
 
 ## 9. Checking against the design
 

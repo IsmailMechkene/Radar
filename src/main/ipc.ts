@@ -234,7 +234,7 @@ export interface ShellIpcDeps {
   ipcMain: IpcMainLike;
   windowInfo: () => WindowInfo;
   /** Native window controls and background in the theme the page now shows. */
-  setChromeTheme?: (theme: ResolvedTheme) => void;
+  setChromeTheme?: (theme: ResolvedTheme, dimmed: boolean) => void;
   auth: {
     status: () => AuthStatus;
     setup: (password: string) => Promise<AuthStatus>;
@@ -251,8 +251,8 @@ export function registerShellHandlers(deps: ShellIpcDeps): void {
   trustedSender = deps.isTrustedSender;
   const { ipcMain, auth } = deps;
   handle(ipcMain, S.appGetWindowInfo, appGetWindowInfoPayloadSchema, () => deps.windowInfo());
-  handle(ipcMain, S.appChromeTheme, appChromeThemePayloadSchema, ({ theme }) =>
-    deps.setChromeTheme?.(theme),
+  handle(ipcMain, S.appChromeTheme, appChromeThemePayloadSchema, ({ theme, dimmed }) =>
+    deps.setChromeTheme?.(theme, dimmed ?? false),
   );
   handle(ipcMain, S.authStatus, authNoPayloadSchema, () => auth.status());
   handle(ipcMain, S.authSetup, authPasswordPayloadSchema, ({ password }) => auth.setup(password));

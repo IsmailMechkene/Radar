@@ -42,6 +42,7 @@ import { IPC_EVENTS, type WindowInfo } from '../shared/ipc';
 import {
   LOCK_TITLEBAR_HEIGHT,
   TITLE_BAR_OVERLAY,
+  titleBarOverlay,
   TOOLBAR_HEIGHT,
   type ResolvedTheme,
   type ThemePreference,
@@ -197,12 +198,13 @@ function createWindow(kind: WindowKind, onShown?: () => void): BrowserWindow {
  * app:chrome-theme) once it has painted that theme: native controls repaint instantly while the
  * page needs a frame or more, so driving them from main made them change first.
  */
-function syncNativeChrome(theme: ResolvedTheme): void {
+function syncNativeChrome(theme: ResolvedTheme, dimmed = false): void {
   if (process.platform === 'darwin') return;
-  const colors = TITLE_BAR_OVERLAY[theme];
+  const colors = titleBarOverlay(theme, dimmed);
   for (const win of BrowserWindow.getAllWindows()) {
     win.setTitleBarOverlay({ ...colors, height: overlayHeights.get(win) ?? OVERLAY_HEIGHT });
-    if (material !== 'mica') win.setBackgroundColor(colors.color);
+    // The window background stays undimmed: only the overlay sits outside the page.
+    if (material !== 'mica') win.setBackgroundColor(TITLE_BAR_OVERLAY[theme].color);
   }
 }
 

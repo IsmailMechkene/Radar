@@ -37,7 +37,7 @@ describe('IPC handlers', () => {
   let handlers: Map<string, Handler>;
   let applyAutostart: Mock<(enabled: boolean) => void>;
   let applyTheme: Mock<(theme: ThemePreference) => void>;
-  let setChromeTheme: Mock<(theme: ResolvedTheme) => void>;
+  let setChromeTheme: Mock<(theme: ResolvedTheme, dimmed: boolean) => void>;
   let openExternal: Mock<(url: string) => Promise<void>>;
   let info: WindowInfo;
   let changed: string[];
@@ -59,7 +59,7 @@ describe('IPC handlers', () => {
     handlers = new Map();
     applyAutostart = vi.fn<(enabled: boolean) => void>();
     applyTheme = vi.fn<(theme: ThemePreference) => void>();
-    setChromeTheme = vi.fn<(theme: ResolvedTheme) => void>();
+    setChromeTheme = vi.fn<(theme: ResolvedTheme, dimmed: boolean) => void>();
     openExternal = vi.fn<(url: string) => Promise<void>>(() => Promise.resolve());
     info = { platform: 'win32', isPackaged: false, material: 'none' };
     changed = [];
@@ -203,13 +203,19 @@ describe('IPC handlers', () => {
     await invoke(IPC_CHANNELS.settingsSet, { key: 'theme', value: 'dark' });
     expect(setChromeTheme).not.toHaveBeenCalled();
     await invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark' });
-    expect(setChromeTheme).toHaveBeenCalledWith('dark');
+    expect(setChromeTheme).toHaveBeenCalledWith('dark', false);
+    // A dialog scrim dims the native controls too.
+    await invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark', dimmed: true });
+    expect(setChromeTheme).toHaveBeenLastCalledWith('dark', true);
     for (const theme of ['system', 'sepia', undefined]) {
       await expect(invoke(SHELL_CHANNELS.appChromeTheme, { theme })).rejects.toThrow(
         /invalid payload/,
       );
     }
-    expect(setChromeTheme).toHaveBeenCalledOnce();
+    await expect(
+      invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark', dimmed: 'yes' }),
+    ).rejects.toThrow(/invalid payload/);
+    expect(setChromeTheme).toHaveBeenCalledTimes(2);
   });
 
   it('opens only http(s) links', async () => {

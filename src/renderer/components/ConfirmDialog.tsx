@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import { BrandMark } from './Brand';
 import { Button } from './Button';
+import { useScrim } from './lib/scrim';
 import { WindowPortal } from './Overlay';
 
 interface ConfirmDialogProps {
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   const id = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  useScrim(open);
 
   useEffect(() => {
     if (!open) return;
