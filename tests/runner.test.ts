@@ -67,16 +67,17 @@ describe('seed sync', () => {
 
   it('inserts once, then only updates; pending seeds are disabled', () => {
     const seeds = parseSeedSources(seedsRaw);
-    expect(syncSeedSources(t.db, seeds, T0)).toEqual({ inserted: 8, updated: 0 });
-    expect(syncSeedSources(t.db, seeds, T0)).toEqual({ inserted: 0, updated: 8 });
-    expect(t.db.prepare('SELECT COUNT(*) FROM sources').pluck().get()).toBe(8);
+    const n = seeds.length;
+    expect(syncSeedSources(t.db, seeds, T0)).toEqual({ inserted: n, updated: 0 });
+    expect(syncSeedSources(t.db, seeds, T0)).toEqual({ inserted: 0, updated: n });
+    expect(t.db.prepare('SELECT COUNT(*) FROM sources').pluck().get()).toBe(n);
     const enabled = t.db
       .prepare('SELECT name FROM sources WHERE enabled = 1 ORDER BY id')
       .pluck()
       .all();
     expect(enabled).not.toContain('InstaDeep');
     expect(enabled).not.toContain('Entrelacs');
-    expect(scannableSources(t.db).map((s) => s.name)).toHaveLength(6);
+    expect(scannableSources(t.db)).toHaveLength(seeds.filter((s) => s.status === 'active').length);
   });
 });
 

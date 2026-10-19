@@ -219,7 +219,7 @@ type Kind = 'board' | 'page';
 const PLATFORM_OPTIONS = BOARD_PLATFORMS.map((p) => ({ value: p, label: BOARD_LABELS[p] }));
 
 /**
- * "Add source": a job board (Ashby, Greenhouse or Lever; a pasted link picks the platform) or a
+ * "Add source": a job board (Ashby, Greenhouse, Lever or Recruitee; a pasted link picks the platform) or a
  * web page to watch, with a test fetch before adding.
  */
 export function AddSourceSheet({

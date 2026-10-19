@@ -87,27 +87,27 @@ describe('sources page data', () => {
 
   it('adds an Ashby board from its link, or a page to watch; validates both', () => {
     expect(ashbyBoardFrom('https://jobs.ashbyhq.com/Photoroom/abc?x=1')).toBe('Photoroom');
-    expect(ashbyBoardFrom('elevenlabs')).toBe('elevenlabs');
+    expect(ashbyBoardFrom('examplelabs')).toBe('examplelabs');
     expect(ashbyBoardFrom('https://example.com/careers')).toBeNull();
     const board = addSource(
       t.db,
-      { type: 'ashby', board: 'https://jobs.ashbyhq.com/elevenlabs', org: 'ElevenLabs' },
+      { type: 'ashby', board: 'https://jobs.ashbyhq.com/examplelabs', org: 'Example Labs' },
       NOW,
     );
     expect(board).toMatchObject({
       kind: 'ashby',
-      name: 'ElevenLabs',
+      name: 'Example Labs',
       added_by_user: true,
-      config: { board: 'elevenlabs', org: 'ElevenLabs' },
+      config: { board: 'examplelabs', org: 'Example Labs' },
     });
-    expect(scannableSources(t.db).some((s) => s.name === 'ElevenLabs')).toBe(true);
+    expect(scannableSources(t.db).some((s) => s.name === 'Example Labs')).toBe(true);
     const page = addSource(
       t.db,
       { type: 'page', name: 'Lab internships', url: 'https://lab.example.edu/internships' },
       NOW,
     );
     expect(page).toMatchObject({ kind: 'page', access_method: 'public_html' });
-    expect(() => addSource(t.db, { type: 'ashby', board: 'x', org: 'ElevenLabs' }, NOW)).toThrow(
+    expect(() => addSource(t.db, { type: 'ashby', board: 'x', org: 'Example Labs' }, NOW)).toThrow(
       /already exists/,
     );
     expect(() =>
@@ -123,27 +123,27 @@ describe('sources page data', () => {
       t.db,
       {
         type: 'greenhouse',
-        board: 'https://job-boards.greenhouse.io/datadog/jobs/123',
-        org: 'Datadog',
+        board: 'https://job-boards.greenhouse.io/acmecorp/jobs/123',
+        org: 'Acme Corp',
       },
       NOW,
     );
     expect(gh).toMatchObject({
       kind: 'greenhouse',
-      name: 'Datadog',
-      url: 'https://job-boards.greenhouse.io/datadog',
+      name: 'Acme Corp',
+      url: 'https://job-boards.greenhouse.io/acmecorp',
       access_method: 'api',
       added_by_user: true,
-      config: { board: 'datadog', org: 'Datadog' },
+      config: { board: 'acmecorp', org: 'Acme Corp' },
     });
-    const lever = addSource(t.db, { type: 'lever', board: 'palantir', org: 'Palantir' }, NOW);
+    const lever = addSource(t.db, { type: 'lever', board: 'globex', org: 'Globex' }, NOW);
     expect(lever).toMatchObject({
       kind: 'lever',
-      url: 'https://jobs.lever.co/palantir',
-      config: { site: 'palantir', org: 'Palantir' },
+      url: 'https://jobs.lever.co/globex',
+      config: { site: 'globex', org: 'Globex' },
     });
     expect(scannableSources(t.db).map((s) => s.name)).toEqual(
-      expect.arrayContaining(['Datadog', 'Palantir']),
+      expect.arrayContaining(['Acme Corp', 'Globex']),
     );
     // A link of another site is not a board name.
     expect(() =>
@@ -167,6 +167,11 @@ describe('sources page data', () => {
       platform: 'lever',
       board: 'palantir',
     });
+    expect(detectBoard('https://bunq.recruitee.com/o/audit-automation-intern')).toEqual({
+      platform: 'recruitee',
+      board: 'bunq',
+    });
+    expect(detectBoard('https://notrecruitee.com/x')).toBeNull();
     expect(detectBoard('datadog')).toBeNull();
     expect(detectBoard('https://www.linkedin.com/jobs/view/1')).toBeNull();
     expect(boardFrom('greenhouse', ' datadog ')).toBe('datadog');

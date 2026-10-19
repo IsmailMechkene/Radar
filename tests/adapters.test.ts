@@ -14,6 +14,12 @@ import {
   parseGreenhouse,
 } from '../src/core/adapters/greenhouse';
 import { leverAdapter, leverPostingsUrl, parseLever } from '../src/core/adapters/lever';
+import {
+  parseRecruitee,
+  recruiteeAdapter,
+  recruiteeConfigSchema,
+  recruiteeOffersUrl,
+} from '../src/core/adapters/recruitee';
 import { getAdapter } from '../src/core/adapters/registry';
 import { rawItemSchema } from '../src/core/adapters/types';
 import { createHttpClient, type FetchFn } from '../src/core/http/client';
@@ -291,6 +297,57 @@ describe('Lever adapter', () => {
     );
     expect(result.items).toHaveLength(3);
     expect(requested).toEqual(['https://api.lever.co/robots.txt', url]);
+  });
+});
+
+describe('Recruitee adapter', () => {
+  // Three offers from bunq's careers site (2026-10-19), HTML trimmed; the last one's close_at was
+  // set for this test, and a broken offer was added.
+  const bunq = fixture('recruitee/bunq-offers.json');
+  const config = { board: 'bunq', org: 'bunq' };
+
+  it('parses every published offer and reports a broken one', () => {
+    const { items, errors } = parseRecruitee(bunq, config);
+    expect(errors.map((e) => e.index)).toEqual([3]);
+    expect(items).toHaveLength(3);
+    for (const item of items) expect(rawItemSchema.safeParse(item).success).toBe(true);
+    expect(items[0]).toMatchObject({
+      org: 'bunq',
+      title: 'Audit Automation Intern',
+      location: 'Amsterdam',
+      remote_type: 'hybrid',
+      opportunity_type: 'internship',
+      posted_at: '2026-10-02T10:47:20.000Z',
+    });
+    expect(items[0]!.url).toMatch(/^https:\/\/careers\.bunq\.com\/o\//);
+    expect(items[0]!.description).not.toMatch(/<[a-z]/i);
+    // A permanent-contract code does not hide an internship title.
+    expect(items[1]!.opportunity_type).toBe('internship');
+    expect(items[2]).toMatchObject({
+      opportunity_type: 'fulltime',
+      deadline_text: 'Application deadline: 2026-11-30',
+    });
+  });
+
+  it('skips offers that are not published', () => {
+    const offers = (bunq as { offers: Record<string, unknown>[] }).offers.slice(0, 1);
+    const draft = { offers: [{ ...offers[0], status: 'draft' }] };
+    expect(parseRecruitee(draft, config).items).toEqual([]);
+  });
+
+  it('fetches the careers site through the polite client', async () => {
+    const url = recruiteeOffersUrl('bunq');
+    expect(url).toBe('https://bunq.recruitee.com/api/offers/');
+    const { http, requested } = fakeHttp({ [url]: bunq });
+    const result = await recruiteeAdapter.fetchItems(
+      { name: 'bunq', kind: 'recruitee', url: null, config },
+      { http },
+    );
+    expect(result.items).toHaveLength(3);
+    expect(requested).toEqual(['https://bunq.recruitee.com/robots.txt', url]);
+    expect(recruiteeConfigSchema.safeParse({ board: 'bunq.recruitee.com', org: 'x' }).success).toBe(
+      false,
+    );
   });
 });
 

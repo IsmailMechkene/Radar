@@ -3,6 +3,7 @@ import { arbeitnowAdapter } from './arbeitnow';
 import { ashbyAdapter } from './ashby';
 import { greenhouseAdapter } from './greenhouse';
 import { leverAdapter } from './lever';
+import { recruiteeAdapter } from './recruitee';
 import type { Adapter } from './types';
 
 export const ADAPTERS: Readonly<Record<string, Adapter>> = {
@@ -10,6 +11,7 @@ export const ADAPTERS: Readonly<Record<string, Adapter>> = {
   [arbeitnowAdapter.kind]: arbeitnowAdapter as Adapter,
   [greenhouseAdapter.kind]: greenhouseAdapter as Adapter,
   [leverAdapter.kind]: leverAdapter as Adapter,
+  [recruiteeAdapter.kind]: recruiteeAdapter as Adapter,
 };
 
 export function getAdapter(kind: string): Adapter {

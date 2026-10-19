@@ -56,3 +56,29 @@ Field key: **T** title, **C** company, **L** location, **R** remote flag, **D** 
 - Adzuna search docs and terms: <https://developer.adzuna.com/docs/search>, <https://developer.adzuna.com/docs/terms_of_service>
 - We Work Remotely terms: <https://weworkremotely.com/terms-and-conditions>
 - Entrelacs lookup: [ILLC, University of Amsterdam, archived listing](https://www.illc.uva.nl/NewsandEvents/News/Positions/newsitem/16257/Summer-internships-at-Entrelacs-SAS-remote-)
+
+## Addendum: more boards and platforms (2026-10-19)
+
+Checked live through Radar's own fetch layer (`src/core/http/client.ts`: robots.txt, at most one
+request per second per host) and adapters, one request per board.
+
+**Boards on the existing adapters.** 138 candidate boards were tried: 104 answered,
+31 do not exist under the guessed name, and 3 are larger than the 10 MB
+response limit (Anduril (greenhouse), OpenAI (ashby), SpaceX (greenhouse); left out). 76 were added to `seeds/sources.json` (each
+`tos_note` records the job and internship counts seen that day): boards with internships open now
+(Waymo 61, Veepee 47, Palantir 41, Doctolib 34, Jump Trading 31, Coinbase 26, Lyft 24, IMC 19,
+Stripe 14, Databricks 13, Pinterest 13, …) and AI, developer-tool and European companies that hire
+interns by season (Anthropic, ElevenLabs, Synthesia, LangChain, Cognition, Wayve, Pennylane, …).
+US-only boards without internship history and very small boards were not added.
+
+**Other applicant-tracking systems.**
+
+| Platform        | Endpoint                                                      | Finding                                                                                                                                                                                                                      | Verdict                                                                                         |
+| --------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Recruitee       | `https://<company>.recruitee.com/api/offers/`                 | Careers Site API; the OpenAPI spec declares no security for `GET /offers/`. robots.txt allows it. T, L (`locations`), R (`remote` / `hybrid` / `on_site`), D (HTML), P, U, `employment_type_code` (`internship`), `close_at` | **implemented** (`src/core/adapters/recruitee.ts`; bunq seeded; add others on the Sources page) |
+| SmartRecruiters | `https://api.smartrecruiters.com/v1/companies/<id>/postings`  | robots.txt on api.smartrecruiters.com disallows the path; the docs now describe API keys                                                                                                                                     | **drop** (the fetch layer refuses it)                                                           |
+| Personio        | `https://<company>.jobs.personio.de/xml`                      | The documented XML feed; robots.txt on the job subdomains disallows it                                                                                                                                                       | **drop** (the fetch layer refuses it)                                                           |
+| Workable widget | `https://apply.workable.com/api/v1/widget/accounts/<account>` | Still answers (Hugging Face: 6 jobs) but has no descriptions, so scoring has little to work with                                                                                                                             | **maybe** (unchanged)                                                                           |
+
+Recruitee company names were guessed: 7 of 54 exist (bunq, Channable, Helloprint, Effectory, Squla,
+Climeworks, Tellent), and only bunq listed internships.

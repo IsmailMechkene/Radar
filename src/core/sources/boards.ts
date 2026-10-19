@@ -1,13 +1,14 @@
 // Job-board platforms a user can add on the Sources page, and their board links. Pure, shared by
 // core (adding a source) and the renderer (recognizing a pasted link).
 
-export const BOARD_PLATFORMS = ['ashby', 'greenhouse', 'lever'] as const;
+export const BOARD_PLATFORMS = ['ashby', 'greenhouse', 'lever', 'recruitee'] as const;
 export type BoardPlatform = (typeof BOARD_PLATFORMS)[number];
 
 export const BOARD_LABELS: Record<BoardPlatform, string> = {
   ashby: 'Ashby',
   greenhouse: 'Greenhouse',
   lever: 'Lever',
+  recruitee: 'Recruitee',
 };
 
 /** Public board page for a board name (stored as the source's url). */
@@ -15,6 +16,7 @@ export function boardPageUrl(platform: BoardPlatform, board: string): string {
   const b = encodeURIComponent(board);
   if (platform === 'greenhouse') return `https://job-boards.greenhouse.io/${b}`;
   if (platform === 'lever') return `https://jobs.lever.co/${b}`;
+  if (platform === 'recruitee') return `https://${b}.recruitee.com/`;
   return `https://jobs.ashbyhq.com/${b}`;
 }
 
@@ -23,6 +25,7 @@ export const BOARD_LINK_HINT: Record<BoardPlatform, string> = {
   ashby: 'jobs.ashbyhq.com/<board>',
   greenhouse: 'job-boards.greenhouse.io/<board>',
   lever: 'jobs.lever.co/<site>',
+  recruitee: '<company>.recruitee.com',
 };
 
 const LINKS: Record<BoardPlatform, RegExp[]> = {
@@ -36,6 +39,7 @@ const LINKS: Record<BoardPlatform, RegExp[]> = {
     /^(?:https?:\/\/)?jobs\.lever\.co\/([^/?#\s]+)/i,
     /^(?:https?:\/\/)?api\.lever\.co\/v0\/postings\/([^/?#\s]+)/i,
   ],
+  recruitee: [/^(?:https?:\/\/)?([a-z0-9-]+)\.recruitee\.com(?:[/?#]|$)/i],
 };
 
 function fromLink(platform: BoardPlatform, input: string): string | null {

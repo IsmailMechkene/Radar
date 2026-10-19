@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ashbyConfigSchema } from '../adapters/ashby';
 import { greenhouseConfigSchema } from '../adapters/greenhouse';
 import { leverConfigSchema } from '../adapters/lever';
+import { recruiteeConfigSchema } from '../adapters/recruitee';
 import {
   BOARD_LABELS,
   BOARD_LINK_HINT,
@@ -131,6 +132,7 @@ export const newSourceSchema = z.discriminatedUnion('type', [
   boardSource('ashby'),
   boardSource('greenhouse'),
   boardSource('lever'),
+  boardSource('recruitee'),
   z.strictObject({
     type: z.literal('page'),
     name: z.string().trim().min(1).max(200),
@@ -154,7 +156,9 @@ export function adapterSourceFor(input: NewSource): AdapterSource {
       ? leverConfigSchema.parse({ site: board, org: s.org })
       : s.type === 'greenhouse'
         ? greenhouseConfigSchema.parse({ board, org: s.org })
-        : ashbyConfigSchema.parse({ board, org: s.org });
+        : s.type === 'recruitee'
+          ? recruiteeConfigSchema.parse({ board, org: s.org })
+          : ashbyConfigSchema.parse({ board, org: s.org });
   return { kind: s.type, name: s.org, url: boardPageUrl(s.type, board), config };
 }
 
@@ -164,6 +168,7 @@ const BOARD_TOS: Record<BoardPlatform, string> = {
     'Added by you: Greenhouse Job Board API, no key ("Job Board data is publicly available").',
   lever:
     'Added by you: Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored.',
+  recruitee: 'Added by you: Recruitee Careers Site API (published offers), no key.',
 };
 
 export function addSource(db: Database.Database, input: NewSource, now: Date): SourceItem {

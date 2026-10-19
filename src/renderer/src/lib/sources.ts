@@ -46,6 +46,7 @@ export function sourceDetail(s: SourceItem): string {
   if (s.kind === 'ashby') return `Ashby job board · ${String(s.config['board'] ?? '')}`;
   if (s.kind === 'greenhouse') return `Greenhouse job board · ${String(s.config['board'] ?? '')}`;
   if (s.kind === 'lever') return `Lever job board · ${String(s.config['site'] ?? '')}`;
+  if (s.kind === 'recruitee') return `Recruitee careers site · ${String(s.config['board'] ?? '')}`;
   if (s.kind === 'arbeitnow') return 'Arbeitnow job board API';
   if (s.kind === 'page') {
     const where = s.url ? host(s.url) : 'no page yet';

@@ -7,7 +7,10 @@
       "access_method": "api",
       "url": "https://jobs.ashbyhq.com/cohere",
       "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Board found on cohere.com/careers (source spike 2026-10-16).",
-      "config": { "board": "cohere", "org": "Cohere" },
+      "config": {
+        "board": "cohere",
+        "org": "Cohere"
+      },
       "status": "active"
     },
     {
@@ -16,7 +19,10 @@
       "access_method": "api",
       "url": "https://jobs.ashbyhq.com/DeepL",
       "tos_note": "Ashby public Job Postings API, no key. Board found on jobs.deepl.com (source spike 2026-10-16).",
-      "config": { "board": "DeepL", "org": "DeepL" },
+      "config": {
+        "board": "DeepL",
+        "org": "DeepL"
+      },
       "status": "active"
     },
     {
@@ -25,7 +31,10 @@
       "access_method": "api",
       "url": "https://jobs.ashbyhq.com/mistral.ai",
       "tos_note": "Ashby public Job Postings API, no key. Board found on mistral.ai/careers (source spike 2026-10-16).",
-      "config": { "board": "mistral.ai", "org": "Mistral AI" },
+      "config": {
+        "board": "mistral.ai",
+        "org": "Mistral AI"
+      },
       "status": "active"
     },
     {
@@ -34,7 +43,10 @@
       "access_method": "api",
       "url": "https://jobs.ashbyhq.com/photoroom",
       "tos_note": "Ashby public Job Postings API, no key. Board linked from photoroom.com (source spike 2026-10-16).",
-      "config": { "board": "photoroom", "org": "Photoroom" },
+      "config": {
+        "board": "photoroom",
+        "org": "Photoroom"
+      },
       "status": "active"
     },
     {
@@ -43,7 +55,10 @@
       "access_method": "api",
       "url": "https://jobs.ashbyhq.com/weaviate",
       "tos_note": "Ashby public Job Postings API, no key. weaviate.io/company/careers embeds the Ashby board (source spike 2026-10-16).",
-      "config": { "board": "weaviate", "org": "Weaviate" },
+      "config": {
+        "board": "weaviate",
+        "org": "Weaviate"
+      },
       "status": "active"
     },
     {
@@ -78,6 +93,918 @@
       "config": {},
       "status": "pending",
       "note": "ATS unknown. Only an archived University of Amsterdam listing for Entrelacs SAS (French LLM startup) was found. Find the careers page before adding an adapter."
+    },
+    {
+      "name": "Datadog",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/datadog",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 429 jobs, 8 internships.",
+      "config": {
+        "board": "datadog",
+        "org": "Datadog"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Cloudflare",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/cloudflare",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 436 jobs, 3 internships.",
+      "config": {
+        "board": "cloudflare",
+        "org": "Cloudflare"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Stripe",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/stripe",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 726 jobs, 14 internships.",
+      "config": {
+        "board": "stripe",
+        "org": "Stripe"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Databricks",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/databricks",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 900 jobs, 13 internships.",
+      "config": {
+        "board": "databricks",
+        "org": "Databricks"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Figma",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/figma",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 140 jobs, 8 internships.",
+      "config": {
+        "board": "figma",
+        "org": "Figma"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Anthropic",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/anthropic",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 665 jobs, 0 internships.",
+      "config": {
+        "board": "anthropic",
+        "org": "Anthropic"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Scale AI",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/scaleai",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 181 jobs, 4 internships.",
+      "config": {
+        "board": "scaleai",
+        "org": "Scale AI"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Pinterest",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/pinterest",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 155 jobs, 13 internships.",
+      "config": {
+        "board": "pinterest",
+        "org": "Pinterest"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Coinbase",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/coinbase",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 227 jobs, 26 internships.",
+      "config": {
+        "board": "coinbase",
+        "org": "Coinbase"
+      },
+      "status": "active"
+    },
+    {
+      "name": "MongoDB",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/mongodb",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 396 jobs, 1 internships.",
+      "config": {
+        "board": "mongodb",
+        "org": "MongoDB"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Celonis",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/celonis",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 201 jobs, 5 internships.",
+      "config": {
+        "board": "celonis",
+        "org": "Celonis"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Samsara",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/samsara",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 263 jobs, 5 internships.",
+      "config": {
+        "board": "samsara",
+        "org": "Samsara"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Waymo",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/waymo",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 361 jobs, 61 internships.",
+      "config": {
+        "board": "waymo",
+        "org": "Waymo"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Duolingo",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/duolingo",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 64 jobs, 4 internships.",
+      "config": {
+        "board": "duolingo",
+        "org": "Duolingo"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Monzo",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/monzo",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 72 jobs, 2 internships.",
+      "config": {
+        "board": "monzo",
+        "org": "Monzo"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Doctolib",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/doctolib",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 146 jobs, 34 internships.",
+      "config": {
+        "board": "doctolib",
+        "org": "Doctolib"
+      },
+      "status": "active"
+    },
+    {
+      "name": "GetYourGuide",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/getyourguide",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 71 jobs, 1 internships.",
+      "config": {
+        "board": "getyourguide",
+        "org": "GetYourGuide"
+      },
+      "status": "active"
+    },
+    {
+      "name": "HelloFresh",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/hellofresh",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 394 jobs, 4 internships.",
+      "config": {
+        "board": "hellofresh",
+        "org": "HelloFresh"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Lyft",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/lyft",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 180 jobs, 24 internships.",
+      "config": {
+        "board": "lyft",
+        "org": "Lyft"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Affirm",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/affirm",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 215 jobs, 3 internships.",
+      "config": {
+        "board": "affirm",
+        "org": "Affirm"
+      },
+      "status": "active"
+    },
+    {
+      "name": "IMC Trading",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/imc",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 171 jobs, 19 internships.",
+      "config": {
+        "board": "imc",
+        "org": "IMC Trading"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Jump Trading",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/jumptrading",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 101 jobs, 31 internships.",
+      "config": {
+        "board": "jumptrading",
+        "org": "Jump Trading"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Dataiku",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/dataiku",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 13 jobs, 1 internships.",
+      "config": {
+        "board": "dataiku",
+        "org": "Dataiku"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Vercel",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/vercel",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 93 jobs, 2 internships.",
+      "config": {
+        "board": "vercel",
+        "org": "Vercel"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Bitpanda",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/bitpanda",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 30 jobs, 5 internships.",
+      "config": {
+        "board": "bitpanda",
+        "org": "Bitpanda"
+      },
+      "status": "active"
+    },
+    {
+      "name": "trivago",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/trivago",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 15 jobs, 1 internships.",
+      "config": {
+        "board": "trivago",
+        "org": "trivago"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Elastic",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/elastic",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 382 jobs, 0 internships.",
+      "config": {
+        "board": "elastic",
+        "org": "Elastic"
+      },
+      "status": "active"
+    },
+    {
+      "name": "GitLab",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/gitlab",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 228 jobs, 0 internships.",
+      "config": {
+        "board": "gitlab",
+        "org": "GitLab"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Grafana Labs",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/grafanalabs",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 137 jobs, 0 internships.",
+      "config": {
+        "board": "grafanalabs",
+        "org": "Grafana Labs"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Intercom",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/intercom",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 106 jobs, 0 internships.",
+      "config": {
+        "board": "intercom",
+        "org": "Intercom"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Algolia",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/algolia",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 36 jobs, 0 internships.",
+      "config": {
+        "board": "algolia",
+        "org": "Algolia"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Contentful",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/contentful",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 24 jobs, 0 internships.",
+      "config": {
+        "board": "contentful",
+        "org": "Contentful"
+      },
+      "status": "active"
+    },
+    {
+      "name": "N26",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/n26",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 34 jobs, 0 internships.",
+      "config": {
+        "board": "n26",
+        "org": "N26"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Airbnb",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/airbnb",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 178 jobs, 1 internships.",
+      "config": {
+        "board": "airbnb",
+        "org": "Airbnb"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Robinhood",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/robinhood",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 151 jobs, 2 internships.",
+      "config": {
+        "board": "robinhood",
+        "org": "Robinhood"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Wolt",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/wolt",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 205 jobs, 0 internships.",
+      "config": {
+        "board": "wolt",
+        "org": "Wolt"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Mozilla",
+      "kind": "greenhouse",
+      "access_method": "api",
+      "url": "https://job-boards.greenhouse.io/mozilla",
+      "tos_note": "Greenhouse Job Board API, no key: \"Job Board data is publicly available, so authentication is not required for any GET endpoints.\" Checked live 2026-10-19: 98 jobs, 0 internships.",
+      "config": {
+        "board": "mozilla",
+        "org": "Mozilla"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Palantir",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/palantir",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 306 jobs, 41 internships.",
+      "config": {
+        "site": "palantir",
+        "org": "Palantir"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Qonto",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/qonto",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 46 jobs, 1 internships.",
+      "config": {
+        "site": "qonto",
+        "org": "Qonto"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Pigment",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/pigment",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 138 jobs, 3 internships.",
+      "config": {
+        "site": "pigment",
+        "org": "Pigment"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Zoox",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/zoox",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 238 jobs, 11 internships.",
+      "config": {
+        "site": "zoox",
+        "org": "Zoox"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Aircall",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/aircall",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 77 jobs, 11 internships.",
+      "config": {
+        "site": "aircall",
+        "org": "Aircall"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Malt",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/malt",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 25 jobs, 1 internships.",
+      "config": {
+        "site": "malt",
+        "org": "Malt"
+      },
+      "status": "active"
+    },
+    {
+      "name": "BlaBlaCar",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/blablacar",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 8 jobs, 2 internships.",
+      "config": {
+        "site": "blablacar",
+        "org": "BlaBlaCar"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Veepee",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/veepee",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 110 jobs, 47 internships.",
+      "config": {
+        "site": "veepee",
+        "org": "Veepee"
+      },
+      "status": "active"
+    },
+    {
+      "name": "FINN",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/finn",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 28 jobs, 3 internships.",
+      "config": {
+        "site": "finn",
+        "org": "FINN"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Spotify",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/spotify",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 82 jobs, 0 internships.",
+      "config": {
+        "site": "spotify",
+        "org": "Spotify"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Swile",
+      "kind": "lever",
+      "access_method": "api",
+      "url": "https://jobs.lever.co/swile",
+      "tos_note": "Lever postings API, no key (published postings are public); robots.txt Crawl-delay 1 is honored. Checked live 2026-10-19: 30 jobs, 0 internships.",
+      "config": {
+        "site": "swile",
+        "org": "Swile"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Notion",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/notion",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 133 jobs, 3 internships.",
+      "config": {
+        "board": "notion",
+        "org": "Notion"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Ramp",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/ramp",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 167 jobs, 5 internships.",
+      "config": {
+        "board": "ramp",
+        "org": "Ramp"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Perplexity",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/perplexity",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 134 jobs, 4 internships.",
+      "config": {
+        "board": "perplexity",
+        "org": "Perplexity"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Modal",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/modal",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 43 jobs, 1 internships.",
+      "config": {
+        "board": "modal",
+        "org": "Modal"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Replit",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/replit",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 64 jobs, 2 internships.",
+      "config": {
+        "board": "replit",
+        "org": "Replit"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Harvey",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/harvey",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 343 jobs, 2 internships.",
+      "config": {
+        "board": "harvey",
+        "org": "Harvey"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Sierra",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/sierra",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 185 jobs, 2 internships.",
+      "config": {
+        "board": "sierra",
+        "org": "Sierra"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Decagon",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/decagon",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 135 jobs, 1 internships.",
+      "config": {
+        "board": "decagon",
+        "org": "Decagon"
+      },
+      "status": "active"
+    },
+    {
+      "name": "H Company",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/hcompany",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 36 jobs, 1 internships.",
+      "config": {
+        "board": "hcompany",
+        "org": "H Company"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Mercor",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/mercor",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 111 jobs, 3 internships.",
+      "config": {
+        "board": "mercor",
+        "org": "Mercor"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Alan",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/alan",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 127 jobs, 5 internships.",
+      "config": {
+        "board": "alan",
+        "org": "Alan"
+      },
+      "status": "active"
+    },
+    {
+      "name": "ElevenLabs",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/elevenlabs",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 155 jobs, 0 internships.",
+      "config": {
+        "board": "elevenlabs",
+        "org": "ElevenLabs"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Synthesia",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/synthesia",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 44 jobs, 0 internships.",
+      "config": {
+        "board": "synthesia",
+        "org": "Synthesia"
+      },
+      "status": "active"
+    },
+    {
+      "name": "LangChain",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/langchain",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 103 jobs, 0 internships.",
+      "config": {
+        "board": "langchain",
+        "org": "LangChain"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Cognition",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/cognition",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 101 jobs, 0 internships.",
+      "config": {
+        "board": "cognition",
+        "org": "Cognition"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Wayve",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/wayve",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 174 jobs, 0 internships.",
+      "config": {
+        "board": "wayve",
+        "org": "Wayve"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Dust",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/dust",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 25 jobs, 0 internships.",
+      "config": {
+        "board": "dust",
+        "org": "Dust"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Nabla",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/nabla",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 10 jobs, 0 internships.",
+      "config": {
+        "board": "nabla",
+        "org": "Nabla"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Owkin",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/owkin",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 6 jobs, 0 internships.",
+      "config": {
+        "board": "owkin",
+        "org": "Owkin"
+      },
+      "status": "active"
+    },
+    {
+      "name": "n8n",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/n8n",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 42 jobs, 0 internships.",
+      "config": {
+        "board": "n8n",
+        "org": "n8n"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Pennylane",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/pennylane",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 139 jobs, 0 internships.",
+      "config": {
+        "board": "pennylane",
+        "org": "Pennylane"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Lovable",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/lovable",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 81 jobs, 0 internships.",
+      "config": {
+        "board": "lovable",
+        "org": "Lovable"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Supabase",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/supabase",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 53 jobs, 0 internships.",
+      "config": {
+        "board": "supabase",
+        "org": "Supabase"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Linear",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/linear",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 28 jobs, 0 internships.",
+      "config": {
+        "board": "linear",
+        "org": "Linear"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Deepgram",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/deepgram",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 92 jobs, 0 internships.",
+      "config": {
+        "board": "deepgram",
+        "org": "Deepgram"
+      },
+      "status": "active"
+    },
+    {
+      "name": "Writer",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/writer",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 47 jobs, 0 internships.",
+      "config": {
+        "board": "writer",
+        "org": "Writer"
+      },
+      "status": "active"
+    },
+    {
+      "name": "PostHog",
+      "kind": "ashby",
+      "access_method": "api",
+      "url": "https://jobs.ashbyhq.com/posthog",
+      "tos_note": "Ashby public Job Postings API, no key: \"If you host your own careers page, you can use this data to populate it.\" Checked live 2026-10-19: 10 jobs, 0 internships.",
+      "config": {
+        "board": "posthog",
+        "org": "PostHog"
+      },
+      "status": "active"
+    },
+    {
+      "name": "bunq",
+      "kind": "recruitee",
+      "access_method": "api",
+      "url": "https://bunq.recruitee.com/",
+      "tos_note": "Recruitee Careers Site API (GET /api/offers/, no token in its spec); robots.txt allows /api/. Checked live 2026-10-19: 23 jobs, 5 internships.",
+      "config": {
+        "board": "bunq",
+        "org": "bunq"
+      },
+      "status": "active"
     }
   ]
 }

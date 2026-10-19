@@ -12,19 +12,34 @@ describe('seeds/sources.json', () => {
   const sources = parseSeedSources(raw);
 
   it('is valid: every active source has an adapter and a valid config', () => {
-    expect(sources.filter((s) => s.status === 'active').map((s) => s.name)).toEqual([
-      'Cohere',
-      'DeepL',
-      'Mistral AI',
-      'Photoroom',
-      'Weaviate',
-      'Arbeitnow internships',
-    ]);
+    // parseSeedSources validated each config against its adapter; these were checked live.
+    const active = sources.filter((s) => s.status === 'active');
+    expect(active.length).toBeGreaterThan(80);
+    expect(new Set(active.map((s) => s.kind))).toEqual(
+      new Set(['ashby', 'arbeitnow', 'greenhouse', 'lever', 'recruitee']),
+    );
+    for (const s of active) {
+      expect(s.url, s.name).toMatch(/^https:\/\//);
+      expect(s.tos_note, s.name).toBeTruthy();
+    }
   });
 
-  it('one Ashby source per organization with the board from the spike', () => {
-    const boards = sources.filter((s) => s.kind === 'ashby').map((s) => s.config['board']);
-    expect(boards).toEqual(['cohere', 'DeepL', 'mistral.ai', 'photoroom', 'weaviate']);
+  it('one source per board, the spike boards included', () => {
+    const board = (s: (typeof sources)[number]) =>
+      `${s.kind}:${String(s.config['board'] ?? s.config['site'] ?? '')}`;
+    const boards = sources
+      .filter((s) => s.kind !== 'arbeitnow' && s.status === 'active')
+      .map(board);
+    expect(new Set(boards).size).toBe(boards.length);
+    expect(boards).toEqual(
+      expect.arrayContaining([
+        'ashby:cohere',
+        'ashby:DeepL',
+        'ashby:mistral.ai',
+        'ashby:photoroom',
+        'ashby:weaviate',
+      ]),
+    );
   });
 
   it('Arbeitnow links back to arbeitnow.com', () => {

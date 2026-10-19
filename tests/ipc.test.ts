@@ -330,11 +330,12 @@ describe('IPC handlers', () => {
     const seeds = JSON.parse(
       readFileSync(join(__dirname, '../seeds/sources.json'), 'utf8'),
     ) as unknown;
-    syncSeedSources(t.db, parseSeedSources(seeds), NOW);
+    const parsed = parseSeedSources(seeds);
+    syncSeedSources(t.db, parsed, NOW);
     const before = (await invoke(IPC_CHANNELS.scanStatus)) as ScanStatus;
     expect(before).toMatchObject({
       running: false,
-      sourceCount: 6,
+      sourceCount: parsed.filter((s) => s.status === 'active').length,
       lastRun: null,
       lastSuccessAt: null,
     });

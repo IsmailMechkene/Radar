@@ -95,7 +95,8 @@ Adapters implement `fetch(source) -> RawItem[]` and are tested against fixtures.
    - Greenhouse: `https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true`
    - Lever: `https://api.lever.co/v0/postings/{company}?mode=json`
    - Ashby: `https://api.ashbyhq.com/posting-api/job-board/{company}`
-   - Verify each endpoint live in M2 before relying on it; some companies use other ATSs.
+   - Recruitee: `https://{company}.recruitee.com/api/offers/` (Careers Site API, added 2026-10-19).
+   - Verify each endpoint live in M2 before relying on it; some companies use other ATSs. SmartRecruiters and Personio feeds are disallowed by their robots.txt and are not used.
 2. **Aggregator API**: Arbeitnow `https://www.arbeitnow.com/api/job-board-api` (free, no key, has visa sponsorship info). Add other free public APIs/RSS only after checking their terms.
 3. **Program watchlist pages**: plain public pages for IAESTE, MBZUAI UGRIP, KAUST VSRP, Google Summer of Code, Erasmus+ (school office), InstaDeep, etc. Use page-change detection (below), not full parsing.
 4. **Manual entry**: always available. Paste a URL, title and deadline; any opportunity can be added by hand.
