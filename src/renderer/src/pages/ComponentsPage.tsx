@@ -615,7 +615,7 @@ function Gallery({ theme }: { theme: ResolvedTheme }) {
         <div>
           <div className="mb-3 text-body font-semibold">Toolbar, grouped list, drawer</div>
           <div className="overflow-hidden rounded-xl bg-bg hairline border-line">
-            <Toolbar>
+            <Toolbar windowControls={false}>
               <ToolbarTitle>Opportunities</ToolbarTitle>
               <SearchField
                 aria-label="Search"

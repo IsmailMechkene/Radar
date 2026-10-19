@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
-import type { IpcMain } from 'electron';
+import type { IpcMain, WebContents } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { z } from 'zod';
 import {
@@ -69,6 +69,8 @@ import {
   appOpenExternalPayloadSchema,
   appNavCountsPayloadSchema,
   appChromeThemePayloadSchema,
+  windowControlPayloadSchema,
+  windowStatePayloadSchema,
   authCredentialsPayloadSchema,
   authEmailPayloadSchema,
   authNewPasswordPayloadSchema,
@@ -130,7 +132,7 @@ import {
   type SyncStatus,
   type WindowInfo,
 } from '../shared/ipc';
-import type { ResolvedTheme, ThemePreference } from '../shared/theme';
+import type { ResolvedTheme, ThemePreference, WindowAction, WindowState } from '../shared/theme';
 import type { ScanService } from './scan';
 import type { SyncService } from './sync';
 
@@ -200,7 +202,7 @@ function handle<S extends z.ZodType>(
   ipcMain: Pick<IpcMain, 'handle'>,
   channel: IpcChannel,
   schema: S,
-  fn: (payload: z.output<S>) => unknown,
+  fn: (payload: z.output<S>, sender: WebContents) => unknown,
 ): void {
   ipcMain.handle(channel, async (event, payload: unknown) => {
     const sender = (event as { senderFrame?: { url?: string } | null }).senderFrame?.url;
@@ -215,7 +217,7 @@ function handle<S extends z.ZodType>(
       throw new Error(message);
     }
     try {
-      return await fn(parsed.data);
+      return await fn(parsed.data, (event as { sender: WebContents }).sender);
     } catch (err) {
       const message = `${channel} failed: ${describe(err)}`;
       console.error(`[ipc] ${message}`);
@@ -243,8 +245,11 @@ function tracked(ipcMain: IpcMainLike): { ipc: Pick<IpcMain, 'handle'>; remove: 
 export interface ShellIpcDeps {
   ipcMain: IpcMainLike;
   windowInfo: () => WindowInfo;
-  /** Native window controls and background in the theme the page now shows. */
-  setChromeTheme?: (theme: ResolvedTheme, dimmed: boolean) => void;
+  /** Native window background in the theme the page now shows. */
+  setChromeTheme?: (theme: ResolvedTheme) => void;
+  /** The window buttons drawn by the page act on the window that sent them. */
+  windowControl?: (sender: WebContents, action: WindowAction) => void;
+  windowState?: (sender: WebContents) => WindowState;
   auth: {
     status: () => AuthStatus;
     setup: (password: string) => Promise<AuthStatus>;
@@ -274,8 +279,17 @@ export function registerShellHandlers(deps: ShellIpcDeps): void {
   trustedSender = deps.isTrustedSender;
   const { ipcMain, auth } = deps;
   handle(ipcMain, S.appGetWindowInfo, appGetWindowInfoPayloadSchema, () => deps.windowInfo());
-  handle(ipcMain, S.appChromeTheme, appChromeThemePayloadSchema, ({ theme, dimmed }) =>
-    deps.setChromeTheme?.(theme, dimmed ?? false),
+  handle(ipcMain, S.appChromeTheme, appChromeThemePayloadSchema, ({ theme }) =>
+    deps.setChromeTheme?.(theme),
+  );
+  handle(ipcMain, S.windowControl, windowControlPayloadSchema, ({ action }, sender) =>
+    deps.windowControl?.(sender, action),
+  );
+  handle(
+    ipcMain,
+    S.windowState,
+    windowStatePayloadSchema,
+    (_p, sender): WindowState => deps.windowState?.(sender) ?? { maximized: false, focused: true },
   );
   handle(ipcMain, S.authStatus, authNoPayloadSchema, () => auth.status());
   handle(ipcMain, S.authSetup, authPasswordPayloadSchema, ({ password }) => auth.setup(password));

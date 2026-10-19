@@ -2,22 +2,24 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Icon } from './Icon';
 import { cn } from './lib/cn';
+import { WindowControls } from './WindowControls';
 
 /**
- * 52 px window toolbar. It is the window's drag region; interactive children opt out.
- * On Windows the native min/max/close controls overlay its right edge, so the right padding
- * grows by the overlay width (CSS titlebar-area env vars; 0 when there is no overlay).
+ * 52 px window toolbar. It is the window's drag region; interactive children opt out. On Windows
+ * and Linux the window buttons end it, flush with the window's corner (`windowControls` false for
+ * a sample that is not the window's toolbar).
  */
-export function Toolbar({ children }: { children: ReactNode }) {
+export function Toolbar({
+  children,
+  windowControls = true,
+}: {
+  children: ReactNode;
+  windowControls?: boolean;
+}) {
   return (
-    <header
-      className="app-drag relative flex h-(--toolbar-height) shrink-0 items-center gap-2.5 hairline-b border-line pl-5"
-      style={{
-        paddingRight:
-          'calc(var(--spacing) * 5 + 100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))',
-      }}
-    >
+    <header className="app-drag relative flex h-(--toolbar-height) shrink-0 items-center gap-2.5 hairline-b border-line px-5">
       {children}
+      {windowControls && <WindowControls className="-mr-5 ml-2" />}
     </header>
   );
 }

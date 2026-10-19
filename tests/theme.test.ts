@@ -3,16 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, settingsSchema } from '../src/core/settings/schema';
 import { chooseWindowMaterial } from '../src/main/window-material';
-import {
-  LOCK_TITLEBAR_HEIGHT,
-  resolveTheme,
-  SCRIM_ALPHA,
-  TITLE_BAR_OVERLAY,
-  titleBarOverlay,
-  underScrim,
-  toggledTheme,
-  TOOLBAR_HEIGHT,
-} from '../src/shared/theme';
+import { resolveTheme, toggledTheme, WINDOW_BACKGROUND } from '../src/shared/theme';
 
 describe('theme resolution', () => {
   it('follows the OS when the preference is system', () => {
@@ -36,7 +27,7 @@ describe('theme resolution', () => {
   });
 });
 
-describe('native title bar colors stay in sync with tokens.css', () => {
+describe('the native window background stays in sync with tokens.css', () => {
   const css = readFileSync(join(__dirname, '../src/renderer/theme/tokens.css'), 'utf8');
   const block = (selector: string) => {
     const start = css.indexOf(selector);
@@ -49,27 +40,7 @@ describe('native title bar colors stay in sync with tokens.css', () => {
     ['light', ":root,\n[data-theme='light']"],
     ['dark', ":root[data-theme='dark']"],
   ] as const)('%s', (theme, scope) => {
-    expect(TITLE_BAR_OVERLAY[theme].color.toLowerCase()).toBe(token(scope, '--bg'));
-    expect(TITLE_BAR_OVERLAY[theme].symbolColor.toLowerCase()).toBe(token(scope, '--tx2'));
-    const dim = /--dim:\s*rgba\(0, 0, 0, ([\d.]+)\)/.exec(block(scope))?.[1];
-    expect(SCRIM_ALPHA[theme]).toBe(Number(dim));
-  });
-
-  it('dims the native controls like the dialog scrim dims the page', () => {
-    expect(underScrim('#FFFFFF', 0.5)).toBe('#808080');
-    expect(underScrim('#F5F5F7', 0.16)).toBe('#CECECF');
-    expect(titleBarOverlay('light')).toEqual(TITLE_BAR_OVERLAY.light);
-    expect(titleBarOverlay('dark', true)).toEqual({ color: '#101011', symbolColor: '#5D5D60' });
-  });
-});
-
-describe('window sizes stay in sync with tokens.css', () => {
-  const css = readFileSync(join(__dirname, '../src/renderer/theme/tokens.css'), 'utf8');
-  const px = (name: string) => Number(new RegExp(`${name}:\\s*(\\d+)px`).exec(css)?.[1]);
-
-  it('toolbar and login window', () => {
-    expect(px('--toolbar-height')).toBe(TOOLBAR_HEIGHT);
-    expect(px('--lock-titlebar-height')).toBe(LOCK_TITLEBAR_HEIGHT);
+    expect(WINDOW_BACKGROUND[theme].toLowerCase()).toBe(token(scope, '--bg'));
   });
 });
 

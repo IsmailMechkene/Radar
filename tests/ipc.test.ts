@@ -37,7 +37,8 @@ describe('IPC handlers', () => {
   let handlers: Map<string, Handler>;
   let applyAutostart: Mock<(enabled: boolean) => void>;
   let applyTheme: Mock<(theme: ThemePreference) => void>;
-  let setChromeTheme: Mock<(theme: ResolvedTheme, dimmed: boolean) => void>;
+  let setChromeTheme: Mock<(theme: ResolvedTheme) => void>;
+  let windowActions: { sender: unknown; action: string }[];
   let openExternal: Mock<(url: string) => Promise<void>>;
   let info: WindowInfo;
   let changed: string[];
@@ -60,7 +61,8 @@ describe('IPC handlers', () => {
     handlers = new Map();
     applyAutostart = vi.fn<(enabled: boolean) => void>();
     applyTheme = vi.fn<(theme: ThemePreference) => void>();
-    setChromeTheme = vi.fn<(theme: ResolvedTheme, dimmed: boolean) => void>();
+    setChromeTheme = vi.fn<(theme: ResolvedTheme) => void>();
+    windowActions = [];
     openExternal = vi.fn<(url: string) => Promise<void>>(() => Promise.resolve());
     info = { platform: 'win32', isPackaged: false, material: 'none' };
     changed = [];
@@ -106,6 +108,8 @@ describe('IPC handlers', () => {
       ipcMain,
       windowInfo: () => info,
       setChromeTheme,
+      windowControl: (sender, action) => void windowActions.push({ sender, action }),
+      windowState: () => ({ maximized: true, focused: false }),
       auth: {
         status,
         setup: async () => status(),
@@ -232,23 +236,34 @@ describe('IPC handlers', () => {
     expect(await invoke(SHELL_CHANNELS.appGetWindowInfo)).toEqual(info);
   });
 
-  it('recolors the window controls only when the page reports its painted theme', async () => {
+  it('recolors the window background only when the page reports its painted theme', async () => {
     await invoke(IPC_CHANNELS.settingsSet, { key: 'theme', value: 'dark' });
     expect(setChromeTheme).not.toHaveBeenCalled();
     await invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark' });
-    expect(setChromeTheme).toHaveBeenCalledWith('dark', false);
-    // A dialog scrim dims the native controls too.
-    await invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark', dimmed: true });
-    expect(setChromeTheme).toHaveBeenLastCalledWith('dark', true);
+    expect(setChromeTheme).toHaveBeenCalledWith('dark');
     for (const theme of ['system', 'sepia', undefined]) {
       await expect(invoke(SHELL_CHANNELS.appChromeTheme, { theme })).rejects.toThrow(
         /invalid payload/,
       );
     }
-    await expect(
-      invoke(SHELL_CHANNELS.appChromeTheme, { theme: 'dark', dimmed: 'yes' }),
-    ).rejects.toThrow(/invalid payload/);
-    expect(setChromeTheme).toHaveBeenCalledTimes(2);
+    expect(setChromeTheme).toHaveBeenCalledOnce();
+  });
+
+  it('window buttons act on the window that sent them, and only known actions', async () => {
+    const sender = { id: 7 };
+    const event = { sender } as unknown as IpcMainInvokeEvent;
+    for (const action of ['minimize', 'toggle-maximize', 'close']) {
+      await handlers.get(SHELL_CHANNELS.windowControl)!(event, { action });
+    }
+    expect(windowActions).toEqual([
+      { sender, action: 'minimize' },
+      { sender, action: 'toggle-maximize' },
+      { sender, action: 'close' },
+    ]);
+    await expect(invoke(SHELL_CHANNELS.windowControl, { action: 'fullscreen' })).rejects.toThrow(
+      /invalid payload/,
+    );
+    expect(await invoke(SHELL_CHANNELS.windowState)).toEqual({ maximized: true, focused: false });
   });
 
   it('opens only http(s) links', async () => {

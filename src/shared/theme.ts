@@ -16,46 +16,19 @@ export function toggledTheme(current: ResolvedTheme): ResolvedTheme {
 }
 
 /**
- * Native window-controls overlay colors. These are the only token values main needs, so they are
- * duplicated here; they must equal --bg and --tx2 in src/renderer/theme/tokens.css (a test checks).
+ * The native window background behind the page (seen for a frame while resizing). The only token
+ * value main needs, so it is duplicated here; it must equal --bg in tokens.css (a test checks).
  */
-export const TITLE_BAR_OVERLAY: Record<ResolvedTheme, { color: string; symbolColor: string }> = {
-  light: { color: '#F5F5F7', symbolColor: '#6E6E73' },
-  dark: { color: '#1C1C1E', symbolColor: '#A1A1A6' },
+export const WINDOW_BACKGROUND: Record<ResolvedTheme, string> = {
+  light: '#F5F5F7',
+  dark: '#1C1C1E',
 };
 
-/** Alpha of the black dialog scrim, --dim in tokens.css (a test checks). */
-export const SCRIM_ALPHA: Record<ResolvedTheme, number> = { light: 0.16, dark: 0.42 };
+/** Window buttons drawn by the page (Windows, Linux); macOS keeps its native traffic lights. */
+export type WindowAction = 'minimize' | 'toggle-maximize' | 'close';
 
-/** A #RRGGBB color as it looks under a black layer of this opacity. */
-export function underScrim(hex: string, alpha: number): string {
-  const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `#${channels
-    .map((c) =>
-      Math.round(c * (1 - alpha))
-        .toString(16)
-        .padStart(2, '0'),
-    )
-    .join('')
-    .toUpperCase()}`;
+/** What the window buttons show: restore instead of maximize, dimmed glyphs when inactive. */
+export interface WindowState {
+  maximized: boolean;
+  focused: boolean;
 }
-
-/**
- * Overlay colors for a theme. While a dialog dims the page, the native controls are dimmed the
- * same way: the page's scrim cannot cover them.
- */
-export function titleBarOverlay(
-  theme: ResolvedTheme,
-  dimmed = false,
-): { color: string; symbolColor: string } {
-  const base = TITLE_BAR_OVERLAY[theme];
-  if (!dimmed) return base;
-  const a = SCRIM_ALPHA[theme];
-  return { color: underScrim(base.color, a), symbolColor: underScrim(base.symbolColor, a) };
-}
-
-/** Toolbar height in px (design: 52). The native controls overlay is 1 px shorter. */
-export const TOOLBAR_HEIGHT = 52;
-
-/** The login window's native controls overlay height in px (--lock-titlebar-height). */
-export const LOCK_TITLEBAR_HEIGHT = 40;

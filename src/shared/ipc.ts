@@ -29,7 +29,7 @@ import {
 import type { PageCheck } from '../core/watch/pages';
 import type { NavCounts } from '../core/nav';
 import type { RescoreResult } from '../core/rules/rescore';
-import type { ResolvedTheme } from './theme';
+import type { ResolvedTheme, WindowAction, WindowState } from './theme';
 import type { Rules } from '../core/rules/schema';
 import type { PreviewItem } from '../core/rules/store';
 import {
@@ -59,6 +59,8 @@ import { settingKeySchema, type SettingKey, type Settings } from '../core/settin
 export const SHELL_CHANNELS = {
   appGetWindowInfo: 'app:get-window-info',
   appChromeTheme: 'app:chrome-theme',
+  windowControl: 'window:control',
+  windowState: 'window:state',
   authStatus: 'auth:status',
   authSetup: 'auth:setup',
   authUnlock: 'auth:unlock',
@@ -150,6 +152,7 @@ export const IPC_EVENTS = {
   scanFinished: 'scan:finished',
   matchAlert: 'app:match-alert',
   authChanged: 'auth:changed',
+  windowState: 'window:state-changed',
   syncChanged: 'sync:changed',
   /** Rows from another device were written here: pages reload their data. */
   syncApplied: 'sync:applied',
@@ -275,10 +278,12 @@ export const appOpenExternalPayloadSchema = z.strictObject({
 /** "New since" for the Opportunities count: the last visit (or 3 days ago on the first). */
 export const appNavCountsPayloadSchema = z.strictObject({ newSince: z.iso.datetime() });
 /** The theme the page has just painted; the native window controls follow it. */
+export const windowControlPayloadSchema = z.strictObject({
+  action: z.enum(['minimize', 'toggle-maximize', 'close']),
+});
+export const windowStatePayloadSchema = noPayload;
 export const appChromeThemePayloadSchema = z.strictObject({
   theme: z.enum(['light', 'dark']),
-  /** A dialog scrim covers the page: dim the native controls with it. */
-  dimmed: z.boolean().optional(),
 });
 export const appCopyTextPayloadSchema = z.strictObject({ text: z.string().max(50_000) });
 /** A draft for the default mail app (mailto:). Nothing is sent. */
@@ -500,7 +505,12 @@ export interface RadarApi {
     /** New-match alerts from scans; returns the unsubscribe function. */
     onMatchAlert(listener: (e: MatchAlertEvent) => void): () => void;
     /** Recolors the native window controls once the page shows `theme` (so they never lead). */
-    setChromeTheme(theme: ResolvedTheme, dimmed?: boolean): Promise<void>;
+    setChromeTheme(theme: ResolvedTheme): Promise<void>;
+    /** The window buttons drawn by the page (not on macOS). */
+    windowControl(action: WindowAction): Promise<void>;
+    windowState(): Promise<WindowState>;
+    /** Maximized or restored, focused or not; returns the unsubscribe function. */
+    onWindowState(listener: (s: WindowState) => void): () => void;
     copyText(text: string): Promise<void>;
     /** Opens a draft in the default mail app (mailto:). Radar never sends email. */
     openMail(to: string, subject: string, body: string): Promise<void>;

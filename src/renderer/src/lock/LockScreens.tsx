@@ -7,17 +7,21 @@ import { Button } from '../../components/Button';
 import { Checkbox } from '../../components/Checkbox';
 import { Icon } from '../../components/Icon';
 import { TextInput } from '../../components/Input';
+import { WindowControls } from '../../components/WindowControls';
 import { cleanIpcError } from '../lib/settings-helpers';
 import { LockPanel } from './LockPanel';
 
 /**
  * The login window: on the left the brand, a link on the right of the same row (the other way in),
  * and the screen centred in a narrow column; on the right the radar panel. The top rows drag the
- * window; the native buttons sit above the panel.
+ * window; the window buttons sit in the strip above the panel, which drags it too.
  */
 export function LockFrame({ children, topRight }: { children: ReactNode; topRight?: ReactNode }) {
   return (
-    <div className="flex h-full w-full bg-bg">
+    <div className="relative flex h-full w-full bg-bg">
+      <div className="app-drag absolute top-0 right-0 z-10 flex h-(--lock-titlebar-height) w-[calc(var(--lock-panel-width)+var(--spacing)*3)] justify-end">
+        <WindowControls />
+      </div>
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="lock-brand app-drag flex h-(--toolbar-height) shrink-0 items-center justify-between gap-4 px-6">
           <div className="flex items-center gap-2">

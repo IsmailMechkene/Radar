@@ -41,12 +41,11 @@ import { parseSeedSources } from '../core/sources/seeds';
 import { syncSeedSources } from '../core/sources/sync';
 import { IPC_EVENTS, type AuthStatus, type WindowInfo } from '../shared/ipc';
 import {
-  LOCK_TITLEBAR_HEIGHT,
-  TITLE_BAR_OVERLAY,
-  titleBarOverlay,
-  TOOLBAR_HEIGHT,
+  WINDOW_BACKGROUND,
   type ResolvedTheme,
   type ThemePreference,
+  type WindowAction,
+  type WindowState,
 } from '../shared/theme';
 import { registerIpcHandlers, registerShellHandlers } from './ipc';
 import { createVault, type Vault } from './vault';
@@ -83,9 +82,6 @@ else if (!app.isPackaged && process.env['RADAR_USER_DATA']) {
   app.setPath('userData', process.env['RADAR_USER_DATA']);
 }
 
-// The native controls stop 1 px short of the toolbar so its bottom hairline stays visible.
-const OVERLAY_HEIGHT = TOOLBAR_HEIGHT - 1;
-
 const material = chooseWindowMaterial(process.platform, release());
 const windowInfo = (): WindowInfo => ({
   platform: process.platform,
@@ -112,23 +108,21 @@ const lifecycle = createLifecycle({
   },
 });
 
-function overlayColors() {
-  return TITLE_BAR_OVERLAY[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
+function windowBackground(): string {
+  return WINDOW_BACKGROUND[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 }
 
-/** Native window controls overlay height per window (the login window's header is shorter). */
-const overlayHeights = new WeakMap<BrowserWindow, number>();
-
+/**
+ * Frameless on every platform. Windows and Linux get no native buttons: the page draws minimize,
+ * maximize and close (components/WindowControls.tsx), so they dim under dialogs, blur and change
+ * theme with the page. Resizing, snapping and double-click to maximize stay native.
+ */
 function chromeOptions(kind: WindowKind): BrowserWindowConstructorOptions {
   if (kind === 'lock') {
-    // Its own top rows are the drag region; native buttons above the radar panel.
+    // Its own top rows are the drag region; the buttons sit above the radar panel.
     return process.platform === 'darwin'
       ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 20, y: 18 } }
-      : {
-          titleBarStyle: 'hidden',
-          titleBarOverlay: { ...overlayColors(), height: LOCK_TITLEBAR_HEIGHT },
-          backgroundColor: overlayColors().color,
-        };
+      : { titleBarStyle: 'hidden', backgroundColor: windowBackground() };
   }
   if (process.platform === 'darwin') {
     // macOS: native traffic lights over a vibrant sidebar. Kept for later; untested on Windows.
@@ -140,13 +134,11 @@ function chromeOptions(kind: WindowKind): BrowserWindowConstructorOptions {
       backgroundColor: '#00000000',
     };
   }
-  // Windows/Linux: no native title bar; the native min/max/close controls float over the toolbar.
   return {
     titleBarStyle: 'hidden',
-    titleBarOverlay: { ...overlayColors(), height: OVERLAY_HEIGHT },
     ...(material === 'mica'
       ? { backgroundMaterial: 'mica', backgroundColor: '#00000000' }
-      : { backgroundColor: overlayColors().color }),
+      : { backgroundColor: windowBackground() }),
   };
 }
 
@@ -177,7 +169,17 @@ function createWindow(kind: WindowKind, onShown?: () => void): BrowserWindow {
     },
   });
 
-  overlayHeights.set(win, kind === 'lock' ? LOCK_TITLEBAR_HEIGHT : OVERLAY_HEIGHT);
+  // The page's window buttons follow the window: restore vs maximize, dimmed when inactive.
+  const sendState = () => {
+    if (!win.isDestroyed()) win.webContents.send(IPC_EVENTS.windowState, windowStateOf(win));
+  };
+  win.on('maximize', sendState);
+  win.on('unmaximize', sendState);
+  win.on('restore', sendState);
+  win.on('focus', sendState);
+  win.on('blur', sendState);
+  win.on('enter-full-screen', sendState);
+  win.on('leave-full-screen', sendState);
   // The app opens maximized (full work area), not at a fixed size; the login window centred.
   win.once('ready-to-show', () => {
     if (kind === 'app') win.maximize();
@@ -207,22 +209,35 @@ function createWindow(kind: WindowKind, onShown?: () => void): BrowserWindow {
   return win;
 }
 
-/**
- * Native chrome (controls overlay, window background) in a theme. The page calls this (IPC
- * app:chrome-theme) once it has painted that theme: native controls repaint instantly while the
- * page needs a frame or more, so driving them from main made them change first.
- */
-function syncNativeChrome(theme: ResolvedTheme, dimmed = false): void {
-  if (process.platform === 'darwin') return;
-  const colors = titleBarOverlay(theme, dimmed);
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.setTitleBarOverlay({ ...colors, height: overlayHeights.get(win) ?? OVERLAY_HEIGHT });
-    // The window background stays undimmed: only the overlay sits outside the page.
-    if (material !== 'mica') win.setBackgroundColor(TITLE_BAR_OVERLAY[theme].color);
-  }
+function windowStateOf(win: BrowserWindow | null): WindowState {
+  return {
+    maximized: (win?.isMaximized() || win?.isFullScreen()) ?? false,
+    focused: win?.isFocused() ?? true,
+  };
 }
 
-/** Native menus and dialogs follow the setting; the window controls follow the page (above). */
+/** A window button drawn by the page, for the window that drew it. */
+function windowControl(sender: Electron.WebContents, action: WindowAction): void {
+  const win = BrowserWindow.fromWebContents(sender);
+  if (!win) return;
+  if (action === 'minimize') win.minimize();
+  else if (action === 'close')
+    win.close(); // the same 'close' as the native button: to the tray
+  else if (win.isFullScreen()) win.setFullScreen(false);
+  else if (win.isMaximized()) win.unmaximize();
+  else win.maximize();
+}
+
+/**
+ * The native window background (seen for a frame while resizing) in the theme the page painted.
+ * The page calls this (IPC app:chrome-theme) once that theme is on screen.
+ */
+function syncNativeChrome(theme: ResolvedTheme): void {
+  if (process.platform === 'darwin' || material === 'mica') return;
+  for (const win of BrowserWindow.getAllWindows()) win.setBackgroundColor(WINDOW_BACKGROUND[theme]);
+}
+
+/** Native menus and dialogs follow the setting; the window background follows the page (above). */
 function applyTheme(theme: ThemePreference): void {
   nativeTheme.themeSource = theme;
 }
@@ -768,6 +783,8 @@ function startShell(): void {
     ipcMain,
     windowInfo,
     setChromeTheme: syncNativeChrome,
+    windowControl,
+    windowState: (sender) => windowStateOf(BrowserWindow.fromWebContents(sender)),
     auth: v,
     isTrustedSender: isAppUrl,
   });

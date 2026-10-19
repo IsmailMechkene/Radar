@@ -104,6 +104,9 @@
 /* Theme-independent values used by the design. */
 :root {
   --on-accent: #ffffff;
+  /* Window buttons (Windows, Linux): close turns the system red on hover, as native ones do. */
+  --caption-close: #c42b1c;
+  --caption-close-pressed: #c83c30;
   --knob: #ffffff;
   --brand-from: #2d9bff;
   --brand-to: #0a6cdb;
@@ -147,6 +150,8 @@
   --sidebar-width: 240px;
   --toolbar-height: 52px;
   --lock-titlebar-height: 40px;
+  /* One window button (minimize, maximize, close), as wide as the native Windows 11 ones. */
+  --caption-width: 46px;
   --lock-form-width: 320px;
   --lock-panel-width: 46%;
   --blur-glow: 40px;
@@ -205,6 +210,8 @@
   --color-dim: var(--dim);
   --color-wall: var(--wall);
   --color-on-accent: var(--on-accent);
+  --color-caption-close: var(--caption-close);
+  --color-caption-close-pressed: var(--caption-close-pressed);
   --color-knob: var(--knob);
   --color-tile-red: var(--tile-red);
   --color-tile-sky: var(--tile-sky);
