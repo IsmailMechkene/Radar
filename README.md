@@ -90,6 +90,7 @@ npm test           # unit tests (run under plain Node, no Electron)
 npm run typecheck
 npm run lint
 npm run shot       # screenshots of the app next to the design, saved to shots/
+npm run icons      # redraw the app and tray icons in resources/ from scripts/make-icons.mjs
 ```
 
 ## Sources and scanning

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d9bff"/>
+      <stop offset="1" stop-color="#0a6cdb"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0" r="0.9">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#fff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Across the sweep: clear at its trailing edge, brightest at the leading one. -->
+    <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="702" y1="262" x2="812" y2="512">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.75" stop-color="#fff" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.26"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.45"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#002a66" flood-opacity="0.35"/>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <clipPath id="tile"><rect x="0" y="0" width="1024" height="1024" rx="230.4"/></clipPath>
+  </defs>
+  <g >
+    <rect x="0" y="0" width="1024" height="1024" rx="230.4" fill="url(#bg)"/>
+  </g>
+  <g clip-path="url(#tile)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#glow)"/>
+    <circle cx="512" cy="512" r="352" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="10"/>
+    <path d="M 512 512 L 760.9015869776647 263.0984130223353 A 352 352 0 0 1 864 512 Z" fill="url(#beam)" transform="rotate(-8 512 512)"/>
+  </g>
+  <g filter="url(#lift)">
+    <circle cx="512" cy="512" r="214" fill="none" stroke="#fff" stroke-width="62"/>
+    <circle cx="512" cy="512" r="70" fill="#fff"/>
+  </g>
+  <rect x="3" y="3" width="1018" height="1018" rx="227.4" fill="none" stroke="url(#edge)" stroke-width="6"/>
+</svg>

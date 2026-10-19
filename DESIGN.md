@@ -435,6 +435,17 @@ window background per theme (`WINDOW_BACKGROUND`, equal to `--bg`).
 The material choice is a pure function (`src/main/window-material.ts`), exposed to the page as
 `<html data-material>` through `window.radar.app.getWindowInfo()`.
 
+**App icon** (`resources/`, drawn by `scripts/make-icons.mjs`, run `npm run icons`): BrandMark at
+icon scale. A tile with 22.5 % corners (`--radius-icon`) in the brand gradient (`--brand-from` to
+`--brand-to`, top to bottom), a soft white light from the top edge and a thin light rim; centred, a
+white ring and dot (the BrandMark) lifted by a soft dark-blue shadow; behind them a faint outer
+ring and one still radar sweep at the upper right, fading in across its angle. At 32 px and under
+only the tile, ring and dot remain, drawn thicker so they stay sharp. Files: `icon.svg` (master),
+`icon.png` 512 px (Linux window icon), `icon.ico` 16 to 256 px (Windows window and taskbar),
+`icon.icns` 16 to 1024 px (macOS: the tile is 824 px on Apple's 1024 px grid, with its drop
+shadow), `tray.png` 16 px and `tray@2x.png` 32 px. Each size is rendered from the vector, not
+scaled from a large one.
+
 ## 9. Checking against the design
 
 ```sh

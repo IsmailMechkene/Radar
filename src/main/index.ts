@@ -159,6 +159,7 @@ function createWindow(kind: WindowKind, onShown?: () => void): BrowserWindow {
     ...size,
     show: false,
     title: 'Radar',
+    ...(process.platform === 'darwin' ? {} : { icon: appIconPath() }),
     autoHideMenuBar: true,
     ...chromeOptions(kind),
     webPreferences: {
@@ -240,6 +241,14 @@ function syncNativeChrome(theme: ResolvedTheme): void {
 /** Native menus and dialogs follow the setting; the window background follows the page (above). */
 function applyTheme(theme: ThemePreference): void {
   nativeTheme.themeSource = theme;
+}
+
+/**
+ * Radar's icon (resources/, made by `npm run icons`): the .ico on Windows (every size, crisp in
+ * the taskbar), the PNG elsewhere.
+ */
+function appIconPath(): string {
+  return join(__dirname, '../../resources', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 }
 
 function createTray(): void {
@@ -790,6 +799,10 @@ function startShell(): void {
   });
 
   installMenu();
+  // Unpackaged runs show Electron's icon in the Dock; packaged builds use icon.icns.
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    app.dock?.setIcon(join(__dirname, '../../resources/icon.png'));
+  }
   console.log(`[radar] window material: ${material}`);
 
   if (SHOT_MODE) {
