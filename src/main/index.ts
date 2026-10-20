@@ -82,6 +82,11 @@ else if (!app.isPackaged && process.env['RADAR_USER_DATA']) {
   app.setPath('userData', process.env['RADAR_USER_DATA']);
 }
 
+// Windows groups taskbar buttons (and attributes notifications) by AppUserModelID. Without one,
+// an unpackaged Radar runs as electron.exe and the taskbar shows Electron's icon instead of the
+// window icon. An installer must register the same id (electron-builder `appId`).
+if (process.platform === 'win32') app.setAppUserModelId('app.radar.desktop');
+
 const material = chooseWindowMaterial(process.platform, release());
 const windowInfo = (): WindowInfo => ({
   platform: process.platform,
