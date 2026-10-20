@@ -73,8 +73,8 @@ export function Sidebar({ route, onNavigate, platform, counts }: SidebarProps) {
         </>
       ) : (
         // Windows/Linux: the window controls are on the right, so the brand takes the title strip,
-        // in line with the toolbar (same height and bottom hairline). It stays a drag region.
-        <Brand className="app-drag h-(--toolbar-height) shrink-0 hairline-b border-line" />
+        // in line with the toolbar (same height, no bottom hairline). It stays a drag region.
+        <Brand className="app-drag h-(--toolbar-height) shrink-0" />
       )}
       <nav
         ref={navRef}
