@@ -7,7 +7,11 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/main/index.ts') },
+        // The passes worker is its own entry: main starts it with new Worker(<out>/passes-worker.js).
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          'passes-worker': resolve(__dirname, 'src/main/passes-worker.ts'),
+        },
       },
     },
   },

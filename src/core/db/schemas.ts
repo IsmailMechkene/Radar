@@ -136,33 +136,29 @@ export function parseBreakdown(json: string | null): ScoreBreakdown | null {
 }
 
 /** One table row: what the Opportunities list needs, nothing more (no full breakdown). */
-export const opportunityListItemSchema = z
-  .object({
-    id: z.int(),
-    org: z.string(),
-    title: z.string(),
-    location: z.string().nullable(),
-    remote_type: remoteTypeSchema,
-    opportunity_type: opportunityTypeSchema,
-    url: z.string(),
-    apply_url: z.string().nullable(),
-    posted_at: utcTimestampSchema.nullable(),
-    deadline_at: utcTimestampSchema.nullable(),
-    deadline_status: deadlineStatusSchema,
-    score: z.number().nullable(),
-    verdict: verdictSchema.nullable(),
-    score_breakdown_json: z.string().nullable(),
-    starred: sqliteBool,
-    first_seen_at: utcTimestampSchema,
-    source_name: z.string(),
-    source_kind: z.string(),
-    source_access_method: accessMethodSchema,
-    source_count: z.int(),
-  })
-  .transform(({ score_breakdown_json, ...rest }) => ({
-    ...rest,
-    summary: parseBreakdown(score_breakdown_json)?.summary ?? null,
-  }));
+export const opportunityListItemSchema = z.object({
+  id: z.int(),
+  org: z.string(),
+  title: z.string(),
+  location: z.string().nullable(),
+  remote_type: remoteTypeSchema,
+  opportunity_type: opportunityTypeSchema,
+  url: z.string(),
+  apply_url: z.string().nullable(),
+  posted_at: utcTimestampSchema.nullable(),
+  deadline_at: utcTimestampSchema.nullable(),
+  deadline_status: deadlineStatusSchema,
+  score: z.number().nullable(),
+  verdict: verdictSchema.nullable(),
+  /** The breakdown's one-line summary (its own column, migration 14). */
+  summary: z.string().nullable(),
+  starred: sqliteBool,
+  first_seen_at: utcTimestampSchema,
+  source_name: z.string(),
+  source_kind: z.string(),
+  source_access_method: accessMethodSchema,
+  source_count: z.int(),
+});
 export type OpportunityListItem = z.output<typeof opportunityListItemSchema>;
 
 export const opportunitySourceLinkSchema = z.object({

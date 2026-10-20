@@ -86,7 +86,8 @@ describe('opportunity queries', () => {
     t.db
       .prepare('UPDATE opportunities SET score_breakdown_json = \'{"oops":1}\' WHERE id = ?')
       .run(id);
-    expect(() => listOpportunityItems(t.db)).toThrow();
+    // The list only reads the summary column; the drawer, which shows the breakdown, refuses it.
+    expect(() => getOpportunityDetail(t.db, id)).toThrow();
   });
 
   it('stars, dismisses and restores', () => {

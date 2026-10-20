@@ -166,6 +166,25 @@ describe('scheduler', () => {
     expect(r.notices).toBe(1);
   });
 
+  it('runs the daily re-score on a tick; a failing one does not stop reminders', async () => {
+    let rescores = 0;
+    const s = createScheduler({
+      db: t.db,
+      now: () => now,
+      scan: { run: async () => {}, status: () => ({ running: false }) },
+      watchPages: async () => {},
+      dailyRescore: async () => {
+        rescores += 1;
+        throw new Error('worker gone');
+      },
+      notify: (n) => notices.push(n),
+      setInterval: () => 0,
+    });
+    const r = await s.tick('hourly');
+    expect(rescores).toBe(1);
+    expect(r.notices).toBe(1);
+  });
+
   it('a failing scan or page watch does not stop reminders', async () => {
     const s = createScheduler({
       db: t.db,

@@ -4,7 +4,7 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import { ADAPTERS } from './adapters/registry';
 import type { Adapter, AdapterResult, RawItem } from './adapters/types';
-import { upsertOpportunity } from './db/opportunities';
+import { storeOpportunity } from './db/opportunities';
 import { finishRun, startRun, type RunTrigger } from './db/runs';
 import { sourceRowSchema, type OpportunityInput, type SourceRow } from './db/schemas';
 import { canonicalUrl, dedupeKey } from './dedupe';
@@ -107,7 +107,7 @@ function storeResult(
       const input = toInput(item, source.id);
       const known = byUrl.get(input.url) as { dedupe_key: string } | undefined;
       if (known) input.dedupe_key = known.dedupe_key;
-      const r = upsertOpportunity(db, input, at);
+      const r = storeOpportunity(db, input, at);
       if (r.inserted) inserted += 1;
       else updated += 1;
     }

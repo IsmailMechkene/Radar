@@ -25,18 +25,17 @@ import type Database from 'better-sqlite3-multiple-ciphers';
 import { migrate } from '../core/db/migrate';
 import { openDatabase, resolveDbPath } from '../core/db/open';
 import { dueMatchAlerts, type MatchAlert } from '../core/alerts/matches';
-import { extractDeadlinesAsync } from '../core/deadlines/postings';
 import { createHttpClient } from '../core/http/client';
 import { parseSeedPrograms, syncSeedPrograms } from '../core/programs/seeds';
 import type { Notice } from '../core/reminders/store';
-import { compileRules, type CompiledRules } from '../core/rules/engine';
+import type { PassScope } from '../core/chunks';
 import type { RescoreResult } from '../core/rules/rescore';
+import { zonedParts } from '../core/time';
 import type { Rules } from '../core/rules/schema';
 import { effectiveRules } from '../core/rules/store';
-import { profileFromSettings, SCORING_SETTING_KEYS } from '../core/rules/profile';
-import { rescoreAllAsync } from '../core/rules/rescore';
+import { SCORING_SETTING_KEYS } from '../core/rules/profile';
 import { parseRules } from '../core/rules/schema';
-import { getAllSettings, getSetting, seedDefaultSettings } from '../core/settings/store';
+import { getSetting, seedDefaultSettings } from '../core/settings/store';
 import { parseSeedSources } from '../core/sources/seeds';
 import { syncSeedSources } from '../core/sources/sync';
 import { IPC_EVENTS, type AuthStatus, type WindowInfo } from '../shared/ipc';
@@ -58,6 +57,7 @@ import {
 } from './account/service';
 import { createSupabaseRemote, type AccountRemote } from './account/remote';
 import { createSyncService, type SyncService } from './sync';
+import { createPasses, type Passes } from './passes';
 import type { SyncResult } from '../core/sync/engine';
 import { relinkPipeline } from '../core/sync/entities';
 import { quietly } from '../core/sync/state';
@@ -297,46 +297,63 @@ function loadDefaultRules(): Rules | null {
 }
 
 let defaultRules: Rules | null = null;
-let compiledRules: CompiledRules | null = null;
+/** Rules in use (validated); the passes worker compiles them for each re-score. */
+let activeRules: Rules | null = null;
+/** Deadline reading and re-scoring for the unlocked database (worker thread). */
+let passes: Passes | null = null;
+/** Local day (in the user's time zone) of the last full re-score; scores move with the date. */
+let scoredDay: string | null = null;
 
 /** Rules in use: the Rules page's version when there is a valid one, else the defaults. */
 function applyRules(database: Database.Database): void {
   if (!defaultRules) return;
   const r = effectiveRules(database, defaultRules);
   if (r.error) console.error(`[radar] ${r.error}`);
-  compiledRules = compileRules(r.rules);
+  activeRules = r.rules;
   console.log(`[radar] scoring with ${r.custom ? 'your edited rules' : 'the default rules'}`);
 }
 
-// Deadline reading and re-scoring run in chunks of postings with a turn of the event loop
-// between them, so a large database never freezes the window. They go through one queue: a scan
-// finishing while a setting changes cannot run two passes over the same rows at once.
+// Deadline reading and re-scoring run on the passes worker, so a large database never freezes
+// the window. They go through one queue: a scan finishing while a setting changes cannot run
+// two passes over the same rows at once. After a scan only changed postings are processed
+// ('changed'); rules, scoring settings, the time zone and a new day redo every open one ('all').
 let jobs: Promise<unknown> = Promise.resolve();
 function queued<T>(job: () => Promise<T>): Promise<T> {
   const next = jobs.then(job, job);
   jobs = next.catch(() => undefined);
   return next;
 }
-const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
-/** Re-scores every stored (non-sample) opportunity with the current rules and settings. */
-function rescore(database: Database.Database, why: string): Promise<RescoreResult | null> {
-  return queued(() => rescoreJob(database, why));
+const localDay = (database: Database.Database, at: Date): string => {
+  const p = zonedParts(at, getSetting(database, 'timezone'));
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+/** Re-scores stored (non-sample) open opportunities with the current rules and settings. */
+function rescore(
+  database: Database.Database,
+  why: string,
+  scope: PassScope = 'all',
+): Promise<RescoreResult | null> {
+  return queued(() => rescoreJob(database, why, scope));
 }
 
-async function rescoreJob(database: Database.Database, why: string): Promise<RescoreResult | null> {
-  if (!compiledRules) return null;
+async function rescoreJob(
+  database: Database.Database,
+  why: string,
+  scope: PassScope = 'all',
+): Promise<RescoreResult | null> {
+  const p = passes;
+  if (!activeRules || !p) return null;
   try {
-    const r = await rescoreAllAsync(
-      database,
-      compiledRules,
-      profileFromSettings(getAllSettings(database)),
-      new Date(),
-      nextTurn,
-    );
+    const now = new Date();
+    const out = await p.run({ kind: 'rescore', scope, rules: activeRules, now: now.toISOString() });
+    if (out.kind !== 'rescore') throw new Error(`Unexpected pass result: ${out.kind}`);
+    const r = out.result;
+    if (scope === 'all') scoredDay = localDay(database, now);
     const v = r.byVerdict;
     console.log(
-      `[radar] re-scored ${r.scored} (${why}): ${v.apply} apply, ${v.maybe} maybe, ${v.needs_review} needs review, ${v.skip} skip`,
+      `[radar] re-scored ${r.scored}${scope === 'changed' ? ' changed' : ''} (${why}): ${v.apply} apply, ${v.maybe} maybe, ${v.needs_review} needs review, ${v.skip} skip`,
     );
     return r;
   } catch (err) {
@@ -345,9 +362,19 @@ async function rescoreJob(database: Database.Database, why: string): Promise<Res
   }
 }
 
+/** Scores depend on the date (posting age, days to the deadline): once a day, redo them all. */
+function dailyRescore(database: Database.Database): Promise<void> {
+  if (scoredDay === localDay(database, new Date())) return Promise.resolve();
+  return rescoreQuietly(database, 'new day');
+}
+
 /** Re-scoring triggered by data changes: logged, never fatal. */
-function rescoreQuietly(database: Database.Database, why: string): Promise<void> {
-  return rescore(database, why).then(
+function rescoreQuietly(
+  database: Database.Database,
+  why: string,
+  scope: PassScope = 'all',
+): Promise<void> {
+  return rescore(database, why, scope).then(
     () => undefined,
     () => undefined, // already logged
   );
@@ -383,12 +410,20 @@ function syncPrograms(database: Database.Database): void {
 }
 
 /** Reads posting deadlines from their text (confirmed, rolling or unknown). */
-function refreshDeadlines(database: Database.Database, why: string): Promise<void> {
+function refreshDeadlines(
+  database: Database.Database,
+  why: string,
+  scope: PassScope = 'all',
+): Promise<void> {
   return queued(async () => {
+    const p = passes;
+    if (!p) return;
     try {
-      const r = await extractDeadlinesAsync(database, getSetting(database, 'timezone'), nextTurn);
+      const out = await p.run({ kind: 'deadlines', scope });
+      if (out.kind !== 'deadlines') throw new Error(`Unexpected pass result: ${out.kind}`);
+      const r = out.result;
       console.log(
-        `[radar] deadlines read (${why}): ${r.confirmed} confirmed, ${r.rolling} rolling, ${r.doubtful} to check, of ${r.checked}`,
+        `[radar] deadlines read (${why}): ${r.confirmed} confirmed, ${r.rolling} rolling, ${r.doubtful} to check, of ${r.checked}${scope === 'changed' ? ' changed' : ''}`,
       );
     } catch (err) {
       console.error(`[radar] reading deadlines failed (${why}):`, err);
@@ -555,6 +590,12 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
     quietly(database, () => ensureDefaultTemplates(database, new Date()));
     defaultRules = loadDefaultRules();
     applyRules(database);
+    passes = createPasses({
+      db: database,
+      dbPath,
+      key: dataKey,
+      workerFile: join(__dirname, 'passes-worker.js'),
+    });
     // Queued, not awaited: the window opens while stored rows are refreshed.
     void refreshDeadlines(database, 'startup');
     void rescoreQuietly(database, 'startup');
@@ -566,8 +607,8 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       afterScan: async () => {
         // Pipeline rows synced from another device link to postings this scan found.
         quietly(database, () => relinkPipeline(database));
-        await refreshDeadlines(database, 'after scan');
-        await rescoreQuietly(database, 'after scan');
+        await refreshDeadlines(database, 'after scan', 'changed');
+        await rescoreQuietly(database, 'after scan', 'changed');
       },
       onFinished: (summary) => {
         broadcast(IPC_EVENTS.scanFinished, summary);
@@ -584,6 +625,7 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       dailyBackup: () => dailyBackup(database),
       notify: showNotice,
       deliverMatches: () => deliverMatchAlerts(database),
+      dailyRescore: () => dailyRescore(database),
     });
     const v = vault;
     syncService =
@@ -696,12 +738,20 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
     unregisterIpc?.();
     await syncService?.stop();
     await jobs; // startup re-scoring may already be queued on this database
+    await closePasses();
     database.close();
     throw err;
   }
   // Hourly tick and now (startup catch-up); wake from sleep ticks too (see startShell).
   if (!SHOT_MODE) session.scheduler.start();
   session.sync?.start();
+}
+
+/** Ends the passes worker (its connection closes first). */
+async function closePasses(): Promise<void> {
+  const p = passes;
+  passes = null;
+  await p?.close();
 }
 
 /** Lock: data IPC goes first, then background work drains, then the database closes. */
@@ -714,8 +764,10 @@ async function stopUnlocked(): Promise<void> {
   await s.scheduler.stop();
   await s.scan.stop();
   await jobs;
+  await closePasses();
   s.database.close();
-  compiledRules = null;
+  activeRules = null;
+  scoredDay = null;
   console.log('[radar] locked: database closed');
 }
 

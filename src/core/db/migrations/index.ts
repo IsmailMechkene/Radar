@@ -10,6 +10,8 @@ import { sql as outreach } from './009_outreach';
 import { sql as userRules } from './010_user_rules';
 import { sql as matchAlerts } from './011_match_alerts';
 import { sql as sync } from './012_sync';
+import { sql as refreshRevision } from './013_refresh_revision';
+import { sql as listSummary } from './014_list_summary';
 
 export interface Migration {
   version: number;
@@ -31,4 +33,6 @@ export const migrations: readonly Migration[] = [
   { version: 10, name: 'user_rules', sql: userRules },
   { version: 11, name: 'match_alerts', sql: matchAlerts },
   { version: 12, name: 'sync', sql: sync },
+  { version: 13, name: 'refresh_revision', sql: refreshRevision },
+  { version: 14, name: 'list_summary', sql: listSummary },
 ];

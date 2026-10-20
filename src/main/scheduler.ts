@@ -22,6 +22,8 @@ export interface SchedulerDeps {
   watchPages: () => Promise<void>;
   /** Makes today's backup when it is missing (SPEC section 8: daily, keep 14). */
   dailyBackup?: () => Promise<void>;
+  /** Re-scores every posting when the local day changed (scores depend on the date). */
+  dailyRescore?: () => Promise<void>;
   notify: (notice: Notice) => void;
   /** Sends new-match alerts that are due (held by quiet hours or the daily summary until then). */
   deliverMatches?: () => { deferred: number };
@@ -76,6 +78,12 @@ export function createScheduler(deps: SchedulerDeps) {
       await deps.dailyBackup?.();
     } catch (err) {
       console.error('[scheduler] backup failed:', err);
+    }
+    if (stopped) return result;
+    try {
+      await deps.dailyRescore?.();
+    } catch (err) {
+      console.error('[scheduler] daily re-score failed:', err);
     }
     if (stopped) return result;
 
