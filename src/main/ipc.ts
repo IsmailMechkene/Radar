@@ -127,6 +127,7 @@ import {
   scanStatusPayloadSchema,
   copilotNoPayloadSchema,
   copilotReviewPayloadSchema,
+  copilotIdPayloadSchema,
   settingsGetAllPayloadSchema,
   settingsGetPayloadSchema,
   settingsSetPayloadSchema,
@@ -140,7 +141,9 @@ import type { ResolvedTheme, ThemePreference, WindowAction, WindowState } from '
 import type { ScanService } from './scan';
 import type { SyncService } from './sync';
 import type { CopilotService } from './copilot/service';
-import { listCopilotItems } from '../core/copilot/reviews';
+import { listCopilotItems, reviewInput } from '../core/copilot/reviews';
+import { getTailoredCv } from '../core/copilot/cvs';
+import { cvFileName, cvHtml } from './copilot/cv';
 
 type IpcMainLike = Pick<IpcMain, 'handle' | 'removeHandler'>;
 
@@ -188,8 +191,10 @@ export interface IpcDeps {
   openFolder?: (path: string) => Promise<void>;
   /** Radar Copilot: finds Claude Code and makes one tiny request with these settings. */
   checkCopilot?: (settings: Settings['copilot']) => Promise<CopilotCheck>;
-  /** Radar Copilot's review queue. */
-  copilot?: Pick<CopilotService, 'status' | 'review' | 'reviewWaiting' | 'stop'>;
+  /** Radar Copilot's queue (reviews and tailored CVs). */
+  copilot?: Pick<CopilotService, 'status' | 'review' | 'reviewWaiting' | 'stop' | 'makeCv'>;
+  /** Prints self-contained HTML to PDF and saves it (native save dialog); null when cancelled. */
+  savePdf?: (html: string, suggestedName: string) => Promise<string | null>;
   /** End-to-end encrypted sync; absent when accounts are off. */
   sync?: Pick<SyncService, 'status' | 'now' | 'useRecoveryKey'> | null;
   now?: () => Date;
@@ -673,6 +678,21 @@ export function registerIpcHandlers(deps: IpcDeps): () => void {
   handle(ipcMain, C.copilotStop, copilotNoPayloadSchema, async () => {
     await copilot().stop();
     return copilot().status();
+  });
+  handle(ipcMain, C.copilotMakeCv, copilotReviewPayloadSchema, ({ ids }) => copilot().makeCv(ids));
+  handle(
+    ipcMain,
+    C.copilotGetCv,
+    copilotIdPayloadSchema,
+    ({ id }) => getTailoredCv(db, id) ?? null,
+  );
+  handle(ipcMain, C.copilotSaveCvPdf, copilotIdPayloadSchema, async ({ id }) => {
+    if (!deps.savePdf) throw new Error('Saving a PDF is not available');
+    const stored = getTailoredCv(db, id);
+    const posting = reviewInput(db, id);
+    if (!stored || !posting) throw new Error('This posting has no tailored CV yet');
+    const file = await deps.savePdf(cvHtml(stored.cv), cvFileName(stored.cv, posting.org));
+    return file === null ? null : { file };
   });
 
   const devOnly = () => {

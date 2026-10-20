@@ -28,6 +28,7 @@ import {
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
 import type { CopilotItem, Dimension, Grade, Review, StoredReview } from '../core/copilot/reviews';
+import type { StoredCv, TailoredCv } from '../core/copilot/cvs';
 import type { NavCounts } from '../core/nav';
 import type { RescoreResult } from '../core/rules/rescore';
 import type { ResolvedTheme, WindowAction, WindowState } from './theme';
@@ -152,6 +153,9 @@ export const IPC_CHANNELS = {
   copilotReview: 'copilot:review',
   copilotReviewWaiting: 'copilot:review-waiting',
   copilotStop: 'copilot:stop',
+  copilotMakeCv: 'copilot:make-cv',
+  copilotGetCv: 'copilot:get-cv',
+  copilotSaveCvPdf: 'copilot:save-cv-pdf',
 } as const;
 
 /** Events main sends to the renderer (no payload validation needed: main is trusted). */
@@ -379,6 +383,7 @@ export const scanRunPayloadSchema = z
 export const scanStatusPayloadSchema = noPayload;
 export const copilotNoPayloadSchema = noPayload;
 export const copilotReviewPayloadSchema = z.strictObject({ ids: idsSchema });
+export const copilotIdPayloadSchema = z.strictObject({ id: z.int().positive() });
 
 export interface WindowInfo {
   platform: string;
@@ -456,22 +461,31 @@ export type CopilotCheck =
       problem: string;
     };
 
-/** Radar Copilot's review queue (main -> page). */
+/** One piece of Copilot work on a posting (by opportunity id). */
+export interface CopilotJob {
+  kind: 'review' | 'cv';
+  id: number;
+}
+
+/** Radar Copilot's queue (main -> page). */
 export interface CopilotStatus {
   running: boolean;
-  /** The posting being reviewed now. */
-  current: { id: number; title: string; org: string } | null;
-  /** Postings still queued in this run, in order. */
-  queued: number[];
-  /** Reviews finished in this run. */
+  /** The job running now. */
+  current: (CopilotJob & { title: string; org: string }) | null;
+  /** Jobs still queued in this run, in order. */
+  queued: CopilotJob[];
+  /** Jobs finished in this run. */
   done: number;
-  /** Postings whose last review failed, newest first. */
-  failures: { id: number; problem: string }[];
-  /** Why the last review failed or a run did not start; null after a clean run. */
+  /** Jobs whose last attempt failed, newest first. */
+  failures: (CopilotJob & { problem: string })[];
+  /** Why the last job failed or a run did not start; null after a clean run. */
   lastError: string | null;
 }
 
-export type { CopilotItem, Dimension, Grade, Review, StoredReview };
+/** Result of "Save PDF": null when the save dialog was cancelled. */
+export type CvPdfExport = { file: string } | null;
+
+export type { CopilotItem, Dimension, Grade, Review, StoredReview, StoredCv, TailoredCv };
 
 export interface ScanStatus {
   running: boolean;
@@ -678,8 +692,14 @@ export interface RadarApi {
     review(ids: number[]): Promise<CopilotStatus>;
     /** Reviews every posting still waiting. */
     reviewWaiting(): Promise<CopilotStatus>;
-    /** Empties the queue and stops the review that is running. */
+    /** Empties the queue and stops the job that is running. */
     stop(): Promise<CopilotStatus>;
+    /** Writes (again) the tailored CV of these postings from the master CV. */
+    makeCv(ids: number[]): Promise<CopilotStatus>;
+    /** The posting's tailored CV; null when there is none yet. */
+    getCv(id: number): Promise<StoredCv | null>;
+    /** Saves the tailored CV as a PDF (native save dialog); null when cancelled. */
+    saveCvPdf(id: number): Promise<CvPdfExport>;
     /** Queue progress; returns the unsubscribe function. */
     onChanged(listener: (s: CopilotStatus) => void): () => void;
   };

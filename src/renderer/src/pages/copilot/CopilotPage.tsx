@@ -1,5 +1,6 @@
 import {
   ExternalLink,
+  FileText,
   Kanban,
   RotateCw,
   Search,
@@ -26,6 +27,7 @@ import {
   FILTERS,
   gradeTone,
   itemState,
+  jobState,
   matchesFilter,
   reviewedLine,
   statusLine,
@@ -38,7 +40,13 @@ import { routeHref } from '../../lib/router';
 import { cleanIpcError } from '../../lib/settings-helpers';
 import { useSettings } from '../../state/settings';
 import { PageTitle } from '../PageTitle';
+import { CvView } from './CvView';
 import { useCopilot } from './useCopilot';
+
+const TABS = [
+  { value: 'review', label: 'Review' },
+  { value: 'cv', label: 'Tailored CV' },
+] as const;
 
 const STATE_LABEL: Record<Exclude<ItemState, 'reviewed'>, string> = {
   reviewing: 'Reviewing…',
@@ -136,15 +144,15 @@ export function CopilotPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filter, setFilter] = useState<FilterId>('all');
   const [text, setText] = useState('');
+  const [tab, setTab] = useState<'review' | 'cv'>('review');
 
   const enabled = settings?.copilot.enabled ?? false;
   const hasCv = (settings?.masterCv.trim() ?? '') !== '';
   const ready = enabled && hasCv;
-  const queued = new Set(status?.queued ?? []);
   const visible = (items ?? []).filter((i) => matchesFilter(i, filter, text));
   const item = (items ?? []).find((i) => i.id === selectedId) ?? visible[0] ?? null;
   const waitingCount = (items ?? []).filter((i) => !i.stored).length;
-  const failure = item ? status?.failures.find((f) => f.id === item.id) : undefined;
+  const reviewJob = item ? jobState('review', item.id, status) : null;
 
   async function act(what: string, call: () => Promise<unknown>) {
     try {
@@ -159,14 +167,16 @@ export function CopilotPage() {
     act('Review', async () => {
       const s = await window.radar.copilot.reviewWaiting();
       setStatus(s);
-      toast({ message: `Reviewing ${s.queued.length + (s.current ? 1 : 0)} postings` });
+      const n =
+        s.queued.filter((j) => j.kind === 'review').length + (s.current?.kind === 'review' ? 1 : 0);
+      toast({ message: `Reviewing ${n} postings` });
     });
   const reviewOne = (i: CopilotItem) =>
     act('Review', async () => setStatus(await window.radar.copilot.review([i.id])));
   const stop = () =>
     act('Stop', async () => {
       setStatus(await window.radar.copilot.stop());
-      toast({ message: 'Stopped. Finished reviews are kept.' });
+      toast({ message: 'Stopped. Finished reviews and CVs are kept.' });
     });
   const addToPipeline = (i: CopilotItem) =>
     act('Add to Pipeline', async () => {
@@ -227,7 +237,7 @@ export function CopilotPage() {
       )}
       {status?.lastError && (
         <div className="mb-4">
-          <Banner title="The last review failed." description={status.lastError} />
+          <Banner title="The last Copilot job failed." description={status.lastError} />
         </div>
       )}
 
@@ -278,7 +288,7 @@ export function CopilotPage() {
               className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto px-2 pb-2"
             >
               {visible.map((i) => {
-                const st = itemState(i, status, queued.has(i.id));
+                const st = itemState(i, status);
                 const active = item?.id === i.id;
                 return (
                   <button
@@ -295,7 +305,12 @@ export function CopilotPage() {
                     <OrgAvatar initials={monogram(i.org)} hue={monogramHue(i.org)} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-body font-semibold">{i.title}</div>
-                      <div className="truncate text-footnote text-fg-2">{i.org}</div>
+                      <div className="flex items-center gap-1 truncate text-footnote text-fg-2">
+                        {i.cvAt && (
+                          <Icon icon={FileText} size={11} className="shrink-0 text-fg-3" />
+                        )}
+                        <span className="truncate">{i.org}</span>
+                      </div>
                     </div>
                     {st === 'reviewed' && i.stored ? (
                       <Badge tone={gradeTone(i.stored.grade)} strong size="sm">
@@ -354,7 +369,9 @@ export function CopilotPage() {
                     size="sm"
                     variant={item.stored ? 'secondary' : 'primary'}
                     icon={Sparkles}
-                    disabled={!ready || queued.has(item.id) || status?.current?.id === item.id}
+                    disabled={
+                      !ready || reviewJob?.state === 'running' || reviewJob?.state === 'queued'
+                    }
                     onClick={() => void reviewOne(item)}
                   >
                     {item.stored ? 'Review again' : 'Review'}
@@ -362,37 +379,55 @@ export function CopilotPage() {
                 </div>
               </div>
 
+              <div className="px-5 pt-3">
+                <SegmentedControl label="View" value={tab} segments={TABS} onChange={setTab} />
+              </div>
+
               <div className="min-h-0 flex-1 overflow-y-auto">
-                {failure && (
-                  <div className="mx-5 mt-4">
-                    <Banner title="This review failed." description={failure.problem} />
-                  </div>
-                )}
-                {item.problem && (
-                  <div className="mx-5 mt-4">
-                    <Banner tone="warning" title={item.problem} />
-                  </div>
-                )}
-                {item.stored ? (
-                  <ReviewView stored={item.stored} timeZone={tz} />
+                {tab === 'cv' ? (
+                  <CvView
+                    key={item.id}
+                    item={item}
+                    status={status}
+                    ready={ready}
+                    timeZone={tz}
+                    act={act}
+                    onStatus={setStatus}
+                  />
                 ) : (
-                  <div className="grid place-items-center px-6 py-16 text-center">
-                    <Icon
-                      icon={status?.current?.id === item.id ? Sparkles : TriangleAlert}
-                      size={18}
-                      className="text-fg-3"
-                    />
-                    <div className="mt-2 text-headline font-semibold">
-                      {status?.current?.id === item.id
-                        ? 'Claude Code is reviewing this posting…'
-                        : queued.has(item.id)
-                          ? 'Queued for review'
-                          : 'Not reviewed yet'}
-                    </div>
-                    <p className="mt-1 max-w-110 text-subhead text-fg-2">
-                      A review takes about a minute and uses a little of your Claude plan.
-                    </p>
-                  </div>
+                  <>
+                    {reviewJob?.state === 'failed' && (
+                      <div className="mx-5 mt-4">
+                        <Banner title="This review failed." description={reviewJob.problem} />
+                      </div>
+                    )}
+                    {item.problem && (
+                      <div className="mx-5 mt-4">
+                        <Banner tone="warning" title={item.problem} />
+                      </div>
+                    )}
+                    {item.stored ? (
+                      <ReviewView stored={item.stored} timeZone={tz} />
+                    ) : (
+                      <div className="grid place-items-center px-6 py-16 text-center">
+                        <Icon
+                          icon={reviewJob?.state === 'running' ? Sparkles : TriangleAlert}
+                          size={18}
+                          className="text-fg-3"
+                        />
+                        <div className="mt-2 text-headline font-semibold">
+                          {reviewJob?.state === 'running'
+                            ? 'Claude Code is reviewing this posting…'
+                            : reviewJob?.state === 'queued'
+                              ? 'Queued for review'
+                              : 'Not reviewed yet'}
+                        </div>
+                        <p className="mt-1 max-w-110 text-subhead text-fg-2">
+                          A review takes 15 to 60 seconds and uses a little of your Claude plan.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

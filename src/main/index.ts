@@ -74,7 +74,6 @@ import { backupDatabase, hasBackupFor } from '../core/backup';
 import { chooseWindowMaterial } from './window-material';
 import { checkClaude, findClaude, runClaude } from './copilot/claude';
 import { createCopilotService, type CopilotService } from './copilot/service';
-import { reviewSchema } from '../core/copilot/reviews';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
 const SHOT_MODE = process.argv.includes('--radar-shot');
@@ -508,6 +507,29 @@ function copilotFolder(): string {
   return dir;
 }
 
+/**
+ * Prints self-contained HTML (a tailored CV) to an A4 PDF in a hidden window with JavaScript off,
+ * no preload and no navigation; the page's own CSP blocks every remote resource.
+ */
+async function printHtmlToPdf(html: string): Promise<Buffer> {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { javascript: false, sandbox: true, contextIsolation: true },
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
+  try {
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    return await win.webContents.printToPDF({
+      pageSize: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+  } finally {
+    win.destroy();
+  }
+}
+
 /** The daily backup, made by the scheduler when today's is missing. */
 async function dailyBackup(database: Database.Database): Promise<void> {
   const folder = getSetting(database, 'backupFolder') ?? defaultBackupFolder();
@@ -619,11 +641,11 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
     const copilot = createCopilotService({
       db: database,
       runner: {
-        run: async ({ prompt, model, claudePath, signal }) =>
+        run: async ({ prompt, schema, model, claudePath, signal }) =>
           runClaude({
             exe: findClaude(claudePath),
             prompt,
-            schema: reviewSchema,
+            schema,
             model,
             signal,
             cwd: copilotFolder(),
@@ -708,6 +730,20 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       testSource: (source) => testFetch(source, http),
       checkCopilot: (settings) => checkClaude(settings, { cwd: copilotFolder() }),
       copilot,
+      savePdf: async (html, suggestedName) => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = {
+          title: 'Save tailored CV',
+          defaultPath: join(app.getPath('downloads'), suggestedName),
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        };
+        const r = win
+          ? await dialog.showSaveDialog(win, options)
+          : await dialog.showSaveDialog(options);
+        if (r.canceled || !r.filePath) return null;
+        writeFileSync(r.filePath, await printHtmlToPdf(html));
+        return r.filePath;
+      },
       defaultRules: () => defaultRules,
       rulesChanged: () =>
         queued(() => {

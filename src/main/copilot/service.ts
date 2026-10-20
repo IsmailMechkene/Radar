@@ -1,8 +1,18 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
-import { reviewInput, reviewQueue, reviewSchema, saveReview } from '../../core/copilot/reviews';
+import type { z } from 'zod';
+import { hasTailoredCv, saveTailoredCv, tailoredCvSchema } from '../../core/copilot/cvs';
+import {
+  gradeOf,
+  reviewInput,
+  reviewOf,
+  reviewQueue,
+  reviewSchema,
+  saveReview,
+} from '../../core/copilot/reviews';
 import { getAllSettings } from '../../core/settings/store';
-import type { CopilotStatus } from '../../shared/ipc';
+import type { CopilotJob, CopilotStatus } from '../../shared/ipc';
 import { CopilotError, type RunResult } from './claude';
+import { cvPrompt } from './cv';
 import { reviewPrompt } from './review';
 
 /** After a scan, at most this many waiting postings are reviewed (best rule scores first). */
@@ -16,6 +26,7 @@ const FATAL = new Set(['not-found', 'not-signed-in', 'stopped']);
 export interface CopilotRunner {
   run(args: {
     prompt: string;
+    schema: z.ZodType;
     model: string;
     claudePath: string | null;
     signal: AbortSignal;
@@ -35,16 +46,20 @@ export interface CopilotService {
   review(ids: number[]): CopilotStatus;
   /** Every posting waiting for a review (or the best `limit`). */
   reviewWaiting(limit?: number): CopilotStatus;
+  /** Writes (again) the tailored CV of these postings. Rejects when Copilot cannot run. */
+  makeCv(ids: number[]): CopilotStatus;
   /** After a scan: new postings that passed the rules, when Copilot is on. Never throws. */
   afterScan(): void;
-  /** Empties the queue and stops the review that is running. */
+  /** Empties the queue and stops the job that is running. */
   stop(): Promise<void>;
 }
+
+const same = (a: CopilotJob, b: CopilotJob) => a.id === b.id && a.kind === b.kind;
 
 export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
   const { db, runner } = deps;
   const now = deps.now ?? (() => new Date());
-  const queue: number[] = [];
+  const queue: CopilotJob[] = [];
   let current: CopilotStatus['current'] = null;
   let done = 0;
   let failures: CopilotStatus['failures'] = [];
@@ -55,7 +70,7 @@ export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
   const status = (): CopilotStatus => ({
     running: loop !== null,
     current,
-    queued: [...queue],
+    queued: queue.map((j) => ({ ...j })),
     done,
     failures,
     lastError,
@@ -70,8 +85,10 @@ export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
     return null;
   }
 
-  function enqueue(ids: number[]): void {
-    for (const id of ids) if (!queue.includes(id) && current?.id !== id) queue.push(id);
+  function enqueue(jobs: CopilotJob[]): void {
+    for (const job of jobs) {
+      if (!queue.some((q) => same(q, job)) && !(current && same(current, job))) queue.push(job);
+    }
     if (queue.length > 0 && !loop) {
       // A new run: earlier results stay on the page, the counts start again.
       done = 0;
@@ -85,20 +102,38 @@ export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
     changed();
   }
 
-  async function reviewOne(id: number, signal: AbortSignal): Promise<void> {
-    const input = reviewInput(db, id);
+  async function runJob(job: CopilotJob, signal: AbortSignal): Promise<void> {
+    const input = reviewInput(db, job.id);
     if (!input) return; // removed meanwhile
-    current = { id, title: input.title, org: input.org };
+    current = { ...job, title: input.title, org: input.org };
     changed();
     const s = getAllSettings(db);
+    const common = { model: s.copilot.model, claudePath: s.copilot.claudePath, signal };
+    if (job.kind === 'review') {
+      const result = await runner.run({
+        ...common,
+        prompt: reviewPrompt(input, s, now()),
+        schema: reviewSchema,
+      });
+      const review = reviewSchema.parse(result.value);
+      saveReview(db, input.dedupe_key, review, {
+        model: s.copilot.model,
+        costUsd: result.costUsd,
+        at: now(),
+      });
+      // Worth applying: the tailored CV follows, unless there is one already.
+      const grade = gradeOf(Math.round(review.score * 10) / 10);
+      if ((grade === 'A' || grade === 'B') && !hasTailoredCv(db, input.dedupe_key)) {
+        enqueue([{ kind: 'cv', id: job.id }]);
+      }
+      return;
+    }
     const result = await runner.run({
-      prompt: reviewPrompt(input, s, now()),
-      model: s.copilot.model,
-      claudePath: s.copilot.claudePath,
-      signal,
+      ...common,
+      prompt: cvPrompt(input, s, reviewOf(db, input.dedupe_key)),
+      schema: tailoredCvSchema,
     });
-    const review = reviewSchema.parse(result.value);
-    saveReview(db, input.dedupe_key, review, {
+    saveTailoredCv(db, input.dedupe_key, tailoredCvSchema.parse(result.value), {
       model: s.copilot.model,
       costUsd: result.costUsd,
       at: now(),
@@ -107,18 +142,18 @@ export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
 
   async function drain(): Promise<void> {
     while (queue.length > 0) {
-      const id = queue.shift()!;
+      const job = queue.shift()!;
       abort = new AbortController();
       try {
-        await reviewOne(id, abort.signal);
+        await runJob(job, abort.signal);
         done += 1;
-        failures = failures.filter((f) => f.id !== id);
+        failures = failures.filter((f) => !same(f, job));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const code = err instanceof CopilotError ? err.code : 'failed';
         if (code !== 'stopped') {
-          console.error(`[copilot] review of posting ${id} failed: ${message}`);
-          failures = [{ id, problem: message }, ...failures.filter((f) => f.id !== id)].slice(
+          console.error(`[copilot] ${job.kind} of posting ${job.id} failed: ${message}`);
+          failures = [{ ...job, problem: message }, ...failures.filter((f) => !same(f, job))].slice(
             0,
             MAX_FAILURES,
           );
@@ -133,17 +168,20 @@ export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
     }
   }
 
-  function start(ids: number[]): CopilotStatus {
+  function start(jobs: CopilotJob[]): CopilotStatus {
     const why = blocker();
     if (why) throw new Error(why);
-    enqueue(ids);
+    enqueue(jobs);
     return status();
   }
 
+  const reviews = (ids: number[]): CopilotJob[] => ids.map((id) => ({ kind: 'review', id }));
+
   return {
     status,
-    review: (ids) => start(ids),
-    reviewWaiting: (limit) => start(reviewQueue(db, limit)),
+    review: (ids) => start(reviews(ids)),
+    reviewWaiting: (limit) => start(reviews(reviewQueue(db, limit))),
+    makeCv: (ids) => start(ids.map((id) => ({ kind: 'cv', id }))),
     afterScan() {
       try {
         const s = getAllSettings(db);
@@ -156,11 +194,13 @@ export function createCopilotService(deps: CopilotServiceDeps): CopilotService {
           return;
         }
         // Postings that just failed are not retried on every scan; Review all retries them.
-        const failed = new Set(failures.map((f) => f.id));
+        const failed = new Set(failures.filter((f) => f.kind === 'review').map((f) => f.id));
         enqueue(
-          reviewQueue(db, AUTO_REVIEW_LIMIT + failed.size)
-            .filter((id) => !failed.has(id))
-            .slice(0, AUTO_REVIEW_LIMIT),
+          reviews(
+            reviewQueue(db, AUTO_REVIEW_LIMIT + failed.size)
+              .filter((id) => !failed.has(id))
+              .slice(0, AUTO_REVIEW_LIMIT),
+          ),
         );
       } catch (err) {
         console.error('[copilot] after-scan reviews could not start', err);

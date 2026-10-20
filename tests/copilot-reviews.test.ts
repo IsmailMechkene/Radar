@@ -12,10 +12,12 @@ import { dismissOpportunities, upsertOpportunity } from '../src/core/db/opportun
 import { insertSource } from '../src/core/db/sources';
 import { seedDefaultSettings, setSetting } from '../src/core/settings/store';
 import { applyRow, readRow } from '../src/core/sync/entities';
+import { getTailoredCv, tailoredCvSchema, type TailoredCv } from '../src/core/copilot/cvs';
 import { CopilotError, type RunResult } from '../src/main/copilot/claude';
+import { cvFileName, cvHtml } from '../src/main/copilot/cv';
 import { reviewPrompt } from '../src/main/copilot/review';
 import { createCopilotService, type CopilotRunner } from '../src/main/copilot/service';
-import { itemState, statusLine } from '../src/renderer/src/lib/copilot';
+import { itemState, jobState, statusLine } from '../src/renderer/src/lib/copilot';
 import type { CopilotStatus } from '../src/shared/ipc';
 import { tempDb } from './helpers';
 
@@ -215,21 +217,54 @@ describe('review prompt', () => {
   });
 });
 
-/** A runner whose answers are scripted per posting title (found in the prompt). */
+/** A tailored CV as Claude Code would write it. */
+function sampleCv(): TailoredCv {
+  return {
+    name: 'Jane Doe',
+    headline: 'Software engineering student · ML',
+    contact: ['jane@example.com', 'Tunis'],
+    summary: 'Student who ships ML systems.',
+    skills: [{ group: 'ML', items: ['PyTorch', 'RAG'] }],
+    sections: [
+      {
+        title: 'Projects',
+        entries: [
+          {
+            heading: 'RAG chatbot',
+            detail: 'Python, FastAPI',
+            dates: '2026',
+            bullets: ['Built it.'],
+          },
+        ],
+      },
+    ],
+    changes: ['Put the RAG project first.'],
+  };
+}
+
+/**
+ * A runner whose review answers are scripted per posting title (found in the prompt); tailored
+ * CV requests (told apart by their schema) get sampleCv().
+ */
 function scripted(answers: Record<string, () => Promise<RunResult<unknown>>>) {
   const prompts: string[] = [];
+  const cvs: string[] = [];
   const runner: CopilotRunner = {
-    run: ({ prompt, signal }) => {
-      prompts.push(prompt);
+    run: ({ prompt, schema, signal }) => {
       const title = Object.keys(answers).find((k) => prompt.includes(`Title: ${k}\n`));
       if (!title) throw new Error('unexpected prompt');
+      if (schema === tailoredCvSchema) {
+        cvs.push(title);
+        return Promise.resolve({ value: sampleCv(), costUsd: null, durationMs: 1 });
+      }
+      prompts.push(prompt);
       return new Promise((resolve, reject) => {
         signal.addEventListener('abort', () => reject(new CopilotError('stopped', 'Stopped')));
         answers[title]!().then(resolve, reject);
       });
     },
   };
-  return { runner, prompts };
+  return { runner, prompts, cvs };
 }
 const ok = (score: number) => () =>
   Promise.resolve({ value: review(score), costUsd: 0.01, durationMs: 1000 });
@@ -263,17 +298,61 @@ describe('review service', () => {
     expect(() => s.review([1])).toThrow(/Turn on Radar Copilot/);
   });
 
-  it('reviews the waiting postings one by one and stores each', async () => {
-    posting('One', 'apply', 80);
+  it('reviews the waiting postings one by one, and writes the CV of an A or B', async () => {
+    const one = posting('One', 'apply', 80);
     posting('Two', 'maybe', 60);
-    const { runner, prompts } = scripted({ One: ok(4.6), Two: ok(3.1) });
+    const { runner, prompts, cvs } = scripted({ One: ok(4.6), Two: ok(3.1) });
     const { s, events } = service(runner);
     expect(s.reviewWaiting()).toMatchObject({ running: true });
     await idle(s);
     expect(prompts).toHaveLength(2);
-    expect(s.status()).toMatchObject({ running: false, done: 2, queued: [], failures: [] });
-    expect(listCopilotItems(t.db).map((i) => i.stored?.grade)).toEqual(['A', 'D']);
-    expect(events.some((e) => e.current?.title === 'One')).toBe(true);
+    expect(cvs).toEqual(['One']); // the D gets none
+    expect(s.status()).toMatchObject({ running: false, done: 3, queued: [], failures: [] });
+    const items = listCopilotItems(t.db);
+    expect(items.map((i) => [i.stored?.grade, i.cvAt !== null])).toEqual([
+      ['A', true],
+      ['D', false],
+    ]);
+    expect(getTailoredCv(t.db, one)!.cv.name).toBe('Jane Doe');
+    expect(events.some((e) => e.current?.kind === 'cv' && e.current.title === 'One')).toBe(true);
+
+    // Reviewing again does not write a second CV over the first.
+    s.review([one]);
+    await idle(s);
+    expect(cvs).toEqual(['One']);
+    // Make again does.
+    s.makeCv([one]);
+    await idle(s);
+    expect(cvs).toEqual(['One', 'One']);
+  });
+
+  it('a CV request carries the master CV, the review hints and the posting language', async () => {
+    const id = posting('Stage', 'apply', 80);
+    t.db.prepare("UPDATE opportunities SET language = 'fr' WHERE id = ?").run(id);
+    saveReview(
+      t.db,
+      keyOf('Stage'),
+      review(4, { strengths: ['PyTorch'], nextStep: 'Lead with RAG.' }),
+      {
+        model: 'sonnet',
+        costUsd: null,
+        at: NOW,
+      },
+    );
+    let seen = '';
+    const { s } = service({
+      run: ({ prompt }) => {
+        seen = prompt;
+        return Promise.resolve({ value: sampleCv(), costUsd: null, durationMs: 1 });
+      },
+    });
+    s.makeCv([id]);
+    await idle(s);
+    expect(seen).toContain('<cv>\nJane Doe, Python\n</cv>');
+    expect(seen).toContain('Strengths to bring forward: PyTorch');
+    expect(seen).toContain('Advice: Lead with RAG.');
+    expect(seen).toMatch(/ONLY source of facts/);
+    expect(seen).toContain('Write in French.');
   });
 
   it('records a failed posting and moves on; a missing CLI stops the whole run', async () => {
@@ -282,15 +361,15 @@ describe('review service', () => {
     posting('Later', 'apply', 70);
     const answers = {
       Bad: () => Promise.reject(new CopilotError('invalid-output', 'wrong shape')),
-      Good: ok(4),
-      Later: ok(4),
+      Good: ok(3.6),
+      Later: ok(3.6),
     };
     const first = service(scripted(answers).runner);
     first.s.reviewWaiting();
     await idle(first.s);
     expect(first.s.status()).toMatchObject({
       done: 2,
-      failures: [{ id: bad, problem: 'wrong shape' }],
+      failures: [{ kind: 'review', id: bad, problem: 'wrong shape' }],
     });
 
     t.db.prepare('DELETE FROM copilot_reviews').run();
@@ -310,7 +389,9 @@ describe('review service', () => {
       run: ({ prompt }) => {
         const title = /Title: (P\d+)\n/.exec(prompt)![1]!;
         seen.push(title);
-        return title === 'P0' ? Promise.reject(new CopilotError('failed', 'overloaded')) : ok(4)();
+        return title === 'P0'
+          ? Promise.reject(new CopilotError('failed', 'overloaded'))
+          : ok(3.6)(); // a C: no tailored CV follows
       },
     };
     const { s } = service(runner);
@@ -338,7 +419,10 @@ describe('review service', () => {
     const { s } = service(scripted({ Slow: () => new Promise(() => {}), Next: ok(4) }).runner);
     s.reviewWaiting();
     await new Promise((r) => setTimeout(r, 1));
-    expect(s.status()).toMatchObject({ current: { title: 'Slow' }, queued: [expect.any(Number)] });
+    expect(s.status()).toMatchObject({
+      current: { kind: 'review', title: 'Slow' },
+      queued: [{ kind: 'review', id: expect.any(Number) }],
+    });
     await s.stop();
     expect(s.status()).toMatchObject({ running: false, queued: [], failures: [], lastError: null });
     expect(listCopilotItems(t.db).every((i) => i.stored === null)).toBe(true);
@@ -365,16 +449,78 @@ describe('page rules', () => {
       statusLine(items, {
         ...base,
         running: true,
-        current: { id: 2, title: 'B', org: 'Acme' },
-        queued: [3],
+        current: { kind: 'review', id: 2, title: 'B', org: 'Acme' },
+        queued: [{ kind: 'cv', id: 3 }],
       }),
     ).toBe('Reviewing Acme · 1 more queued');
+    expect(
+      statusLine(items, {
+        ...base,
+        running: true,
+        current: { kind: 'cv', id: 2, title: 'B', org: 'Acme' },
+      }),
+    ).toBe('Writing a CV for Acme');
     const b = items.find((i) => i.title === 'B')!;
-    expect(itemState(b, base, false)).toBe('waiting');
-    expect(itemState(b, base, true)).toBe('queued');
-    expect(itemState(b, { ...base, failures: [{ id: b.id, problem: 'x' }] }, false)).toBe('failed');
-    expect(itemState(b, { ...base, current: { id: b.id, title: 'B', org: 'Acme' } }, false)).toBe(
+    const review_ = { kind: 'review' as const, id: b.id };
+    expect(itemState(b, base)).toBe('waiting');
+    expect(itemState(b, { ...base, queued: [review_] })).toBe('queued');
+    // A queued CV is not a queued review.
+    expect(itemState(b, { ...base, queued: [{ kind: 'cv', id: b.id }] })).toBe('waiting');
+    expect(itemState(b, { ...base, failures: [{ ...review_, problem: 'x' }] })).toBe('failed');
+    expect(itemState(b, { ...base, current: { ...review_, title: 'B', org: 'Acme' } })).toBe(
       'reviewing',
     );
+    expect(
+      jobState('cv', b.id, { ...base, failures: [{ kind: 'cv', id: b.id, problem: 'x' }] }),
+    ).toEqual({
+      state: 'failed',
+      problem: 'x',
+    });
+  });
+});
+
+describe('tailored CVs', () => {
+  it('prints only escaped text, with no scripts and no remote resources', () => {
+    const cv = sampleCv();
+    cv.name = 'Jane <script>alert(1)</script> Doe';
+    cv.sections[0]!.entries[0]!.bullets = ['Used <img src=x onerror=alert(1)> & more'];
+    const html = cvHtml(cv);
+    expect(html).not.toMatch(/<script|<img/);
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(html).toContain('Jane &lt;script&gt;alert(1)&lt;/script&gt; Doe');
+    expect(html).toContain('&amp; more');
+    expect(html).toContain(`default-src 'none'`);
+    expect(html).not.toMatch(/https?:\/\//);
+    expect(html).toContain('<h2>Projects</h2>');
+    expect(html).toContain('<h2>Skills</h2>');
+    // What was tailored is for the candidate, never printed.
+    expect(html).not.toContain('Put the RAG project first.');
+  });
+
+  it('names the PDF safely', () => {
+    expect(cvFileName(sampleCv(), 'Mistral AI')).toBe('CV - Jane Doe - Mistral AI.pdf');
+    expect(cvFileName({ ...sampleCv(), name: 'A/B:C*' }, 'Org<>|"?')).toBe('CV - A B C - Org.pdf');
+  });
+
+  it('syncs by posting key and reports a stored CV it cannot read', () => {
+    const id = posting('A', 'apply', 80);
+    t.db.prepare('DELETE FROM sync_changes').run();
+    t.db
+      .prepare(
+        `INSERT INTO copilot_cvs (opportunity_key, cv_json, model, created_at) VALUES (?, ?, 'sonnet', ?)`,
+      )
+      .run(keyOf('A'), JSON.stringify(sampleCv()), NOW.toISOString());
+    expect(t.db.prepare("SELECT entity, key FROM sync_changes WHERE entity = 'cv'").all()).toEqual([
+      { entity: 'cv', key: keyOf('A') },
+    ]);
+
+    const row = readRow(t.db, 'cv', keyOf('A'));
+    t.db.prepare('DELETE FROM copilot_cvs').run();
+    expect(getTailoredCv(t.db, id)).toBeUndefined();
+    applyRow(t.db, 'cv', keyOf('A'), row, { now: NOW, changedAt: NOW.toISOString() });
+    expect(getTailoredCv(t.db, id)!.cv.headline).toBe('Software engineering student · ML');
+
+    t.db.prepare(`UPDATE copilot_cvs SET cv_json = '{"future": 1}'`).run();
+    expect(() => getTailoredCv(t.db, id)).toThrow(/could not be read/);
   });
 });

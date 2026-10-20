@@ -93,6 +93,21 @@ export function saveReview(
   );
 }
 
+/** The stored review of a posting (by dedupe key); null when none or unreadable. */
+export function reviewOf(db: Database.Database, opportunityKey: string): Review | null {
+  const json = db
+    .prepare('SELECT review_json FROM copilot_reviews WHERE opportunity_key = ?')
+    .pluck()
+    .get(opportunityKey) as string | undefined;
+  if (json === undefined) return null;
+  try {
+    const parsed = reviewSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export function removeReview(db: Database.Database, opportunityKey: string): number {
   return db.prepare('DELETE FROM copilot_reviews WHERE opportunity_key = ?').run(opportunityKey)
     .changes;
@@ -120,6 +135,7 @@ const itemRowSchema = z.object({
   model: z.string().nullable(),
   cost_usd: z.number().nullable(),
   reviewed_at: z.string().nullable(),
+  cv_at: z.string().nullable(),
 });
 
 export interface StoredReview {
@@ -143,6 +159,8 @@ export interface CopilotItem {
   /** null: waiting for a review (or the stored one could not be read: see `problem`). */
   stored: StoredReview | null;
   problem: string | null;
+  /** When its tailored CV was made; null: none yet. */
+  cvAt: string | null;
 }
 
 function toItem(row: z.output<typeof itemRowSchema>): CopilotItem {
@@ -180,6 +198,7 @@ function toItem(row: z.output<typeof itemRowSchema>): CopilotItem {
     verdict: row.verdict,
     stored,
     problem,
+    cvAt: row.cv_at,
   };
 }
 
@@ -188,10 +207,12 @@ export function listCopilotItems(db: Database.Database): CopilotItem[] {
   return db
     .prepare(
       `SELECT o.id, o.dedupe_key, o.title, o.org, o.location, o.remote_type, o.url, o.deadline_at,
-              o.score AS rule_score, o.verdict, r.review_json, r.model, r.cost_usd, r.reviewed_at
+              o.score AS rule_score, o.verdict, r.review_json, r.model, r.cost_usd, r.reviewed_at,
+              c.created_at AS cv_at
          FROM opportunities o
          JOIN sources s ON s.id = o.source_id
          LEFT JOIN copilot_reviews r ON r.opportunity_key = o.dedupe_key
+         LEFT JOIN copilot_cvs c ON c.opportunity_key = o.dedupe_key
         WHERE ${OPEN} AND (${PASSED} OR r.opportunity_key IS NOT NULL)
         ORDER BY r.score IS NULL, r.score DESC, o.score DESC, o.id`,
     )

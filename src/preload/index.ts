@@ -143,6 +143,9 @@ const api: RadarApi = {
     review: (ids) => ipcRenderer.invoke(C.copilotReview, { ids }),
     reviewWaiting: () => ipcRenderer.invoke(C.copilotReviewWaiting),
     stop: () => ipcRenderer.invoke(C.copilotStop),
+    makeCv: (ids) => ipcRenderer.invoke(C.copilotMakeCv, { ids }),
+    getCv: (id) => ipcRenderer.invoke(C.copilotGetCv, { id }),
+    saveCvPdf: (id) => ipcRenderer.invoke(C.copilotSaveCvPdf, { id }),
     onChanged: (listener) => subscribe(E.copilotChanged, listener),
   },
   dev: {

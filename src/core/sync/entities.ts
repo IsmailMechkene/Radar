@@ -19,6 +19,7 @@ export const ENTITIES = [
   'draft',
   'manual',
   'review',
+  'cv',
   'rules',
   'setting',
 ] as const;
@@ -128,6 +129,12 @@ const reviewRow = z.object({
   model: z.string(),
   cost_usd: z.number().nullable(),
   reviewed_at: ts,
+});
+const cvRow = z.object({
+  cv_json: jsonText,
+  model: z.string(),
+  cost_usd: z.number().nullable(),
+  created_at: ts,
 });
 const rulesRow = z.object({ rules_json: jsonText, updated_at: ts });
 const settingRow = z.object({ value: z.unknown() });
@@ -477,6 +484,31 @@ const review: Spec<z.output<typeof reviewRow>> = {
   },
 };
 
+/** Tailored CVs, keyed like reviews. */
+const cv: Spec<z.output<typeof cvRow>> = {
+  schema: cvRow,
+  read: (db, key) =>
+    (db
+      .prepare(
+        'SELECT cv_json, model, cost_usd, created_at FROM copilot_cvs WHERE opportunity_key = ?',
+      )
+      .get(key) as z.output<typeof cvRow> | undefined) ?? null,
+  upsert(db, key, row) {
+    // Stored as sent: a CV this Radar cannot read is reported on the page, not lost.
+    db.prepare(
+      `INSERT INTO copilot_cvs (opportunity_key, cv_json, model, cost_usd, created_at)
+       VALUES (@key, @cv_json, @model, @cost_usd, @created_at)
+       ON CONFLICT (opportunity_key) DO UPDATE SET cv_json = excluded.cv_json,
+         model = excluded.model, cost_usd = excluded.cost_usd, created_at = excluded.created_at`,
+    ).run({ ...row, key });
+    return 'applied';
+  },
+  remove(db, key) {
+    db.prepare('DELETE FROM copilot_cvs WHERE opportunity_key = ?').run(key);
+    return 'applied';
+  },
+};
+
 const rules: Spec<z.output<typeof rulesRow>> = {
   schema: rulesRow,
   read: (db) =>
@@ -527,6 +559,7 @@ const SPECS: Record<Entity, Spec<unknown>> = {
   draft,
   manual,
   review,
+  cv,
   rules,
   setting,
 } as Record<Entity, Spec<unknown>>;

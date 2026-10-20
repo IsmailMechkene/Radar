@@ -1,6 +1,7 @@
 import type {
   CopilotCheck,
   CopilotItem,
+  CopilotJob,
   CopilotStatus,
   Dimension,
   Grade,
@@ -52,16 +53,27 @@ export function gradeTone(grade: Grade): 'green' | 'amber' | 'gray' {
   return grade === 'C' ? 'amber' : 'gray';
 }
 
+/** Where one job (a review or a CV) of a posting stands in the queue; null: not in it. */
+export function jobState(
+  kind: CopilotJob['kind'],
+  id: number,
+  status: CopilotStatus | null,
+): { state: 'running' | 'queued' } | { state: 'failed'; problem: string } | null {
+  if (!status) return null;
+  if (status.current?.kind === kind && status.current.id === id) return { state: 'running' };
+  if (status.queued.some((j) => j.kind === kind && j.id === id)) return { state: 'queued' };
+  const failed = status.failures.find((f) => f.kind === kind && f.id === id);
+  return failed ? { state: 'failed', problem: failed.problem } : null;
+}
+
 export type ItemState = 'reviewed' | 'reviewing' | 'queued' | 'failed' | 'waiting';
 
-export function itemState(
-  item: CopilotItem,
-  status: CopilotStatus | null,
-  queued: boolean,
-): ItemState {
-  if (status?.current?.id === item.id) return 'reviewing';
-  if (queued) return 'queued';
-  if (status?.failures.some((f) => f.id === item.id)) return 'failed';
+/** The review state shown in the list. */
+export function itemState(item: CopilotItem, status: CopilotStatus | null): ItemState {
+  const job = jobState('review', item.id, status);
+  if (job?.state === 'running') return 'reviewing';
+  if (job?.state === 'queued') return 'queued';
+  if (job?.state === 'failed') return 'failed';
   return item.stored ? 'reviewed' : 'waiting';
 }
 
@@ -82,7 +94,9 @@ export function matchesFilter(item: CopilotItem, filter: FilterId, text: string)
 /** Header line: what the queue is doing, or how many are reviewed. */
 export function statusLine(items: readonly CopilotItem[], status: CopilotStatus | null): string {
   if (status?.running) {
-    const now = status.current ? `Reviewing ${status.current.org}` : 'Starting';
+    const now = status.current
+      ? `${status.current.kind === 'cv' ? 'Writing a CV for' : 'Reviewing'} ${status.current.org}`
+      : 'Starting';
     return status.queued.length > 0 ? `${now} · ${status.queued.length} more queued` : now;
   }
   const reviewed = items.filter((i) => i.stored).length;
