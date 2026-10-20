@@ -136,6 +136,15 @@ const api: RadarApi = {
     onChanged: (listener) => subscribe(E.syncChanged, listener),
     onApplied: (listener) => subscribe(E.syncApplied, listener),
   },
+  copilot: {
+    check: () => ipcRenderer.invoke(C.copilotCheck),
+    list: () => ipcRenderer.invoke(C.copilotList),
+    status: () => ipcRenderer.invoke(C.copilotStatus),
+    review: (ids) => ipcRenderer.invoke(C.copilotReview, { ids }),
+    reviewWaiting: () => ipcRenderer.invoke(C.copilotReviewWaiting),
+    stop: () => ipcRenderer.invoke(C.copilotStop),
+    onChanged: (listener) => subscribe(E.copilotChanged, listener),
+  },
   dev: {
     loadSampleData: () => ipcRenderer.invoke(C.devLoadSample),
     clearSampleData: () => ipcRenderer.invoke(C.devClearSample),

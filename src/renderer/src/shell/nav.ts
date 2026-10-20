@@ -7,6 +7,7 @@ import {
   Send,
   Settings,
   SlidersHorizontal,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import type { Route } from '../lib/router';
@@ -24,6 +25,12 @@ export const NAV_PRIMARY: readonly NavItem[] = [
     label: 'Opportunities',
     icon: Radar,
     description: 'Every result from every source, scored and sorted, with deadlines when known.',
+  },
+  {
+    route: 'copilot',
+    label: 'Radar Copilot',
+    icon: Sparkles,
+    description: 'AI reviews by your own Claude Code of the postings your rules passed.',
   },
   {
     route: 'deadlines',

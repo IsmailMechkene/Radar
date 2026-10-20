@@ -289,6 +289,15 @@ Built from the design's `outreach` screen (`src/renderer/src/pages/outreach/`).
 
 Fields fill from the Pipeline row (company, role, first name from a person's contact, email, sent date), then the shared values ("my …", saved once), then what was typed for that organization. Copy and Open in Mail stay disabled until every field is filled. Open in Mail offers **Mark sent** in its toast, which starts the follow-ups.
 
+### Radar Copilot page
+
+Opt-in AI reviews (`src/renderer/src/pages/copilot/`, rules in `lib/copilot.ts`). Not in the design file; built from the Outreach page's parts.
+
+1. **Header:** `PageTitle` ("Radar Copilot", "AI reviews by your own Claude Code of what your rules passed." plus "N reviewed · N waiting" or "Reviewing Acme · N more queued") and **Review N waiting** (primary; **Stop** while a run is going).
+2. **Banners:** amber "Radar Copilot is off." / "Add your master CV first." with **Open Settings**; red "The last review failed." with the reason.
+3. **Card** (radius 24, 710 px high, `320px | 1fr`): left, on `surface-2`, All / Reviewed / Waiting (`SegmentedControl`), a filter field, then postings (32 px avatar, title over org, on the right the grade `Badge` "A 4.6" (A/B green, C amber, D/F gray) or Waiting / Queued / Reviewing… (accent) / Failed (red)). Right: header (avatar, title, org · location · work mode, the rule `ScoreRing` `sm`, **Open**, **Add to Pipeline**, **Review** / **Review again**), then the review: grade badge `lg` and "4.3 / 5" (`figure`), "Reviewed Oct 20 · Sonnet", summary, the accent-soft **Next step**, ten dimension rows (`132px 70px 1fr`: label, five-segment accent meter, note), Strengths / Gaps in two columns, Red flags (red heading), Pay. Footer: shield, "The rule score stays as it is."
+4. **Grades** come from the 0–5 score in code (A 4.5+, B 4.0+, C 3.5+, D 3.0+, F), never from the model.
+
 ### Rules page
 
 Built from the design's `rules` screen (`src/renderer/src/pages/RulesPage.tsx`).

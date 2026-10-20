@@ -2,6 +2,8 @@ import {
   BellRing,
   Briefcase,
   CircleDashed,
+  Cpu,
+  FileText,
   Globe,
   GraduationCap,
   House,
@@ -10,21 +12,27 @@ import {
   Power,
   Radar,
   RefreshCw,
+  Sparkles,
   SunMoon,
+  Terminal,
 } from 'lucide-react';
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import type { Settings } from '../../../core/settings/schema';
+import type { CopilotCheck } from '../../../shared/ipc';
 import { Badge } from '../../components/Badge';
 import { Banner } from '../../components/Banner';
+import { Button } from '../../components/Button';
 import { GroupedRow, GroupedSection } from '../../components/GroupedList';
-import { TextInput } from '../../components/Input';
+import { TextArea, TextInput } from '../../components/Input';
 import { Chip } from '../../components/Pill';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { Select } from '../../components/Select';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
+import { checkLine, cvLine } from '../lib/copilot';
 import {
   addListItem,
+  cleanIpcError,
   isHhmm,
   REMOTE_PREFERENCE_LABELS,
   removeListItem,
@@ -141,6 +149,132 @@ const SEARCH_MODES = [
   { value: 'internships', label: 'Internships only' },
   { value: 'all', label: 'All roles' },
 ] as const;
+
+const COPILOT_MODELS = [
+  { value: 'sonnet', label: 'Sonnet' },
+  { value: 'opus', label: 'Opus' },
+] as const;
+
+/** Settings > Radar Copilot: the switch, where Claude Code is, the model, and the master CV. */
+function CopilotSection({
+  settings,
+  set,
+}: {
+  settings: Settings;
+  set: <K extends keyof Settings>(key: K, value: Settings[K]) => Promise<boolean>;
+}) {
+  const toast = useToast();
+  const [check, setCheck] = useState<CopilotCheck | null>(null);
+  const [checking, setChecking] = useState(false);
+  // null = not editing: show the stored CV.
+  const [cvDraft, setCvDraft] = useState<string | null>(null);
+  const copilot = settings.copilot;
+
+  async function runCheck() {
+    setChecking(true);
+    try {
+      const result = await window.radar.copilot.check();
+      setCheck(result);
+      toast(
+        result.ok
+          ? { message: 'Claude Code is ready' }
+          : { tone: 'error', message: `Claude Code: ${checkLine(result)}` },
+      );
+    } catch (err) {
+      console.error('[copilot] check failed', err);
+      toast({ tone: 'error', message: `Check failed: ${cleanIpcError(err)}` });
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function commitCv() {
+    if (cvDraft === null || cvDraft === settings.masterCv) {
+      setCvDraft(null);
+      return;
+    }
+    if (await set('masterCv', cvDraft)) setCvDraft(null);
+  }
+
+  return (
+    <GroupedSection title="Radar Copilot">
+      <GroupedRow
+        icon={Sparkles}
+        tile="indigo"
+        title="Radar Copilot"
+        description="Reviews, tailored CVs and cover letters by your own Claude Code. Off: Radar uses no AI."
+      >
+        <Switch
+          label="Radar Copilot"
+          checked={copilot.enabled}
+          onChange={(enabled) =>
+            void set('copilot', { ...copilot, enabled }).then((ok) => {
+              if (ok && enabled && !check?.ok) void runCheck();
+            })
+          }
+        />
+      </GroupedRow>
+      <GroupedRow
+        icon={Terminal}
+        tile="gray"
+        title="Claude Code"
+        description={
+          checking
+            ? 'Checking… (one tiny request)'
+            : check
+              ? checkLine(check)
+              : 'Found on PATH unless you set a path'
+        }
+      >
+        {check && !checking && (
+          <Badge tone={check.ok ? 'green' : 'red'}>{check.ok ? 'Ready' : 'Problem'}</Badge>
+        )}
+        <CommitInput
+          label="Path to claude"
+          value={copilot.claudePath ?? ''}
+          placeholder="Automatic"
+          className="w-40"
+          onCommit={(v) => set('copilot', { ...copilot, claudePath: v.trim() || null })}
+        />
+        <Button size="sm" disabled={checking} onClick={() => void runCheck()}>
+          Check
+        </Button>
+      </GroupedRow>
+      <GroupedRow
+        icon={Cpu}
+        tile="blue"
+        title="Model"
+        description="Sonnet is faster and uses less of your plan; Opus writes better"
+      >
+        <SegmentedControl
+          label="Model"
+          value={copilot.model}
+          segments={COPILOT_MODELS}
+          onChange={(model) => void set('copilot', { ...copilot, model })}
+        />
+      </GroupedRow>
+      <GroupedRow
+        icon={FileText}
+        tile="teal"
+        title="Master CV"
+        description={cvLine(cvDraft ?? settings.masterCv)}
+        below={
+          <TextArea
+            aria-label="Master CV"
+            value={cvDraft ?? settings.masterCv}
+            placeholder="Paste your CV here (plain text or Markdown)"
+            className="min-h-40 w-full"
+            onChange={(e) => setCvDraft(e.target.value)}
+            onBlur={() => void commitCv()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setCvDraft(null);
+            }}
+          />
+        }
+      />
+    </GroupedSection>
+  );
+}
 
 const THEMES = [
   { value: 'system', label: 'System' },
@@ -272,6 +406,8 @@ export function SettingsPage({ isPackaged }: { isPackaged: boolean }) {
           />
         </GroupedRow>
       </GroupedSection>
+
+      <CopilotSection settings={settings} set={set} />
 
       <GroupedSection title="Notifications">
         <GroupedRow

@@ -2,6 +2,7 @@
 
 export const ROUTES = [
   'opportunities',
+  'copilot',
   'deadlines',
   'pipeline',
   'programs',

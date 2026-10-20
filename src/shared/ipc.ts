@@ -27,6 +27,7 @@ import {
   type ProgramStatus,
 } from '../core/programs/manage';
 import type { PageCheck } from '../core/watch/pages';
+import type { CopilotItem, Dimension, Grade, Review, StoredReview } from '../core/copilot/reviews';
 import type { NavCounts } from '../core/nav';
 import type { RescoreResult } from '../core/rules/rescore';
 import type { ResolvedTheme, WindowAction, WindowState } from './theme';
@@ -145,6 +146,12 @@ export const IPC_CHANNELS = {
   syncStatus: 'sync:status',
   syncNow: 'sync:now',
   syncUseRecoveryKey: 'sync:use-recovery-key',
+  copilotCheck: 'copilot:check',
+  copilotList: 'copilot:list',
+  copilotStatus: 'copilot:status',
+  copilotReview: 'copilot:review',
+  copilotReviewWaiting: 'copilot:review-waiting',
+  copilotStop: 'copilot:stop',
 } as const;
 
 /** Events main sends to the renderer (no payload validation needed: main is trusted). */
@@ -157,6 +164,7 @@ export const IPC_EVENTS = {
   syncChanged: 'sync:changed',
   /** Rows from another device were written here: pages reload their data. */
   syncApplied: 'sync:applied',
+  copilotChanged: 'copilot:changed',
 } as const;
 
 /** Where the lock stands (main -> page). */
@@ -369,6 +377,8 @@ export const scanRunPayloadSchema = z
   .strictObject({ sources: z.array(z.string().trim().min(1)).min(1).max(100).optional() })
   .optional();
 export const scanStatusPayloadSchema = noPayload;
+export const copilotNoPayloadSchema = noPayload;
+export const copilotReviewPayloadSchema = z.strictObject({ ids: idsSchema });
 
 export interface WindowInfo {
   platform: string;
@@ -436,6 +446,32 @@ export type {
   ScanSummary,
   SourceOutcome,
 };
+
+/** Settings > Radar Copilot > Check: Claude Code found and answering, or why not. */
+export type CopilotCheck =
+  | { ok: true; path: string; version: string; durationMs: number | null }
+  | {
+      ok: false;
+      code: 'not-found' | 'not-signed-in' | 'timeout' | 'failed' | 'invalid-output' | 'stopped';
+      problem: string;
+    };
+
+/** Radar Copilot's review queue (main -> page). */
+export interface CopilotStatus {
+  running: boolean;
+  /** The posting being reviewed now. */
+  current: { id: number; title: string; org: string } | null;
+  /** Postings still queued in this run, in order. */
+  queued: number[];
+  /** Reviews finished in this run. */
+  done: number;
+  /** Postings whose last review failed, newest first. */
+  failures: { id: number; problem: string }[];
+  /** Why the last review failed or a run did not start; null after a clean run. */
+  lastError: string | null;
+}
+
+export type { CopilotItem, Dimension, Grade, Review, StoredReview };
 
 export interface ScanStatus {
   running: boolean;
@@ -631,6 +667,21 @@ export interface RadarApi {
     onChanged(listener: (s: SyncStatus) => void): () => void;
     /** Rows from another device arrived; returns the unsubscribe function. */
     onApplied(listener: () => void): () => void;
+  };
+  copilot: {
+    /** Finds Claude Code and makes one tiny request with the saved settings (a few seconds). */
+    check(): Promise<CopilotCheck>;
+    /** Open postings the rules passed, and every open posting with a review. */
+    list(): Promise<CopilotItem[]>;
+    status(): Promise<CopilotStatus>;
+    /** Reviews these postings (again). Rejects when Copilot is off or has no master CV. */
+    review(ids: number[]): Promise<CopilotStatus>;
+    /** Reviews every posting still waiting. */
+    reviewWaiting(): Promise<CopilotStatus>;
+    /** Empties the queue and stops the review that is running. */
+    stop(): Promise<CopilotStatus>;
+    /** Queue progress; returns the unsubscribe function. */
+    onChanged(listener: (s: CopilotStatus) => void): () => void;
   };
   /** Development builds only; rejects in packaged builds. */
   dev: {

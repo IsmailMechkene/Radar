@@ -16,7 +16,7 @@ import {
   type BrowserWindowConstructorOptions,
 } from 'electron';
 import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { syncReminders } from '../core/reminders/store';
 import { release, tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
@@ -72,6 +72,9 @@ import { testFetch } from '../core/sources/manage';
 import { ensureDefaultTemplates } from '../core/outreach';
 import { backupDatabase, hasBackupFor } from '../core/backup';
 import { chooseWindowMaterial } from './window-material';
+import { checkClaude, findClaude, runClaude } from './copilot/claude';
+import { createCopilotService, type CopilotService } from './copilot/service';
+import { reviewSchema } from '../core/copilot/reviews';
 
 // `npm run shot`: capture screenshots against a throwaway profile, never the user's data.
 const SHOT_MODE = process.argv.includes('--radar-shot');
@@ -498,6 +501,13 @@ function defaultBackupFolder(): string {
   return join(app.getPath('userData'), 'Backups');
 }
 
+/** Claude Code runs here: outside any project, so no CLAUDE.md or project settings apply. */
+function copilotFolder(): string {
+  const dir = join(app.getPath('userData'), 'Copilot');
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 /** The daily backup, made by the scheduler when today's is missing. */
 async function dailyBackup(database: Database.Database): Promise<void> {
   const folder = getSetting(database, 'backupFolder') ?? defaultBackupFolder();
@@ -523,6 +533,7 @@ interface Session {
   scan: ScanService;
   scheduler: Scheduler;
   sync: SyncService | null;
+  copilot: CopilotService;
   unregisterIpc: () => void;
 }
 let session: Session | null = null;
@@ -605,6 +616,21 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
     void refreshDeadlines(database, 'startup');
     void rescoreQuietly(database, 'startup');
     const http = createHttpClient();
+    const copilot = createCopilotService({
+      db: database,
+      runner: {
+        run: async ({ prompt, model, claudePath, signal }) =>
+          runClaude({
+            exe: findClaude(claudePath),
+            prompt,
+            schema: reviewSchema,
+            model,
+            signal,
+            cwd: copilotFolder(),
+          }),
+      },
+      onChanged: (s) => broadcast(IPC_EVENTS.copilotChanged, s),
+    });
     const scan = createScanService({
       db: database,
       http,
@@ -618,6 +644,7 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       onFinished: (summary) => {
         broadcast(IPC_EVENTS.scanFinished, summary);
         deliverMatchAlerts(database);
+        copilot.afterScan();
       },
     });
     if (!SHOT_MODE) applyAutostart(app, getSetting(database, 'autostart'));
@@ -679,6 +706,8 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       },
       readTextFile: (path) => readFileSync(path, 'utf8'),
       testSource: (source) => testFetch(source, http),
+      checkCopilot: (settings) => checkClaude(settings, { cwd: copilotFolder() }),
+      copilot,
       defaultRules: () => defaultRules,
       rulesChanged: () =>
         queued(() => {
@@ -738,7 +767,7 @@ async function startUnlocked(dataKey: Buffer): Promise<void> {
       onSettingChanged: (key) => settingChanged(database, key),
       sync: syncService,
     });
-    session = { database, scan, scheduler, sync: syncService, unregisterIpc };
+    session = { database, scan, scheduler, sync: syncService, copilot, unregisterIpc };
   } catch (err) {
     unregisterIpc?.();
     await syncService?.stop();
@@ -768,6 +797,7 @@ async function stopUnlocked(): Promise<void> {
   await s.sync?.stop();
   await s.scheduler.stop();
   await s.scan.stop();
+  await s.copilot.stop();
   await jobs;
   await closePasses();
   s.database.close();

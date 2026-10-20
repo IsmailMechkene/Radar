@@ -25,7 +25,7 @@ import { recordId, syncKeys, syncRoot, unseal, type SyncKeys } from '../src/core
 import { syncOnce, type OutgoingRecord, type SyncRemote } from '../src/core/sync/engine';
 import { SYNCED_SETTINGS } from '../src/core/sync/entities';
 import { pendingChanges, quietly } from '../src/core/sync/state';
-import { sql as migration12 } from '../src/core/db/migrations/012_sync';
+import { sql as migration15 } from '../src/core/db/migrations/015_copilot';
 import { tempDb } from './helpers';
 
 const TZ = 'Africa/Tunis';
@@ -117,8 +117,9 @@ describe('change log (migration 12)', () => {
   });
 
   it('every synced setting is logged by the trigger, and nothing else', () => {
-    for (const key of SYNCED_SETTINGS) expect(migration12).toContain(`'${key}'`);
-    expect(migration12).not.toContain(`'theme'`);
+    // Migration 15 recreated the settings trigger with the current list.
+    for (const key of SYNCED_SETTINGS) expect(migration15).toContain(`'${key}'`);
+    expect(migration15).not.toContain(`'theme'`);
   });
 
   it('queues rows that existed before the upgrade, so the first sync uploads them', () => {

@@ -62,7 +62,7 @@ import type { RescoreResult } from '../core/rules/rescore';
 import type { Rules } from '../core/rules/schema';
 import { effectiveRules, previewItems, resetUserRules, saveUserRules } from '../core/rules/store';
 import { clearSampleData, loadSampleData } from '../core/dev/sample';
-import { settingsSchema } from '../core/settings/schema';
+import { settingsSchema, type Settings } from '../core/settings/schema';
 import { getAllSettings, getSetting, setSetting } from '../core/settings/store';
 import {
   appGetWindowInfoPayloadSchema,
@@ -125,10 +125,13 @@ import {
   rulesNoPayloadSchema,
   scanRunPayloadSchema,
   scanStatusPayloadSchema,
+  copilotNoPayloadSchema,
+  copilotReviewPayloadSchema,
   settingsGetAllPayloadSchema,
   settingsGetPayloadSchema,
   settingsSetPayloadSchema,
   type AuthStatus,
+  type CopilotCheck,
   type IpcChannel,
   type SyncStatus,
   type WindowInfo,
@@ -136,6 +139,8 @@ import {
 import type { ResolvedTheme, ThemePreference, WindowAction, WindowState } from '../shared/theme';
 import type { ScanService } from './scan';
 import type { SyncService } from './sync';
+import type { CopilotService } from './copilot/service';
+import { listCopilotItems } from '../core/copilot/reviews';
 
 type IpcMainLike = Pick<IpcMain, 'handle' | 'removeHandler'>;
 
@@ -181,6 +186,10 @@ export interface IpcDeps {
   chooseFolder?: (title: string, defaultPath?: string) => Promise<string | null>;
   /** Shows a folder in the file manager. */
   openFolder?: (path: string) => Promise<void>;
+  /** Radar Copilot: finds Claude Code and makes one tiny request with these settings. */
+  checkCopilot?: (settings: Settings['copilot']) => Promise<CopilotCheck>;
+  /** Radar Copilot's review queue. */
+  copilot?: Pick<CopilotService, 'status' | 'review' | 'reviewWaiting' | 'stop'>;
   /** End-to-end encrypted sync; absent when accounts are off. */
   sync?: Pick<SyncService, 'status' | 'now' | 'useRecoveryKey'> | null;
   now?: () => Date;
@@ -647,6 +656,23 @@ export function registerIpcHandlers(deps: IpcDeps): () => void {
   handle(ipcMain, C.syncUseRecoveryKey, syncRecoveryKeyPayloadSchema, ({ recoveryKey }) => {
     if (!deps.sync) throw new Error('Sync needs an account');
     return deps.sync.useRecoveryKey(recoveryKey);
+  });
+
+  handle(ipcMain, C.copilotCheck, copilotNoPayloadSchema, () => {
+    if (!deps.checkCopilot) throw new Error('Radar Copilot is not available');
+    return deps.checkCopilot(getSetting(db, 'copilot'));
+  });
+  const copilot = () => {
+    if (!deps.copilot) throw new Error('Radar Copilot is not available');
+    return deps.copilot;
+  };
+  handle(ipcMain, C.copilotList, copilotNoPayloadSchema, () => listCopilotItems(db));
+  handle(ipcMain, C.copilotStatus, copilotNoPayloadSchema, () => copilot().status());
+  handle(ipcMain, C.copilotReview, copilotReviewPayloadSchema, ({ ids }) => copilot().review(ids));
+  handle(ipcMain, C.copilotReviewWaiting, copilotNoPayloadSchema, () => copilot().reviewWaiting());
+  handle(ipcMain, C.copilotStop, copilotNoPayloadSchema, async () => {
+    await copilot().stop();
+    return copilot().status();
   });
 
   const devOnly = () => {

@@ -12,6 +12,7 @@ import { sql as matchAlerts } from './011_match_alerts';
 import { sql as sync } from './012_sync';
 import { sql as refreshRevision } from './013_refresh_revision';
 import { sql as listSummary } from './014_list_summary';
+import { sql as copilot } from './015_copilot';
 
 export interface Migration {
   version: number;
@@ -35,4 +36,5 @@ export const migrations: readonly Migration[] = [
   { version: 12, name: 'sync', sql: sync },
   { version: 13, name: 'refresh_revision', sql: refreshRevision },
   { version: 14, name: 'list_summary', sql: listSummary },
+  { version: 15, name: 'copilot', sql: copilot },
 ];

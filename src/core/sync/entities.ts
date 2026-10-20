@@ -18,12 +18,13 @@ export const ENTITIES = [
   'pipeline',
   'draft',
   'manual',
+  'review',
   'rules',
   'setting',
 ] as const;
 export type Entity = (typeof ENTITIES)[number];
 
-/** Settings that follow the account (migration 12 lists the same keys in its trigger). The rest
+/** Settings that follow the account (migration 15 lists the same keys in its trigger). The rest
  * belong to one computer: theme, autostart, backup folder, and internal timestamps. */
 export const SYNCED_SETTINGS = [
   'timezone',
@@ -36,6 +37,7 @@ export const SYNCED_SETTINGS = [
   'matchAlerts',
   'scanIntervalHours',
   'outreachDefaults',
+  'masterCv',
 ] as const satisfies readonly SettingKey[];
 
 export interface ApplyContext {
@@ -119,6 +121,13 @@ const manualRow = z.object({
   url: nullableText,
   notes: nullableText,
   created_at: ts,
+});
+const reviewRow = z.object({
+  score: z.number().min(0).max(5),
+  review_json: jsonText,
+  model: z.string(),
+  cost_usd: z.number().nullable(),
+  reviewed_at: ts,
 });
 const rulesRow = z.object({ rules_json: jsonText, updated_at: ts });
 const settingRow = z.object({ value: z.unknown() });
@@ -441,6 +450,33 @@ const manual: Spec<z.output<typeof manualRow>> = {
   },
 };
 
+/** Keyed by the posting's dedupe key: it shows once this device has (or finds) the posting. */
+const review: Spec<z.output<typeof reviewRow>> = {
+  schema: reviewRow,
+  read: (db, key) =>
+    (db
+      .prepare(
+        `SELECT score, review_json, model, cost_usd, reviewed_at FROM copilot_reviews
+          WHERE opportunity_key = ?`,
+      )
+      .get(key) as z.output<typeof reviewRow> | undefined) ?? null,
+  upsert(db, key, row) {
+    // Stored as sent: a review this Radar cannot read is reported on the page, not lost.
+    db.prepare(
+      `INSERT INTO copilot_reviews (opportunity_key, score, review_json, model, cost_usd, reviewed_at)
+       VALUES (@key, @score, @review_json, @model, @cost_usd, @reviewed_at)
+       ON CONFLICT (opportunity_key) DO UPDATE SET score = excluded.score,
+         review_json = excluded.review_json, model = excluded.model, cost_usd = excluded.cost_usd,
+         reviewed_at = excluded.reviewed_at`,
+    ).run({ ...row, key });
+    return 'applied';
+  },
+  remove(db, key) {
+    db.prepare('DELETE FROM copilot_reviews WHERE opportunity_key = ?').run(key);
+    return 'applied';
+  },
+};
+
 const rules: Spec<z.output<typeof rulesRow>> = {
   schema: rulesRow,
   read: (db) =>
@@ -490,6 +526,7 @@ const SPECS: Record<Entity, Spec<unknown>> = {
   pipeline,
   draft,
   manual,
+  review,
   rules,
   setting,
 } as Record<Entity, Spec<unknown>>;

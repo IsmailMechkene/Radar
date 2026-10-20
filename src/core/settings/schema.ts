@@ -42,6 +42,14 @@ export const settingsSchema = z.strictObject({
   // Where daily backups go; null = the Backups folder inside Radar's data folder.
   backupFolder: z.string().trim().min(1).nullable(),
   outreachDefaults: z.record(z.string().trim().toLowerCase().min(1).max(60), z.string().max(500)),
+  // Radar Copilot (opt-in): runs the user's Claude Code CLI. claudePath null = found on PATH.
+  copilot: z.strictObject({
+    enabled: z.boolean(),
+    claudePath: z.string().trim().min(1).max(1000).nullable(),
+    model: z.enum(['sonnet', 'opus']),
+  }),
+  // The CV every Copilot review and tailored CV starts from (plain text or Markdown).
+  masterCv: z.string().max(100_000),
 });
 
 export type Settings = z.output<typeof settingsSchema>;
@@ -69,4 +77,6 @@ export const DEFAULT_SETTINGS: Settings = {
   opportunitiesSeenAt: null,
   outreachDefaults: {},
   backupFolder: null,
+  copilot: { enabled: false, claudePath: null, model: 'sonnet' },
+  masterCv: '',
 };

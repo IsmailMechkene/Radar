@@ -3,8 +3,8 @@
 A local desktop app that SEARCHES many sources (big job boards, niche boards, company career pages, program pages) for internships, programs and jobs abroad, scores them with plain rules, and shows a deadline on each result when one exists. Search breadth is the core feature; deadlines and reminders are an attribute of results, not the organizing idea.
 
 Hard constraints (do not break these):
-1. 100% free to run: no paid APIs, no paid hosting.
-2. No LLM at runtime. All scoring is deterministic rules and keyword lists.
+1. 100% free to run: no paid APIs, no paid hosting. (Radar Copilot, below, is the one opt-in exception: it uses the user's own Claude Code subscription.)
+2. No LLM in scoring. All scores and verdicts are deterministic rules and keyword lists, and Radar works fully without any LLM. The only exception is **Radar Copilot**, which is off by default: it runs the user's own Claude Code CLI from the main process (never from `src/core`), only on postings the rules already passed, and its output sits beside the rule score, never replacing it.
 3. Local-first. Data lives in one SQLite file on the user's machine. Hosting is optional (see M8).
 4. The app never sends an application or email on its own. The human sends everything.
 5. Respect each site's ToS and robots.txt. Use public APIs, public ATS feeds, RSS and plain public pages. Sites that forbid scraping and block bots (Indeed, LinkedIn, Glassdoor) are covered through the user's own email job alerts (see section 5, item 6), not by scraping. Every adapter declares its `access_method` (api | rss | public_html | email_alert | manual) and its ToS note in `sources.config_json`.

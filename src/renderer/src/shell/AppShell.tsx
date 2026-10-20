@@ -22,6 +22,7 @@ import { cleanIpcError, shortcutLabel } from '../lib/settings-helpers';
 import { OpportunitiesPage } from '../pages/opportunities/OpportunitiesPage';
 import { DeadlinesPage } from '../pages/deadlines/DeadlinesPage';
 import { OutreachPage } from '../pages/outreach/OutreachPage';
+import { CopilotPage } from '../pages/copilot/CopilotPage';
 import { PipelinePage } from '../pages/pipeline/PipelinePage';
 import { ProgramsPage } from '../pages/programs/ProgramsPage';
 import { SourcesPage } from '../pages/sources/SourcesPage';
@@ -44,6 +45,7 @@ function Page({ route, info, query }: { route: Route; info: WindowInfo | null; q
   if (route === 'opportunities') {
     return <OpportunitiesPage query={query} isPackaged={info?.isPackaged ?? true} />;
   }
+  if (route === 'copilot') return <CopilotPage />;
   if (route === 'pipeline') return <PipelinePage />;
   if (route === 'deadlines') return <DeadlinesPage />;
   if (route === 'programs') return <ProgramsPage />;
